@@ -61,19 +61,19 @@ def test_encoding_raw_output(runner):
     file = "tests/test_files/test_encoding.rst"
     args = ["-o", file]
     result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
     assert (
         result.output
         == ".. note::\n\n    á Á à À â Â ä Ä ã Ã å Å æ Æ ç Ç é É è È ê Ê ë Ë í Í ì Ì î Î ï Ï ñ Ñ ó Ó ò Ò ô Ô ö Ö.\n    õ Õ ø Ø œ Œ ß ú Ú ù Ù û Û ü Ü á Á à À â Â ä Ä ã Ã å Å æ Æ ç Ç é É è È ê Ê ë Ë í Í ì.\n"
     )
-    assert result.exit_code == 0
 
 
 def test_encoding_stdin(runner):
     file = ".. note::\n\n    á Á à À â Â ä Ä ã Ã å Å æ Æ ç Ç é É è È ê Ê ë Ë í Í ì Ì î Î ï Ï ñ Ñ ó Ó ò Ò ô Ô ö Ö.\n    õ Õ ø Ø œ Œ ß ú Ú ù Ù û Û ü Ü á Á à À â Â ä Ä ã Ã å Å æ Æ ç Ç é É è È ê Ê ë Ë í Í ì.\n"
     args = ["-"]
     result = runner.invoke(main, args=args, input=file)
-    assert result.output == file
     assert result.exit_code == 0
+    assert result.output == file
 
 
 def test_exclude(runner):
@@ -97,39 +97,39 @@ def test_globbing(runner, file):
         file,
     ]
     result = runner.invoke(main, args=args)
-    assert result.output.startswith("Reformatted")
     assert result.exit_code == 0
+    assert result.output.endswith("were reformatted.\nDone! 🎉\n")
 
 
 def test_include_txt(runner):
     args = ["-l", 80, "-T", "tests/test_files/test_file.txt"]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
-    assert result.output.startswith("Reformatted")
+    assert result.output.endswith("1 out of 1 file were reformatted.\nDone! 🎉\n")
 
 
 def test_invalid_code_block_rst(runner):
     file = "tests/test_files/test_invalid_syntax.rst"
     result = runner.invoke(main, args=[file])
+    assert result.exit_code == 1
     assert result.output.startswith(
         f'SyntaxError: EOL while scanning string literal:\n\nFile "{os.path.abspath(file)}", line 3:'
     )
     assert result.output.endswith(
         "1 file were checked.\nDone, but 1 error occurred ❌💥❌\n"
     )
-    assert result.exit_code == 1
 
 
 def test_invalid_code_block_py(runner):
     file = "tests/test_files/py_file_error_bad_codeblock.py"
     result = runner.invoke(main, args=[file])
+    assert result.exit_code == 1
     assert result.output.startswith(
-        f'SyntaxError: EOL while scanning string literal:\n\nFile "{os.path.abspath(file)}", line 43:'
+        f'SyntaxError: EOL while scanning string literal:\n\nFile "{os.path.abspath(file)}", line 44:'
     )
     assert result.output.endswith(
         "1 file were checked.\nDone, but 2 errors occurred ❌💥❌\n"
     )
-    assert result.exit_code == 1
 
 
 @pytest.mark.parametrize(
@@ -155,6 +155,7 @@ def test_invalid_rst_file(runner):
 def test_invalid_table(runner):
     file = "tests/test_files/test_invalid_table.rst"
     result = runner.invoke(main, args=[file])
+    assert result.exit_code == 1
     assert result.output.startswith(
         "NotImplementedError: Tables with cells that span "
         "multiple cells are not supported. Consider using "
@@ -164,7 +165,6 @@ def test_invalid_table(runner):
     assert result.output.endswith(
         "1 file were checked.\nDone, but 1 error occurred ❌💥❌\n"
     )
-    assert result.exit_code == 1
 
 
 @pytest.mark.parametrize("length", test_line_length)
@@ -173,7 +173,7 @@ def test_invalid_table(runner):
 )
 def test_line_length(runner, length, file):
     args = ["-l", length, file]
-    result = runner.invoke(main, args=args)
+    result = runner.invoke(main, args=args, catch_exceptions=False)
     assert result.exit_code == 0
     assert result.output.startswith("Reformatted")
     result = runner.invoke(main, args=args)
@@ -220,10 +220,10 @@ def test_raw_input_rst_error(runner):
         raw_file = f.read()
     args = ["-t", "rst", "-r", raw_file]
     result = runner.invoke(main, args=args)
+    assert result.exit_code == 1
     assert result.output.startswith(
         'ERROR: File "<raw_input>", line 1:\nUnknown directive type "codeblock".'
     )
-    assert result.exit_code == 1
 
 
 def test_raw_input_rst_errors_py(runner):
@@ -232,10 +232,10 @@ def test_raw_input_rst_errors_py(runner):
         raw_file = f.read()
     args = ["-t", "py", "-r", raw_file]
     result = runner.invoke(main, args=args)
+    assert result.exit_code == 1
     assert result.output.startswith(
         'ERROR: File "<raw_input>", line 6:\nUnknown directive type "codeblock".'
     )
-    assert result.exit_code == 1
 
 
 def test_raw_input_rst_severe(runner):
@@ -244,10 +244,10 @@ def test_raw_input_rst_severe(runner):
         raw_file = f.read()
     args = ["-t", "rst", "-r", raw_file]
     result = runner.invoke(main, args=args)
+    assert result.exit_code == 1
     assert result.output.startswith(
         'SEVERE: File "<raw_input>", line 3:\nTitle overline & underline mismatch.'
     )
-    assert result.exit_code == 1
 
 
 def test_raw_input_rst_warning(runner):
@@ -256,10 +256,10 @@ def test_raw_input_rst_warning(runner):
         raw_file = f.read()
     args = ["-t", "rst", "-r", raw_file]
     result = runner.invoke(main, args=args)
+    assert result.exit_code == 1
     assert result.output.startswith(
         'WARNING: File "<raw_input>", line 1:\nBullet list ends without a blank line; unexpected unindent.'
     )
-    assert result.exit_code == 1
 
 
 @pytest.mark.parametrize(
@@ -282,37 +282,37 @@ def test_raw_output(runner, file):
 def test_rst_error(runner):
     file = "tests/test_files/test_invalid_rst_error.rst"
     result = runner.invoke(main, args=[file])
+    assert result.exit_code == 1
     assert result.output.startswith(
         f'ERROR: File "{os.path.abspath(file)}", line 1:\nUnknown directive type "codeblock".'
     )
     assert result.output.endswith(
         "1 file were checked.\nDone, but 1 error occurred ❌💥❌\n"
     )
-    assert result.exit_code == 1
 
 
 def test_rst_severe(runner):
     file = "tests/test_files/test_invalid_rst_severe.rst"
     result = runner.invoke(main, args=[file])
+    assert result.exit_code == 1
     assert result.output.startswith(
         f'SEVERE: File "{os.path.abspath(file)}", line 3:\nTitle overline & underline mismatch.'
     )
     assert result.output.endswith(
         "1 file were checked.\nDone, but 1 error occurred ❌💥❌\n"
     )
-    assert result.exit_code == 1
 
 
 def test_rst_warning(runner):
     file = "tests/test_files/test_invalid_rst_warning.rst"
     result = runner.invoke(main, args=[file])
+    assert result.exit_code == 1
     assert result.output.startswith(
         f'WARNING: File "{os.path.abspath(file)}", line 1:\nBullet list ends without a blank line; unexpected unindent.'
     )
     assert result.output.endswith(
         "1 file were checked.\nDone, but 1 error occurred ❌💥❌\n"
     )
-    assert result.exit_code == 1
 
 
 @pytest.mark.parametrize(
