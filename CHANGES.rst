@@ -1,8 +1,8 @@
 Change Log
 ==========
 
-Unreleased
-----------
+1.1.0 (2021/02/18)
+------------------
 
 - Make docstrfmt operate in parallel when processing more than 2 files similar to
   psf/black.
