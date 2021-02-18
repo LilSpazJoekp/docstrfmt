@@ -189,7 +189,7 @@ def _parse_pyproject_config(
 
 
 def _parse_sources(
-    context: click.Context, param: click.Parameter, value: Optional[str]
+    context: click.Context, param: click.Parameter, value: Optional[List[str]]
 ):
     sources = value
     exclude = context.params.get("exclude", [])
