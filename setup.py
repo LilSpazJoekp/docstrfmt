@@ -13,10 +13,11 @@ with open(path.join(HERE, PACKAGE_NAME, "const.py"), encoding="utf-8") as fp:
 
 extras_requires = {
     "d": ["aiohttp>=3.3.2"],
+    "dev": ["packaging", "pre-commit"],
     "test": ["pytest", "pytest-aiohttp"],
     "lint": ["black", "flake8", "flynt", "isort"],
 }
-extras_requires["dev"] = extras_requires["test"] + extras_requires["lint"]
+extras_requires["dev"] += extras_requires["test"] + extras_requires["lint"]
 
 setup(
     name=PACKAGE_NAME,
