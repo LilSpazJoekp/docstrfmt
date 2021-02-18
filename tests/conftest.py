@@ -35,7 +35,7 @@ def manager():
 
 
 @pytest.fixture
-def runner():
+def runner(loop):
     runner = CliRunner()
     files_to_copy = os.path.abspath("tests/test_files")
     with runner.isolated_filesystem() as temp_dir:

@@ -1,6 +1,14 @@
 Change Log
 ==========
 
+Unreleased
+----------
+
+- Make docstrfmt operate in parallel when processing more than 2 files similar to
+  psf/black.
+- Added a caching mechanism similar to psf/black has so files that haven't changed from
+  the last run won't be checked again.
+
 1.0.3 (2021/01/23)
 ------------------
 

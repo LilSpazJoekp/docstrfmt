@@ -125,6 +125,7 @@ class CodeFormatters:
             try:
                 compile(code, context.current_file, mode="exec")
             except SyntaxError as syntax_error:
+                context.manager.error_count += 1
                 with open(context.current_file, encoding="utf-8") as f:
                     source = f.read()
                 current_line = get_code_line(source, code)
@@ -896,6 +897,7 @@ class Manager:
     def __init__(self, reporter, black_config=None, docstring_trailing_line=True):
         rst_extras.register()
         self.black_config = black_config
+        self.error_count = 0
         self.reporter = reporter
         self.settings = OptionParser(components=[rst.Parser]).get_default_values()
         self.settings.smart_quotes = True
@@ -922,6 +924,7 @@ class Manager:
             and child.attributes["type"] != "INFO"
         ]
         if errors:
+            self.error_count += len(errors)
             raise InvalidRstErrors(
                 [
                     InvalidRstError(
