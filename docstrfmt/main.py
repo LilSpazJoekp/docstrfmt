@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING, Any, List, Optional
 import click
 import libcst as cst
 from black import (
-    PY36_VERSIONS,
     Mode,
     TargetVersion,
     cancel,
@@ -324,17 +323,17 @@ def _parse_pyproject_config(
     if value:
         config = parse_pyproject_toml(value)
         config.pop("exclude", None)
-        target_version = config.pop("target_version", PY36_VERSIONS)
-        if target_version != PY36_VERSIONS:
+        target_version = config.pop("target_version", None)
+        if target_version:
             target_version = set(
                 getattr(TargetVersion, version.upper())
-                for version in target_version.split(",")
+                for version in target_version
                 if hasattr(TargetVersion, version.upper())
             )
         config["target_versions"] = target_version
         return Mode(**config)
     else:
-        return Mode(line_length=88, target_versions=PY36_VERSIONS)
+        return Mode(line_length=88)
 
 
 def _parse_sources(
