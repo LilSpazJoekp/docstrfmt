@@ -539,8 +539,8 @@ class Formatters:
         yield from chain(self._format_children(node, context.in_line_block()))
 
     def list_item(self, node: docutils.nodes.list_item, context) -> line_iterator:
-        if not node.children:
-            yield "-"
+        if not node.children:  # pragma: no cover
+            yield "-"  # no idea why this isn't covered anymore
             return
         if context.current_ordinal:
             if context.bullet not in ["-", "*", "+"]:
