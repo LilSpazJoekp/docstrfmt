@@ -460,6 +460,18 @@ This is text with a ref role :func:`f`. This has :func:`f`\ s an ``s`` after it.
 an :ref:`example explicit ref <reference_roles>` to this section. This is an `anonymous
 link <http://example.com>`_
 
+Functions
+---------
+
+.. currentmodule:: test_module
+
+.. py:function:: func(args)
+
+    Description
+
+    :param args: Docs.
+    :type args: List[any]
+
 Line Blocks
 -----------
 

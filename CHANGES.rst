@@ -4,6 +4,18 @@ Change Log
 Unreleased
 ----------
 
+**Added**
+
+- Added `currentmodule`, `function`, and `py:function` directives.
+
+**Changed**
+
+- Updated black config parsing.
+
+**Fixed**
+
+- Fixed import error when parsing black config.
+
 1.1.0 (2021/02/18)
 ------------------
 

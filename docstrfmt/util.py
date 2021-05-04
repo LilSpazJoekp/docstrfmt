@@ -36,7 +36,7 @@ class FileCache:
     def get_cache_filename(self):
         mode = copy(self.context.params["mode"].__dict__)
         mode["target_versions"] = ",".join(
-            sorted([str(version.value) for version in mode["target_versions"]])
+            sorted([str(version) for version in mode["target_versions"]])
         )
         docstring_trailing_line = str(self.context.params["docstring_trailing_line"])
         line_length = str(self.context.params["line_length"])

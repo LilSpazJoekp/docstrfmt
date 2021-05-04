@@ -116,6 +116,18 @@ Python code blocks are formatted with Black_ and Go ones with gofmt_ (if it's fo
         "the way Black does it",
     ]
 
+Functions
+---------
+
+.. currentmodule:: test_module
+
+.. function:: func(args)
+
+    Description
+
+    :param args: Docs.
+    :type args: List[any]
+
 Comments
 --------
 
