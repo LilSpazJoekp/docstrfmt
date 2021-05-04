@@ -4,6 +4,10 @@ Change Log
 Unreleased
 ----------
 
+**Fixed**
+
+- Fixed issue when `target_version` is not set in `pyproject.toml`.
+
 1.1.1 (2021/05/04)
 ------------------
 
