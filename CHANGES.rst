@@ -4,6 +4,10 @@ Change Log
 Unreleased
 ----------
 
+**Added**
+
+- Added `currentmodule`, `function`, and `py:function` directives.
+
 **Changed**
 
 - Updated black config parsing.
