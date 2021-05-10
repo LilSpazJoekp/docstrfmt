@@ -4,6 +4,9 @@ Change Log
 Unreleased
 ----------
 
+1.1.3 (2021/05/10)
+------------------
+
 **Changed**
 
 - Paths are now casted to string when parsing rst with docutils.
