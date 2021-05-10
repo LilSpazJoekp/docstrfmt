@@ -985,7 +985,7 @@ class Manager:
 
     def parse_string(self, file_name: str, text: str) -> docutils.nodes.document:
         self.current_file = file_name
-        doc = new_document(self.current_file, self.settings)
+        doc = new_document(str(self.current_file), self.settings)
         parser = rst.Parser()
         parser.parse(text, doc)
         doc.reporter = IgnoreMessagesReporter(

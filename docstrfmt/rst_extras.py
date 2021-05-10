@@ -8,13 +8,14 @@ without caring about what they would normally expand to.
 from typing import Any, Iterator, List, Tuple, Type, TypeVar
 
 import docutils
-import sphinx.directives
-import sphinx.ext.autodoc.directive
+import sphinx
 from docutils.parsers.rst import directives, roles
-from docutils.parsers.rst.directives import parts
+from docutils.parsers.rst.directives import body, images, misc, parts, tables
+from sphinx.directives import code, other
 
 # Import these only to load their domain subclasses.
 from sphinx.domains import c, cpp, python  # noqa: F401
+from sphinx.domains.python import PyCurrentModule, PyFunction
 from sphinx.ext import autodoc, autosummary
 
 T = TypeVar("T")
@@ -115,24 +116,27 @@ def register() -> None:
     # but that's vulnerable to producing malformed tables when the given column widths are too
     # small.
 
-    _add_directive("autosummary", autosummary.Autosummary)
+    # docutils directives
     _add_directive("contents", parts.Contents)
-    _add_directive("currentmodule", sphinx.domains.python.PyCurrentModule)
-    _add_directive("deprecated", sphinx.directives.other.VersionChange, raw=False)
-    _add_directive("figure", directives.images.Figure, raw=False)
-    _add_directive("function", sphinx.domains.python.PyFunction)
-    _add_directive("image", directives.images.Image)
-    _add_directive("include", directives.misc.Include)
-    _add_directive("list-table", directives.tables.ListTable, raw=False)
-    _add_directive("literalinclude", sphinx.directives.code.LiteralInclude)
-    _add_directive("math", directives.body.MathBlock)
-    _add_directive("py:function", sphinx.domains.python.PyFunction)
-    _add_directive("raw", directives.misc.Raw)
-    _add_directive("rst-class", sphinx.directives.other.Class)
-    _add_directive("seealso", sphinx.directives.other.SeeAlso, raw=False)
-    _add_directive("toctree", sphinx.directives.other.TocTree)
-    _add_directive("versionadded", sphinx.directives.other.VersionChange, raw=False)
-    _add_directive("versionchanged", sphinx.directives.other.VersionChange, raw=False)
+    _add_directive("figure", images.Figure, raw=False)
+    _add_directive("image", images.Image)
+    _add_directive("include", misc.Include)
+    _add_directive("list-table", tables.ListTable, raw=False)
+    _add_directive("math", body.MathBlock)
+    _add_directive("raw", misc.Raw)
+
+    # sphinx directives
+    _add_directive("autosummary", autosummary.Autosummary)
+    _add_directive("currentmodule", PyCurrentModule)
+    _add_directive("deprecated", other.VersionChange, raw=False)
+    _add_directive("function", PyFunction)
+    _add_directive("literalinclude", code.LiteralInclude)
+    _add_directive("py:function", PyFunction)
+    _add_directive("rst-class", other.Class)
+    _add_directive("seealso", other.SeeAlso, raw=False)
+    _add_directive("toctree", other.TocTree)
+    _add_directive("versionadded", other.VersionChange, raw=False)
+    _add_directive("versionchanged", other.VersionChange, raw=False)
 
     for d in set(_subclasses(autodoc.Documenter)):
         if d.objtype != "object":

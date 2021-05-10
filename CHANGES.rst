@@ -4,6 +4,14 @@ Change Log
 Unreleased
 ----------
 
+**Changed**
+
+- Paths are now casted to string when parsing rst with docutils.
+
+**Fixed**
+
+- Fixed import error with sphinx>=4.0.0.
+
 1.1.2 (2021/05/04)
 ------------------
 
