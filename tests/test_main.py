@@ -77,7 +77,7 @@ def test_encoding_stdin(runner):
 
 
 def test_exclude(runner):
-    args = ["-e", "tests/test_files/test_file.rst", "tests/test_files/test_file.rst"]
+    args = ["-e", "tests/test_files/", "tests/test_files/"]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output == "0 files were checked.\nDone! 🎉\n"
