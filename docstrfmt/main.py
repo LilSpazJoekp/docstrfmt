@@ -9,7 +9,7 @@ from copy import copy
 from functools import partial
 from multiprocessing import Manager as MultiManager
 from multiprocessing import freeze_support
-from os.path import abspath, basename
+from os.path import abspath, basename, isdir, join
 from pathlib import Path
 from textwrap import dedent, indent
 from typing import TYPE_CHECKING, Any, List, Optional
@@ -362,6 +362,8 @@ def _parse_sources(
                 elif path.is_file():
                     files_to_format.add(abspath(item))
     for file in exclude:
+        if isdir(file):
+            file = join(file, "*")
         for f in glob.iglob(file, recursive=True):
             f = abspath(f)
             if f in files_to_format:

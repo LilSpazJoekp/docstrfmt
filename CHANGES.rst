@@ -8,6 +8,10 @@ Unreleased
 
 - Use click<8.0.0 due to an issue with globbing on Windows.
 
+**Fixed**
+
+- Fix bug where exclude paths were not being excluded properly.
+
 1.1.3 (2021/05/10)
 ------------------
 
