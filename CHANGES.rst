@@ -4,6 +4,10 @@ Change Log
 Unreleased
 ----------
 
+**Changed**
+
+- Use click<8.0.0 due to an issue with globbing on Windows.
+
 1.1.3 (2021/05/10)
 ------------------
 

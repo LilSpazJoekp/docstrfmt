@@ -50,7 +50,7 @@ setup(
     extras_require=extras_requires,
     install_requires=[
         "black>=19.10b0",
-        "click",
+        "click<8.0.0",
         "docutils",
         "libcst",
         "sphinx>=2.4.0",
