@@ -42,10 +42,6 @@ def run_static():
     success &= do_process(
         [
             "docstrfmt",
-            "-e",
-            "tests/test_files/test_invalid*",
-            "-e",
-            "tests/test_files/py_file_error*.py",
             ".",
         ]
     )

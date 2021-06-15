@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, List, Optional
 
 import click
 import libcst as cst
+import toml
 from black import (
     Mode,
     TargetVersion,
@@ -38,6 +39,23 @@ if TYPE_CHECKING:  # pragma: no cover
     from libcst import AssignTarget, ClassDef, FunctionDef, Module, SimpleString
 
 echo = partial(click.secho, err=True)
+
+DEFAULT_EXCLUDE = [
+    "**/.direnv/",
+    "**/.direnv/",
+    "**/.eggs/",
+    "**/.git/",
+    "**/.hg/",
+    "**/.mypy_cache/",
+    "**/.nox/",
+    "**/.tox/",
+    "**/.venv/",
+    "**/.svn/",
+    "**/_build",
+    "**/buck-out",
+    "**/build",
+    "**/dist",
+]
 
 
 # Define this here to support Python <3.7.
@@ -321,17 +339,40 @@ def _parse_pyproject_config(
         pyproject_toml = find_pyproject_toml(tuple(context.params.get("files", ())))
         value = pyproject_toml if pyproject_toml else None
     if value:
-        config = parse_pyproject_toml(value)
-        config.pop("exclude", None)
-        target_version = config.pop("target_version", ["PY37"])
+        try:
+            pyproject_toml = toml.load(value)
+            config = pyproject_toml.get("tool", {}).get("docstrfmt", {})
+            config = {
+                k.replace("--", "").replace("-", "_"): v for k, v in config.items()
+            }
+        except (OSError, ValueError) as e:  # pragma: no cover
+            raise click.FileError(
+                filename=value, hint=f"Error reading configuration file: {e}"
+            )
+
+        if config:
+            for key in ["exclude", "extend_exclude", "files"]:
+                config_value = config.get(key)
+                if config_value is not None and not isinstance(config_value, list):
+                    raise click.BadOptionUsage(key, f"Config key {key} must be a list")
+            params = {}
+            if context.params is not None:
+                params.update(context.params)
+            params.update(config)
+            context.params = params
+
+        black_config = parse_pyproject_toml(value)
+        black_config.pop("exclude", None)
+        black_config.pop("extend_exclude", None)
+        target_version = black_config.pop("target_version", ["PY37"])
         if target_version:
             target_version = set(
                 getattr(TargetVersion, version.upper())
                 for version in target_version
                 if hasattr(TargetVersion, version.upper())
             )
-        config["target_versions"] = target_version
-        return Mode(**config)
+        black_config["target_versions"] = target_version
+        return Mode(**black_config)
     else:
         return Mode(line_length=88)
 
@@ -339,8 +380,10 @@ def _parse_pyproject_config(
 def _parse_sources(
     context: click.Context, param: click.Parameter, value: Optional[List[str]]
 ):
-    sources = value
-    exclude = context.params.get("exclude", [])
+    sources = value or context.params.get("files", [])
+    exclude = list(context.params.get("exclude", DEFAULT_EXCLUDE))
+    extend_exclude = list(context.params.get("extend_exclude", []))
+    exclude.extend(extend_exclude)
     include_txt = context.params.get("include_txt", False)
     files_to_format = set()
     extensions = [".py", ".rst"] + ([".txt"] if include_txt else [])
@@ -454,7 +497,7 @@ def _write_output(file, output, output_manager, raw):
     ),
     is_eager=True,
     callback=_parse_pyproject_config,
-    help="Path to pyproject.toml. Used to load black settings.",
+    help="Path to pyproject.toml. Used to load settings.",
 )
 @click.option(
     "-v",
@@ -504,24 +547,16 @@ def _write_output(file, output, output_manager, raw):
     "--exclude",
     type=str,
     multiple=True,
-    default=[
-        "**/.direnv/",
-        "**/.direnv/",
-        "**/.eggs/",
-        "**/.git/",
-        "**/.hg/",
-        "**/.mypy_cache/",
-        "**/.nox/",
-        "**/.tox/",
-        "**/.venv/",
-        "**/.svn/",
-        "**/_build",
-        "**/buck-out",
-        "**/build",
-        "**/dist",
-    ],
+    default=DEFAULT_EXCLUDE,
     help="Path(s) to directories/files to exclude in formatting. Supports glob patterns.",
     show_default=True,
+)
+@click.option(
+    "-x",
+    "--extend-exclude",
+    type=str,
+    multiple=True,
+    help="Path(s) to directories/files to exclude in addition to the default excludes in formatting. Supports glob patterns.",
 )
 @click.option(
     "-q",
@@ -553,6 +588,7 @@ def main(
     check: bool,
     include_txt: bool,
     exclude: List[str],
+    extend_exclude: List[str],
     quiet: bool,
     docstring_trailing_line: bool,
     files: List[str],

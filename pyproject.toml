@@ -1,6 +1,9 @@
 [tool.black]
-exclude = '/(\.eggs|\.git|\.venv|_build|build|dist)/'
+extend-exclude = '/(\.venv.*)/'
 line-length = 88
 
 [tool.isort]
 profile = "black"
+
+[tool.docstrfmt]
+extend-exclude = ["tests/test_files/test_invalid*", "tests/test_files/py_file_error*.py"]
