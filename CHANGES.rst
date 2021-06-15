@@ -4,6 +4,9 @@ Change Log
 Unreleased
 ----------
 
+1.2.0 (2021/06/15)
+------------------
+
 **Added**
 
 - Add ability to specify config setting from ``pyproject.toml``.
