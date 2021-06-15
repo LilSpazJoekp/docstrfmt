@@ -83,6 +83,13 @@ def test_exclude(runner):
     assert result.output == "0 files were checked.\nDone! 🎉\n"
 
 
+def test_extend_exclude(runner):
+    args = ["-x", "tests/test_files/", "tests/test_files/"]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == "0 files were checked.\nDone! 🎉\n"
+
+
 @pytest.mark.parametrize("file", test_files)
 def test_globbing(runner, file):
     args = [
@@ -145,6 +152,17 @@ def test_invalid_line_length(runner, file):
     )
 
 
+def test_invalid_pyproject_toml(runner):
+    args = [
+        "-p",
+        "tests/test_files/bad_pyproject.toml",
+        "tests/test_files/test_file.rst",
+    ]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 2
+    assert result.output.endswith("Error: Config key extend_exclude must be a list\n")
+
+
 def test_invalid_rst_file(runner):
     args = ["-", "tests/test_files/test_file.rst"]
     result = runner.invoke(main, args=args)
@@ -182,7 +200,7 @@ def test_line_length(runner, length, file):
 
 
 def test_pyproject_toml(runner):
-    args = ["-p", "tests/test_files/pyproject.toml", "tests/test_files/test_file.rst"]
+    args = ["-p", "tests/test_files/pyproject.toml"]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output.startswith("Reformatted")
