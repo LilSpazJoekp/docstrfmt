@@ -446,7 +446,18 @@ class Formatters:
     def field(self, node: docutils.nodes.field, context) -> line_iterator:
         children = chain(self._format_children(node, context))
         field_name = next(children)
-        first_line = next(children)
+        try:
+            first_line = next(children)
+        except StopIteration:
+            with open(context.current_file, encoding="utf-8") as f:
+                source = f.read()
+            line = get_code_line(source, f":{node.astext().strip()}:")
+            raise InvalidRstError(
+                context.current_file,
+                "ERROR",
+                line,
+                f"Empty `:{node.astext().strip()}:` field. Please add a field body or omit completely",
+            )
         children = list(children)
         children_processed = []
         for i, child in enumerate(children):

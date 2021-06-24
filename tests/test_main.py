@@ -125,6 +125,18 @@ def test_include_txt(runner):
     assert result.output.endswith("1 out of 1 file were reformatted.\nDone! 🎉\n")
 
 
+def test_invalid_blank_return_py(runner):
+    file = "tests/test_files/error_files/py_file_error_empty_returns.py"
+    result = runner.invoke(main, args=[file])
+    assert result.exit_code == 1
+    assert result.output.startswith(
+        f'InvalidRstError: ERROR: File "{os.path.abspath(file)}", line 67:\nEmpty `:returns:` field. Please add a field body or omit completely'
+    )
+    assert result.output.endswith(
+        "1 file were checked.\nDone, but 1 error occurred ❌💥❌\n"
+    )
+
+
 def test_invalid_code_block_rst(runner):
     file = "tests/test_files/error_files/test_invalid_syntax.rst"
     result = runner.invoke(main, args=[file])
