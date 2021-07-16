@@ -4,6 +4,9 @@ Change Log
 Unreleased
 ----------
 
+1.3.0 (2021/07/16)
+------------------
+
 **Added**
 
 - Add a check for blank fields and raise an error when found.
