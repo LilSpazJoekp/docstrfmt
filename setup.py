@@ -55,6 +55,7 @@ setup(
         "libcst",
         "sphinx>=2.4.0",
         "tabulate",
+        "toml",
     ],
     license="MIT",
     long_description=README,

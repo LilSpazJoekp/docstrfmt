@@ -7,6 +7,7 @@ Unreleased
 **Added**
 
 - Add a check for blank fields and raise an error when found.
+- Add ``toml`` dependency.
 
 1.2.0 (2021/06/15)
 ------------------
