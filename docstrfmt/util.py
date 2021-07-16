@@ -80,12 +80,12 @@ def get_code_line(current_source, code):
     code_lines = code.splitlines()
     multiple = len([line for line in lines if code_lines[0] in line]) > 1
     for line_number, line in enumerate(lines, 1):
-        if code_lines[0] in line:
+        if line.endswith(code_lines[0]):
             if multiple:
                 current_offset = 0
                 for offset, sub_line in enumerate(code_lines):
                     current_offset = offset
-                    if sub_line not in lines[line_number - 1 + offset]:
+                    if not lines[line_number - 1 + offset].endswith(sub_line):
                         break
                 else:
                     return line_number + current_offset

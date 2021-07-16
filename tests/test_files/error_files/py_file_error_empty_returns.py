@@ -64,6 +64,6 @@ class ExampleClass:
         :param str attr1: attr1 description.
         :param str attr2: attr2 description.
 
-        :returns: This returns something.
+        :returns:
 
         """

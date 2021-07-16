@@ -77,14 +77,26 @@ def test_encoding_stdin(runner):
 
 
 def test_exclude(runner):
-    args = ["-e", "tests/test_files/", "tests/test_files/"]
+    args = [
+        "-e",
+        "tests/test_files/",
+        "-e",
+        "tests/test_files/error_files/",
+        "tests/test_files/",
+    ]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output == "0 files were checked.\nDone! 🎉\n"
 
 
 def test_extend_exclude(runner):
-    args = ["-x", "tests/test_files/", "tests/test_files/"]
+    args = [
+        "-x",
+        "tests/test_files/",
+        "-e",
+        "tests/test_files/error_files/",
+        "tests/test_files/",
+    ]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output == "0 files were checked.\nDone! 🎉\n"
@@ -94,9 +106,7 @@ def test_extend_exclude(runner):
 def test_globbing(runner, file):
     args = [
         "-e",
-        "tests/test_files/test_invalid*",
-        "-e",
-        "tests/test_files/py_file_error*.py",
+        "tests/test_files/error_files/",
         "-e",
         "tests/test_files/test_encoding.rst",
         "-l",
@@ -115,8 +125,20 @@ def test_include_txt(runner):
     assert result.output.endswith("1 out of 1 file were reformatted.\nDone! 🎉\n")
 
 
+def test_invalid_blank_return_py(runner):
+    file = "tests/test_files/error_files/py_file_error_empty_returns.py"
+    result = runner.invoke(main, args=[file])
+    assert result.exit_code == 1
+    assert result.output.startswith(
+        f'InvalidRstError: ERROR: File "{os.path.abspath(file)}", line 67:\nEmpty `:returns:` field. Please add a field body or omit completely'
+    )
+    assert result.output.endswith(
+        "1 file were checked.\nDone, but 1 error occurred ❌💥❌\n"
+    )
+
+
 def test_invalid_code_block_rst(runner):
-    file = "tests/test_files/test_invalid_syntax.rst"
+    file = "tests/test_files/error_files/test_invalid_syntax.rst"
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
     assert result.output.startswith(
@@ -128,7 +150,7 @@ def test_invalid_code_block_rst(runner):
 
 
 def test_invalid_code_block_py(runner):
-    file = "tests/test_files/py_file_error_bad_codeblock.py"
+    file = "tests/test_files/error_files/py_file_error_bad_codeblock.py"
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
     assert result.output.startswith(
@@ -155,7 +177,7 @@ def test_invalid_line_length(runner, file):
 def test_invalid_pyproject_toml(runner):
     args = [
         "-p",
-        "tests/test_files/bad_pyproject.toml",
+        "tests/test_files/error_files/bad_pyproject.toml",
         "tests/test_files/test_file.rst",
     ]
     result = runner.invoke(main, args=args)
@@ -171,7 +193,7 @@ def test_invalid_rst_file(runner):
 
 
 def test_invalid_table(runner):
-    file = "tests/test_files/test_invalid_table.rst"
+    file = "tests/test_files/error_files/test_invalid_table.rst"
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
     assert result.output.startswith(
@@ -233,7 +255,7 @@ def test_raw_input(runner, file, file_type):
 
 
 def test_raw_input_rst_error(runner):
-    file = "tests/test_files/test_invalid_rst_error.rst"
+    file = "tests/test_files/error_files/test_invalid_rst_error.rst"
     with open(file, encoding="utf-8") as f:
         raw_file = f.read()
     args = ["-t", "rst", "-r", raw_file]
@@ -245,7 +267,7 @@ def test_raw_input_rst_error(runner):
 
 
 def test_raw_input_rst_errors_py(runner):
-    file = "tests/test_files/py_file_error_invalid_rst.py"
+    file = "tests/test_files/error_files/py_file_error_invalid_rst.py"
     with open(file, encoding="utf-8") as f:
         raw_file = f.read()
     args = ["-t", "py", "-r", raw_file]
@@ -257,7 +279,7 @@ def test_raw_input_rst_errors_py(runner):
 
 
 def test_raw_input_rst_severe(runner):
-    file = "tests/test_files/test_invalid_rst_severe.rst"
+    file = "tests/test_files/error_files/test_invalid_rst_severe.rst"
     with open(file, encoding="utf-8") as f:
         raw_file = f.read()
     args = ["-t", "rst", "-r", raw_file]
@@ -269,7 +291,7 @@ def test_raw_input_rst_severe(runner):
 
 
 def test_raw_input_rst_warning(runner):
-    file = "tests/test_files/test_invalid_rst_warning.rst"
+    file = "tests/test_files/error_files/test_invalid_rst_warning.rst"
     with open(file, encoding="utf-8") as f:
         raw_file = f.read()
     args = ["-t", "rst", "-r", raw_file]
@@ -298,7 +320,7 @@ def test_raw_output(runner, file):
 
 
 def test_rst_error(runner):
-    file = "tests/test_files/test_invalid_rst_error.rst"
+    file = "tests/test_files/error_files/test_invalid_rst_error.rst"
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
     assert result.output.startswith(
@@ -310,7 +332,7 @@ def test_rst_error(runner):
 
 
 def test_rst_severe(runner):
-    file = "tests/test_files/test_invalid_rst_severe.rst"
+    file = "tests/test_files/error_files/test_invalid_rst_severe.rst"
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
     assert result.output.startswith(
@@ -322,7 +344,7 @@ def test_rst_severe(runner):
 
 
 def test_rst_warning(runner):
-    file = "tests/test_files/test_invalid_rst_warning.rst"
+    file = "tests/test_files/error_files/test_invalid_rst_warning.rst"
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
     assert result.output.startswith(

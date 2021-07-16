@@ -6,4 +6,4 @@ line-length = 88
 profile = "black"
 
 [tool.docstrfmt]
-extend-exclude = ["tests/test_files/test_invalid*", "tests/test_files/py_file_error*.py"]
+extend-exclude = ["tests/test_files/error_files/*"]
