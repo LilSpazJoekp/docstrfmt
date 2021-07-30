@@ -4,6 +4,10 @@ Change Log
 Unreleased
 ----------
 
+**Added**
+
+- Add Pre-commit hooks.
+
 1.3.0 (2021/07/16)
 ------------------
 
