@@ -176,6 +176,19 @@ Instructions derived from `black documentation
 
    3. Uncheck "Auto-save edited files to trigger the watcher" in Advanced Options
 
+With pre-commit
+~~~~~~~~~~~~~~~
+
+.. code-block:: yaml
+
+    repos:
+      - repo: https://github.com/LilSpazJoekp/docstrfmt
+        rev: stable # Replace by any tag/version: https://github.com/LilSpazJoekp/docstrfmt/tags
+        hooks:
+          - id: docstrfmt
+            language_version: python3
+            types_or: [python, rst, txt] # only needed if you want to include txt files.
+
 .. _black: https://github.com/psf/black
 
 .. _blackd: https://github.com/psf/black#blackd
