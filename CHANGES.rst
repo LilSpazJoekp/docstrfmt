@@ -4,6 +4,9 @@ Change Log
 Unreleased
 ----------
 
+1.4.0 (2021/07/30)
+------------------
+
 **Added**
 
 - Add Pre-commit hooks.
