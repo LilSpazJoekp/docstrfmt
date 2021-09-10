@@ -4,6 +4,9 @@ Change Log
 Unreleased
 ----------
 
+1.4.1 (2021/09/10)
+------------------
+
 **Added**
 
 - Add ``appdirs`` dependency.
