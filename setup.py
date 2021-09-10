@@ -49,6 +49,7 @@ setup(
     },
     extras_require=extras_requires,
     install_requires=[
+        "appdirs",
         "black>=19.10b0",
         "click<8.0.0",
         "docutils",
