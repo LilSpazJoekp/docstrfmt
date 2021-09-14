@@ -295,6 +295,10 @@ def _format_file(
         file, encoding="utf-8"
     ) as f:
         input_string = f.read()
+        newline = getattr(f, "newlines", None)
+        # If mixed or unknown newlines, fall back to the platform default
+        if not isinstance(newline, str):
+            newline = None
     try:
         if file.suffix == ".py" or (file_type == "py" and file.name == "-"):
             misformatted, errors = _process_python(
@@ -305,6 +309,7 @@ def _format_file(
                 manager,
                 raw_output,
                 lock,
+                newline,
             )
             error_count += errors
         elif (
@@ -319,6 +324,7 @@ def _format_file(
                 manager,
                 raw_output,
                 lock,
+                newline,
             )
             error_count += errors
     except InvalidRstErrors as errors:
@@ -415,7 +421,14 @@ def _parse_sources(
 
 
 def _process_python(
-    check, file, input_string, line_length, manager, raw_output, lock=None
+    check,
+    file,
+    input_string,
+    line_length,
+    manager,
+    raw_output,
+    lock=None,
+    newline=None,
 ):
     filename = basename(file)
     object_name = filename.split(".")[0]
@@ -437,7 +450,10 @@ def _process_python(
                     )
             else:
                 _write_output(
-                    file, result.code, open(file, "w", encoding="utf-8"), raw_output
+                    file,
+                    result.code,
+                    open(file, "w", encoding="utf-8", newline=newline),
+                    raw_output,
                 )
     elif raw_output:
         with lock or nullcontext():
@@ -446,7 +462,14 @@ def _process_python(
 
 
 def _process_rst(
-    check, file, input_string, line_length, manager, raw_output, lock=None
+    check,
+    file,
+    input_string,
+    line_length,
+    manager,
+    raw_output,
+    lock=None,
+    newline=None,
 ):
     doc = manager.parse_string(file, input_string)
     if reporter.level >= 3:
@@ -470,7 +493,10 @@ def _process_rst(
                     _write_output(file, output, nullcontext(sys.stdout), raw_output)
             else:
                 _write_output(
-                    file, output, open(file, "w", encoding="utf-8"), raw_output
+                    file,
+                    output,
+                    open(file, "w", encoding="utf-8", newline=newline),
+                    raw_output,
                 )
     return misformatted, error_count
 
