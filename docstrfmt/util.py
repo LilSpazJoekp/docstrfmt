@@ -4,16 +4,16 @@ import tempfile
 from copy import copy
 from pathlib import Path
 
-from appdirs import user_cache_dir
 from docutils.parsers.rst.states import ParserError
 from docutils.utils import roman
+from platformdirs import user_cache_path
 
 from .const import __version__
 
 
 class FileCache:
     def __init__(self, context):
-        self.cache_dir = Path(user_cache_dir("docstrfmt", version=__version__))
+        self.cache_dir = user_cache_path("docstrfmt", version=__version__)
         self.context = context
         self.cache = self.read_cache()
 
