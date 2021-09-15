@@ -14,6 +14,8 @@ test_files = [
 
 test_line_length = [13, 34, 55, 72, 89, 144]
 
+NON_NATIVE_NEWLINE = "\r\n" if os.linesep == "\n" else "\n"
+
 
 @pytest.mark.parametrize(
     "file", ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"]
@@ -412,3 +414,23 @@ def test_verbose(runner, verbose, file):
     startswith, endswith = results[level - 1]
     assert result.output.startswith(startswith)
     assert result.output.endswith(endswith)
+
+
+@pytest.mark.parametrize(
+    "file", ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"]
+)
+@pytest.mark.parametrize("newline", [os.linesep, NON_NATIVE_NEWLINE])
+def test_newline_preserved(runner, tmp_path, file, newline):
+    with open(file, encoding="utf-8") as source_file:
+        source_content = source_file.read()
+    test_file_path = tmp_path / os.path.basename(file)
+    with open(test_file_path, "w", encoding="utf-8", newline=newline) as test_file:
+        test_file.write(source_content)
+
+    cli_args = ["-l", 80, test_file_path.resolve().as_posix()]
+    result = runner.invoke(main, args=cli_args)
+    assert result.exit_code == 0
+    assert result.output.endswith("1 out of 1 file were reformatted.\nDone! 🎉\n")
+    with open(test_file_path, encoding="utf-8") as output_file:
+        output_file.read()
+        assert output_file.newlines == newline
