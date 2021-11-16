@@ -1,4 +1,5 @@
 import os
+import sys
 
 import pytest
 
@@ -144,7 +145,7 @@ def test_invalid_code_block_rst(runner):
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
     assert result.output.startswith(
-        f'SyntaxError: EOL while scanning string literal:\n\nFile "{os.path.abspath(file)}", line 3:'
+        f'{"SyntaxError: unterminated string literal (detected at line 1)" if sys.version_info >= (3,10,0) else "SyntaxError: EOL while scanning string literal"}:\n\nFile "{os.path.abspath(file)}", line 3:'
     )
     assert result.output.endswith(
         "1 file were checked.\nDone, but 1 error occurred ❌💥❌\n"
@@ -156,7 +157,7 @@ def test_invalid_code_block_py(runner):
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
     assert result.output.startswith(
-        f'SyntaxError: EOL while scanning string literal:\n\nFile "{os.path.abspath(file)}", line 44:'
+        f'{"SyntaxError: unterminated string literal (detected at line 2)" if sys.version_info >= (3,10,0) else "SyntaxError: EOL while scanning string literal"}:\n\nFile "{os.path.abspath(file)}", line 44:'
     )
     assert result.output.endswith(
         "1 file were checked.\nDone, but 2 errors occurred ❌💥❌\n"
