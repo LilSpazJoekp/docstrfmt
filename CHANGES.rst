@@ -4,6 +4,9 @@ Change Log
 Unreleased
 ----------
 
+1.4.2 (2021/11/16)
+------------------
+
 **Changed**
 
 - Switch from unmaintained ``appdirs`` to the replacement ``platformdirs``.
