@@ -4,7 +4,13 @@ Change Log
 Unreleased
 ----------
 
+**Changed**
+
 - Switch from unmaintained ``appdirs`` to the replacement ``platformdirs``.
+
+**Fixed**
+
+- An issue where the summary line of docstring was incorrectly wrapped.
 
 1.4.1 (2021/09/10)
 ------------------

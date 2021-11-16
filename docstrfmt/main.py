@@ -413,8 +413,7 @@ def _parse_sources(
     for file in exclude:
         if isdir(file):
             file = join(file, "*")
-        for f in glob.iglob(file, recursive=True):
-            f = abspath(f)
+        for f in map(abspath, glob.iglob(file, recursive=True)):
             if f in files_to_format:
                 files_to_format.remove(f)
     return sorted(list(files_to_format))

@@ -1,9 +1,9 @@
 [tool.black]
-extend-exclude = '/(\.venv.*)/'
+extend_exclude = '/(\.venv.*)/'
 line-length = 88
 
 [tool.isort]
 profile = "black"
 
 [tool.docstrfmt]
-extend-exclude = ["tests/test_files/error_files/*"]
+extend_exclude = ["tests/test_files/error_files/*"]

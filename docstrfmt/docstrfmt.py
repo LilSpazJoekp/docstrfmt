@@ -91,7 +91,7 @@ class FormatContext:
     def with_width(self, width: int):
         return self._replace(width=width)
 
-    def wrap_first_at(self, width):
+    def wrap_first_at(self, width: int):
         return self._replace(first_line_len=width)
 
 
@@ -256,8 +256,9 @@ class Formatters:
         for line in lines:
             yield spaces + line if line else line
 
+    @staticmethod
     def _wrap_text(
-        self, width: Optional[int], items: Iterable[inline_item], context: FormatContext
+        width: Optional[int], items: Iterable[inline_item], context: FormatContext
     ) -> Iterator[str]:
         if width is not None and width <= 0:
             raise ValueError(f"Invalid starting width {context.starting_width}")
@@ -601,7 +602,7 @@ class Formatters:
         if context.is_docstring:
             context.is_docstring = False
             wrap_text_context.is_docstring = False
-            wrap_text_context = wrap_text_context.with_width(None)
+            context = context.with_width(None)
         yield from self._wrap_text(
             context.width,
             chain(
@@ -921,11 +922,7 @@ class Manager:
         self.docstring_trailing_line = docstring_trailing_line
 
     def _pre_process(self, node: docutils.nodes.Node, source: str) -> None:
-        """Do some node preprocessing that is generic across node types and is therefore
-        most convenient to do as a simple recursive function rather than as part of the
-        big dispatcher class.
-
-        """
+        """Do some node preprocessing that is generic across node types and is therefore most convenient to do as a simple recursive function rather than as part of the big dispatcher class."""
         # Strip all system_message nodes. (Just formatting them with no markup isn't enough, since that
         # could lead to extra spaces or empty lines between other elements.)
         errors = [
