@@ -67,3 +67,16 @@ class ExampleClass:
         :returns: This returns something.
 
         """
+
+    def method2(self, attr1, attr2):
+        r"""Test method docstring summary that is really really really really really really really long.
+
+        Test method docstring description that is really really really really really
+        really really long.
+
+        :param str attr1: attr1 description.
+        :param str attr2: attr2 description.
+
+        :returns: This returns something.
+
+        """

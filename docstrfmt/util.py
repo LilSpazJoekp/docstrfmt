@@ -95,8 +95,7 @@ def get_code_line(current_source, code):
 
 # Modified from docutils.parsers.rst.states.Body
 def make_enumerator(ordinal, sequence, format):
-    """Construct and return the next enumerated list item marker, and an auto-enumerator
-    ("#" instead of the regular enumerator).
+    """Construct and return the next enumerated list item marker, and an auto-enumerator ("#" instead of the regular enumerator).
 
     Return ``None`` for invalid (out of range) ordinals.
 
