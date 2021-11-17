@@ -4,6 +4,10 @@ Change Log
 Unreleased
 ----------
 
+**Fixed**
+
+- An issue where docstrfmt would not properly find the ``pyproject.toml`` file.
+
 1.4.2 (2021/11/16)
 ------------------
 
