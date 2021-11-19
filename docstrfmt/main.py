@@ -342,7 +342,7 @@ def _parse_pyproject_config(
     context: click.Context, param: click.Parameter, value: Optional[str]
 ) -> Mode:
     if not value:
-        pyproject_toml = find_pyproject_toml(tuple(context.params.get("files", ())))
+        pyproject_toml = find_pyproject_toml(tuple(context.params.get("files", (".",))))
         value = pyproject_toml if pyproject_toml else None
     if value:
         try:
