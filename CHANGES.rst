@@ -4,6 +4,9 @@ Change Log
 Unreleased
 ----------
 
+1.4.3 (2021/11/19)
+------------------
+
 **Fixed**
 
 - An issue where docstrfmt would not properly find the ``pyproject.toml`` file.
