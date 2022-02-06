@@ -1,7 +1,6 @@
 import os
 import pickle
 import tempfile
-from copy import copy
 from pathlib import Path
 
 from docutils.parsers.rst.states import ParserError
@@ -34,13 +33,9 @@ class FileCache:
         return todo, done
 
     def get_cache_filename(self):
-        mode = copy(self.context.params["mode"].__dict__)
-        mode["target_versions"] = ",".join(
-            sorted([str(version) for version in mode["target_versions"]])
-        )
         docstring_trailing_line = str(self.context.params["docstring_trailing_line"])
         line_length = str(self.context.params["line_length"])
-        mode = "_".join([str(mode[key]) for key in sorted(mode)])
+        mode = self.context.params["mode"].get_cache_key()
         include_txt = str(self.context.params["include_txt"])
         return (
             self.cache_dir

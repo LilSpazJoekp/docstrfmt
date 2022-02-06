@@ -7,6 +7,7 @@ Unreleased
 **Changed**
 
 - Bump maximum version of ``click`` from ``8.0.0`` to ``9.0.0``.
+- Bump minimum version of ``black`` to ``22``.
 
 1.4.3 (2021/11/19)
 ------------------
