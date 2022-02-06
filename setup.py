@@ -51,7 +51,7 @@ setup(
     extras_require=extras_requires,
     install_requires=[
         "black>=19.10b0",
-        "click<8.0.0",
+        "click<9.0.0",
         "docutils",
         "libcst",
         "platformdirs",

@@ -173,7 +173,7 @@ def test_invalid_line_length(runner, file):
     assert result.exit_code == 2
     assert (
         result.output
-        == "Usage: main [OPTIONS] [FILES]...\nTry 'main -h' for help.\n\nError: Invalid value for '-l' / '--line-length': 3 is smaller than the minimum valid value 4.\n"
+        == "Usage: main [OPTIONS] [FILES]...\nTry 'main -h' for help.\n\nError: Invalid value for '-l' / '--line-length': 3 is not in the range x>=4.\n"
     )
 
 
