@@ -4,6 +4,9 @@ Change Log
 Unreleased
 ----------
 
+1.4.4 (2022/02/06)
+------------------
+
 **Changed**
 
 - Bump maximum version of ``click`` from ``8.0.0`` to ``9.0.0``.
