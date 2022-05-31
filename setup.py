@@ -25,7 +25,7 @@ setup(
     author_email="lilspazjoekp@gmail.com",
     python_requires="~=3.6",
     classifiers=[
-        "Development Status :: 3 - Beta",
+        "Development Status :: 4 - Beta",
         "Environment :: Console",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
