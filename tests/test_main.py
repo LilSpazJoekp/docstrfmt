@@ -53,7 +53,11 @@ def test_encoding(runner):
 
 
 def test_encoding_raw_input(runner):
-    file = ".. note::\n\n    á Á à À â Â ä Ä ã Ã å Å æ Æ ç Ç é É è È ê Ê ë Ë í Í ì Ì î Î ï Ï ñ Ñ ó Ó ò Ò ô Ô ö Ö.\n    õ Õ ø Ø œ Œ ß ú Ú ù Ù û Û ü Ü á Á à À â Â ä Ä ã Ã å Å æ Æ ç Ç é É è È ê Ê ë Ë í Í ì.\n"
+    file = (
+        ".. note::\n\n    á Á à À â Â ä Ä ã Ã å Å æ Æ ç Ç é É è È ê Ê ë Ë í Í ì Ì î Î ï"
+        " Ï ñ Ñ ó Ó ò Ò ô Ô ö Ö.\n    õ Õ ø Ø œ Œ ß ú Ú ù Ù û Û ü Ü á Á à À â Â ä Ä ã Ã"
+        " å Å æ Æ ç Ç é É è È ê Ê ë Ë í Í ì.\n"
+    )
     args = ["-r", file]
     result = runner.invoke(main, args=args)
     assert result.output == file
@@ -67,12 +71,18 @@ def test_encoding_raw_output(runner):
     assert result.exit_code == 0
     assert (
         result.output
-        == ".. note::\n\n    á Á à À â Â ä Ä ã Ã å Å æ Æ ç Ç é É è È ê Ê ë Ë í Í ì Ì î Î ï Ï ñ Ñ ó Ó ò Ò ô Ô ö Ö.\n    õ Õ ø Ø œ Œ ß ú Ú ù Ù û Û ü Ü á Á à À â Â ä Ä ã Ã å Å æ Æ ç Ç é É è È ê Ê ë Ë í Í ì.\n"
+        == ".. note::\n\n    á Á à À â Â ä Ä ã Ã å Å æ Æ ç Ç é É è È ê Ê ë Ë í Í ì Ì î"
+        " Î ï Ï ñ Ñ ó Ó ò Ò ô Ô ö Ö.\n    õ Õ ø Ø œ Œ ß ú Ú ù Ù û Û ü Ü á Á à À â Â"
+        " ä Ä ã Ã å Å æ Æ ç Ç é É è È ê Ê ë Ë í Í ì.\n"
     )
 
 
 def test_encoding_stdin(runner):
-    file = ".. note::\n\n    á Á à À â Â ä Ä ã Ã å Å æ Æ ç Ç é É è È ê Ê ë Ë í Í ì Ì î Î ï Ï ñ Ñ ó Ó ò Ò ô Ô ö Ö.\n    õ Õ ø Ø œ Œ ß ú Ú ù Ù û Û ü Ü á Á à À â Â ä Ä ã Ã å Å æ Æ ç Ç é É è È ê Ê ë Ë í Í ì.\n"
+    file = (
+        ".. note::\n\n    á Á à À â Â ä Ä ã Ã å Å æ Æ ç Ç é É è È ê Ê ë Ë í Í ì Ì î Î ï"
+        " Ï ñ Ñ ó Ó ò Ò ô Ô ö Ö.\n    õ Õ ø Ø œ Œ ß ú Ú ù Ù û Û ü Ü á Á à À â Â ä Ä ã Ã"
+        " å Å æ Æ ç Ç é É è È ê Ê ë Ë í Í ì.\n"
+    )
     args = ["-"]
     result = runner.invoke(main, args=args, input=file)
     assert result.exit_code == 0
@@ -133,7 +143,8 @@ def test_invalid_blank_return_py(runner):
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
     assert result.output.startswith(
-        f'InvalidRstError: ERROR: File "{os.path.abspath(file)}", line 67:\nEmpty `:returns:` field. Please add a field body or omit completely'
+        f'InvalidRstError: ERROR: File "{os.path.abspath(file)}", line 67:\nEmpty'
+        " `:returns:` field. Please add a field body or omit completely"
     )
     assert result.output.endswith(
         "1 file were checked.\nDone, but 1 error occurred ❌💥❌\n"
@@ -145,7 +156,8 @@ def test_invalid_code_block_rst(runner):
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
     assert result.output.startswith(
-        f'{"SyntaxError: unterminated string literal (detected at line 1)" if sys.version_info >= (3,10,0) else "SyntaxError: EOL while scanning string literal"}:\n\nFile "{os.path.abspath(file)}", line 3:'
+        f'{"SyntaxError: unterminated string literal (detected at line 1)" if sys.version_info >= (3,10,0) else "SyntaxError: EOL while scanning string literal"}:\n\nFile'
+        f' "{os.path.abspath(file)}", line 3:'
     )
     assert result.output.endswith(
         "1 file were checked.\nDone, but 1 error occurred ❌💥❌\n"
@@ -157,7 +169,8 @@ def test_invalid_code_block_py(runner):
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
     assert result.output.startswith(
-        f'{"SyntaxError: unterminated string literal (detected at line 2)" if sys.version_info >= (3,10,0) else "SyntaxError: EOL while scanning string literal"}:\n\nFile "{os.path.abspath(file)}", line 44:'
+        f'{"SyntaxError: unterminated string literal (detected at line 2)" if sys.version_info >= (3,10,0) else "SyntaxError: EOL while scanning string literal"}:\n\nFile'
+        f' "{os.path.abspath(file)}", line 44:'
     )
     assert result.output.endswith(
         "1 file were checked.\nDone, but 2 errors occurred ❌💥❌\n"
@@ -173,7 +186,8 @@ def test_invalid_line_length(runner, file):
     assert result.exit_code == 2
     assert (
         result.output
-        == "Usage: main [OPTIONS] [FILES]...\nTry 'main -h' for help.\n\nError: Invalid value for '-l' / '--line-length': 3 is not in the range x>=4.\n"
+        == "Usage: main [OPTIONS] [FILES]...\nTry 'main -h' for help.\n\nError: Invalid"
+        " value for '-l' / '--line-length': 3 is not in the range x>=4.\n"
     )
 
 
@@ -301,7 +315,8 @@ def test_raw_input_rst_warning(runner):
     result = runner.invoke(main, args=args)
     assert result.exit_code == 1
     assert result.output.startswith(
-        'WARNING: File "<raw_input>", line 1:\nBullet list ends without a blank line; unexpected unindent.'
+        'WARNING: File "<raw_input>", line 1:\nBullet list ends without a blank line;'
+        " unexpected unindent."
     )
 
 
@@ -327,7 +342,8 @@ def test_rst_error(runner):
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
     assert result.output.startswith(
-        f'ERROR: File "{os.path.abspath(file)}", line 1:\nUnknown directive type "codeblock".'
+        f'ERROR: File "{os.path.abspath(file)}", line 1:\nUnknown directive type'
+        ' "codeblock".'
     )
     assert result.output.endswith(
         "1 file were checked.\nDone, but 1 error occurred ❌💥❌\n"
@@ -339,7 +355,8 @@ def test_rst_severe(runner):
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
     assert result.output.startswith(
-        f'SEVERE: File "{os.path.abspath(file)}", line 3:\nTitle overline & underline mismatch.'
+        f'SEVERE: File "{os.path.abspath(file)}", line 3:\nTitle overline & underline'
+        " mismatch."
     )
     assert result.output.endswith(
         "1 file were checked.\nDone, but 1 error occurred ❌💥❌\n"
@@ -351,7 +368,8 @@ def test_rst_warning(runner):
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
     assert result.output.startswith(
-        f'WARNING: File "{os.path.abspath(file)}", line 1:\nBullet list ends without a blank line; unexpected unindent.'
+        f'WARNING: File "{os.path.abspath(file)}", line 1:\nBullet list ends without a'
+        " blank line; unexpected unindent."
     )
     assert result.output.endswith(
         "1 file were checked.\nDone, but 1 error occurred ❌💥❌\n"
@@ -394,7 +412,10 @@ def test_verbose(runner, verbose, file):
     assert result.exit_code == 0
 
     file_path = os.path.abspath(file)
-    suffix = f"{os.path.basename(file)}' is formatted correctly. Nice!\n1 file were checked.\nDone! 🎉\n"
+    suffix = (
+        f"{os.path.basename(file)}' is formatted correctly. Nice!\n1 file were"
+        " checked.\nDone! 🎉\n"
+    )
     if file.endswith("rst"):
         results = [
             ("File '", suffix),
@@ -407,7 +428,9 @@ def test_verbose(runner, verbose, file):
         ]
     results.append(
         (
-            f"Checking {file_path}\n============================================================\n- document",
+            "Checking"
+            f" {file_path}\n============================================================\n-"
+            " document",
             suffix,
         )
     )

@@ -11,10 +11,11 @@ from .const import __version__
 
 
 class FileCache:
-    def __init__(self, context):
+    def __init__(self, context, ignore_cache=False):
         self.cache_dir = user_cache_path("docstrfmt", version=__version__)
         self.context = context
         self.cache = self.read_cache()
+        self.ignore_cache = ignore_cache
 
     @staticmethod
     def get_file_info(file):
@@ -26,7 +27,7 @@ class FileCache:
         for file in files:
             file = Path(file)
             file = file.resolve()
-            if self.cache.get(file) != self.get_file_info(file):
+            if self.cache.get(file) != self.get_file_info(file) or self.ignore_cache:
                 todo.add(file)
             else:  # pragma: no cover
                 done.add(file)

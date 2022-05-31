@@ -12,10 +12,10 @@ with open(path.join(HERE, PACKAGE_NAME, "const.py"), encoding="utf-8") as fp:
     VERSION = re.search('__version__ = "([^"]+)"', fp.read()).group(1)
 
 extras_requires = {
-    "d": ["aiohttp>=3.3.2"],
+    "d": ["aiohttp==3.*"],
     "dev": ["packaging", "pre-commit"],
     "test": ["pytest", "pytest-aiohttp"],
-    "lint": ["black", "flake8", "flynt", "isort"],
+    "lint": ["flake8", "flynt", "isort"],
 }
 extras_requires["dev"] += extras_requires["test"] + extras_requires["lint"]
 
@@ -25,7 +25,7 @@ setup(
     author_email="lilspazjoekp@gmail.com",
     python_requires="~=3.6",
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 3 - Beta",
         "Environment :: Console",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
@@ -50,14 +50,14 @@ setup(
     },
     extras_require=extras_requires,
     install_requires=[
-        "black>=22",
-        "click<9.0.0",
-        "docutils",
-        "libcst",
-        "platformdirs",
-        "sphinx>=2.4.0",
-        "tabulate",
-        "toml",
+        "black==22.*",
+        "click==8.*",
+        "docutils==0.18.*",
+        "libcst==0.4.*",
+        "platformdirs==2.*",
+        "sphinx==5.*",
+        "tabulate==0.8.*",
+        "toml==0.10.*",
     ],
     license="MIT",
     long_description=README,

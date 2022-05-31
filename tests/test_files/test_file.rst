@@ -77,7 +77,7 @@ so asterisks "``*``" etc. are left alone.
 If you find that you want to use one of the "special" characters in text, it will
 generally be OK -- reStructuredText is pretty smart. For example, this lone asterisk *
 is handled just fine, as is the asterisk in this equation: 5*6=30. If you actually want
-text \*surrounded by asterisks* to **not** be italicised, then you need to indicate that
+text \*surrounded by asterisks* to **not** be italicized, then you need to indicate that
 the asterisk is not special. You do this by placing a backslash just before it, like so
 "``\*``" (quickref__), or by enclosing it in double back-quotes (inline literals), like
 this:
