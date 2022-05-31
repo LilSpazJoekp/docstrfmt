@@ -27,7 +27,7 @@ docstrfmt: a formatter for Sphinx flavored reStructuredText
 
 *Strongly inspired by* rstfmt_ and rustfmt_.
 
-*Highly experimental and unstable. Do not depend on this yet.*
+*This is considered to be in beta however it is mostly stable.*
 
 Description
 -----------
@@ -50,7 +50,7 @@ Differences between docstrfmt and rstfmt_
 -----------------------------------------
 
 The main difference between rstfmt_ and docstrfmt is the ability to format Python
-docstrings. I am open to merging this project with rstfmt_, however there as several
+docstrings. I am open to merging this project with rstfmt_, however, there as several
 differences in formatting conventions between the two (hence the separate fork).
 
 Usage

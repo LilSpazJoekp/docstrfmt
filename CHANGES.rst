@@ -4,6 +4,15 @@ Change Log
 Unreleased
 ----------
 
+**Added**
+
+- Added a flag to skip the cache.
+
+**Fixed**
+
+- Fix ``AttributeError`` when accessing ``rawsource`` during the handling ``Text``
+  nodes.
+
 1.4.4 (2022/02/06)
 ------------------
 

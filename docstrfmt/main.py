@@ -509,63 +509,15 @@ def _write_output(file, output, output_manager, raw):
 
 @click.command(context_settings=dict(help_option_names=["-h", "--help"]))
 @click.option(
-    "-p",
-    "--pyproject_config",
-    "mode",
-    type=click.Path(
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        readable=True,
-        allow_dash=False,
-        path_type=str,
-    ),
-    is_eager=True,
-    callback=_parse_pyproject_config,
-    help="Path to pyproject.toml. Used to load settings.",
-)
-@click.option(
-    "-v",
-    "--verbose",
-    count=True,
-    help="Log debugging information about each node being formatted. Can be specified multiple times for different levels of verbosity.",
-)
-@click.option(
-    "-r",
-    "--raw-input",
-    type=str,
-    help="Format the text passed in as a string. Formatted text will be output to stdout.",
-)
-@click.option(
-    "-o", "--raw_output", is_flag=True, help="Output the formatted text to stdout."
-)
-@click.option(
-    "-l",
-    "--line-length",
-    type=click.IntRange(4),
-    default=88,
-    help="Wrap lines to the given line length where possible. Takes precedence over 'line_length' set in pyproject.toml if set.",
-    show_default=True,
-)
-@click.option(
-    "-t",
-    "--file-type",
-    type=click.Choice(["py", "rst"], case_sensitive=False),
-    default="rst",
-    help="Specify the raw input file type. Can only be used with --raw-input or stdin.",
-    show_default=True,
-)
-@click.option(
     "-c",
     "--check",
     is_flag=True,
     help="Check files and returns a non-zero code if files are not formatted correctly. Useful for linting. Ignored if raw-input, raw-output, stdin is used.",
 )
 @click.option(
-    "-T",
-    "--include_txt",
-    is_flag=True,
-    help="Interpret *.txt files as reStructuredText and format them.",
+    "--docstring-trailing-line/--no-docstring-trailing-line",
+    default=True,
+    help="Whether to add a blank line at the end of docstrings.",
 )
 @click.option(
     "-e",
@@ -584,38 +536,88 @@ def _write_output(file, output, output_manager, raw):
     help="Path(s) to directories/files to exclude in addition to the default excludes in formatting. Supports glob patterns.",
 )
 @click.option(
+    "-t",
+    "--file-type",
+    type=click.Choice(["py", "rst"], case_sensitive=False),
+    default="rst",
+    help="Specify the raw input file type. Can only be used with --raw-input or stdin.",
+    show_default=True,
+)
+@click.option(
+    "-i",
+    "--ignore-cache",
+    is_flag=True,
+    help="Ignore the cache. Useful for testing.",
+)
+@click.option(
+    "-T",
+    "--include_txt",
+    is_flag=True,
+    help="Interpret *.txt files as reStructuredText and format them.",
+)
+@click.option(
+    "-l",
+    "--line-length",
+    type=click.IntRange(4),
+    default=88,
+    help="Wrap lines to the given line length where possible. Takes precedence over 'line_length' set in pyproject.toml if set.",
+    show_default=True,
+)
+@click.option(
+    "-p",
+    "--pyproject_config",
+    "mode",
+    type=click.Path(
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        allow_dash=False,
+        path_type=str,
+    ),
+    is_eager=True,
+    callback=_parse_pyproject_config,
+    help="Path to pyproject.toml. Used to load settings.",
+)
+@click.option(
     "-q",
     "--quiet",
     is_flag=True,
     help="Don't emit non-error messages to stderr. Errors are still emitted; silence those with 2>/dev/null. Overrides --verbose.",
 )
 @click.option(
-    "--docstring-trailing-line/--no-docstring-trailing-line",
-    default=True,
-    help="Whether or not to add a blank line at the end of docstrings.",
+    "-r",
+    "--raw-input",
+    type=str,
+    help="Format the text passed in as a string. Formatted text will be output to stdout.",
+)
+@click.option(
+    "-o", "--raw_output", is_flag=True, help="Output the formatted text to stdout."
+)
+@click.option(
+    "-v",
+    "--verbose",
+    count=True,
+    help="Log debugging information about each node being formatted. Can be specified multiple times for different levels of verbosity.",
 )
 @click.version_option(version=__version__)
-@click.argument(
-    "files",
-    nargs=-1,
-    type=str,
-    callback=_parse_sources,
-)
+@click.argument("files", nargs=-1, type=str, callback=_parse_sources)
 @click.pass_context
 def main(
     context: Context,
+    check: bool,
+    docstring_trailing_line: bool,
+    exclude: List[str],
+    extend_exclude: List[str],
+    file_type: str,
+    ignore_cache: bool,
+    include_txt: bool,
+    line_length: int,
     mode: Mode,
+    quiet: bool,
     raw_input: str,
     raw_output: bool,
     verbose: int,
-    line_length: int,
-    file_type: str,
-    check: bool,
-    include_txt: bool,
-    exclude: List[str],
-    extend_exclude: List[str],
-    quiet: bool,
-    docstring_trailing_line: bool,
     files: List[str],
 ) -> None:
     reporter.level = verbose
@@ -650,7 +652,7 @@ def main(
             context.exit(1)
         context.exit(0)
 
-    cache = FileCache(context)
+    cache = FileCache(context, ignore_cache)
     if len(files) < 2:
         for file in files:
             misformatted, error_count = _format_file(
@@ -670,7 +672,6 @@ def main(
     else:
         # This code is heavily based on that of psf/black
         # see here for license: https://github.com/psf/black/blob/master/LICENSE
-        executor = None
         loop = asyncio.get_event_loop()
         worker_count = os.cpu_count()
         if sys.platform == "win32":  # pragma: no cover

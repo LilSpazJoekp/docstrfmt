@@ -22,7 +22,7 @@ from blib2to3.pgen2.tokenize import TokenError
 from docutils.frontend import OptionParser
 from docutils.nodes import pending
 from docutils.parsers import rst
-from docutils.utils import Reporter, new_document
+from docutils.utils import Reporter, new_document, unescape
 
 from . import rst_extras
 from .exceptions import InvalidRstError, InvalidRstErrors
@@ -131,7 +131,9 @@ class CodeFormatters:
                 current_line = get_code_line(source, code)
                 if context.manager.reporter:
                     context.manager.reporter.error(
-                        f'SyntaxError: {syntax_error.msg}:\n\nFile "{context.current_file}", line {current_line}:\n{syntax_error.text}{" " * (syntax_error.offset-1)}^'
+                        f"SyntaxError: {syntax_error.msg}:\n\nFile"
+                        f' "{context.current_file}", line'
+                        f' {current_line}:\n{syntax_error.text}{" " * (syntax_error.offset-1)}^'
                     )
         return code
 
@@ -264,6 +266,7 @@ class Formatters:
             raise ValueError(f"Invalid starting width {context.starting_width}")
         raw_words = []
         for item in list(items):
+            new_words = []
             if isinstance(item, str):
                 if not item:  # pragma: no cover
                     # An empty string is treated as having trailing punctuation: it only
@@ -348,7 +351,10 @@ class Formatters:
     def admonition(self, node: docutils.nodes.admonition, context) -> line_iterator:
         title = node.children[0]
         assert isinstance(title, docutils.nodes.title)
-        yield f".. admonition:: {''.join(self._wrap_text(None, chain(self._format_children(title, context)), context))}"
+        yield (
+            ".. admonition::"
+            f" {''.join(self._wrap_text(None, chain(self._format_children(title, context)), context))}"
+        )
         yield ""
         context = context.indent(4)
         yield from self._with_spaces(
@@ -457,7 +463,8 @@ class Formatters:
                 context.current_file,
                 "ERROR",
                 line,
-                f"Empty `:{node.astext().strip()}:` field. Please add a field body or omit completely",
+                f"Empty `:{node.astext().strip()}:` field. Please add a field body or"
+                " omit completely",
             )
         children = list(children)
         children_processed = []
@@ -748,7 +755,9 @@ class Formatters:
                     "morecols", False
                 ):
                     raise NotImplementedError(
-                        "Tables with cells that span multiple cells are not supported. Consider using the 'include' directive to include the table from another file."
+                        "Tables with cells that span multiple cells are not supported."
+                        " Consider using the 'include' directive to include the table"
+                        " from another file."
                     )
                 current_row.append(column)
             rows.append(current_row)
@@ -838,20 +847,11 @@ class Formatters:
         )
 
     def Text(self, node: docutils.nodes.Text, _) -> inline_iterator:
-        # The rawsource attribute tends not to be set for text nodes not directly under paragraphs.
-        if isinstance(node.parent, docutils.nodes.paragraph):
-            # Any instance of "\ " disappears in the parsing. It may have an effect if it separates
-            # this text from adjacent inline markup, but in that case it will be replaced by the
-            # wrapping algorithm. Other backslashes may be unnecessary (e.g., "a\` b" or "a\b"), but
-            # finding all of those is future work.
-            yield node.rawsource.replace(r"\ ", "")
-        else:
-            yield node.astext()
+        yield unescape(node, restore_backslashes=True).replace(r"\ ", "")
 
     def tgroup(
         self, node: docutils.nodes.tgroup, context: FormatContext
     ) -> line_iterator:
-
         sep = " ".join("=" * width for width in context.column_widths)
         yield sep
         for child in node.children:

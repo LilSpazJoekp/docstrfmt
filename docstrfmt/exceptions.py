@@ -15,7 +15,10 @@ class InvalidRstError(ValueError):
 
     @property
     def error_message(self) -> str:
-        return f'{self.level}: File "{self.file}"{f", line {self.line}" if self.line else ""}:\n{self.message}'
+        return (
+            f"{self.level}: File"
+            f' "{self.file}"{f", line {self.line}" if self.line else ""}:\n{self.message}'
+        )
 
     def __str__(self):
         return self.error_message
