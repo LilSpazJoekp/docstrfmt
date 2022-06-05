@@ -135,7 +135,7 @@ Instructions derived from `black documentation
 
     Note that if you are using a virtual environment detected by PyCharm, this is an
     unneeded step. In this case the path to `docstrfmt` is
-    `$PyInterpreterDirectory$/docstrfmt`.
+    ``$PyInterpreterDirectory$/docstrfmt``.
 
 3. Open External tools in PyCharm.
 
@@ -152,7 +152,7 @@ Instructions derived from `black documentation
    - Name: docstrfmt
    - Description:
    - Program: <install_location_from_step_2>
-   - Arguments: `"$FilePath$"`
+   - Arguments: ``"$FilePath$"``
 
 5. Format the currently opened file by selecting `Tools -> External Tools -> docstrfmt`.
 
@@ -170,9 +170,9 @@ Instructions derived from `black documentation
       - File type: Python
       - Scope: Project Files
       - Program: <install_location_from_step_2>
-      - Arguments: `$FilePath$`
-      - Output paths to refresh: `$FilePath$`
-      - Working directory: `$ProjectFileDir$`
+      - Arguments: ``$FilePath$``
+      - Output paths to refresh: ``$FilePath$``
+      - Working directory: ``$ProjectFileDir$``
 
    3. Uncheck "Auto-save edited files to trigger the watcher" in Advanced Options
 
