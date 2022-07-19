@@ -35,6 +35,7 @@ def test_click(bind_host, bind_port):
 
 
 @pytest.mark.parametrize("length", test_lengths)
+@pytest.mark.asyncio
 async def test_server(client, length, loop):
     rst_extras.register()
     # fill route table
