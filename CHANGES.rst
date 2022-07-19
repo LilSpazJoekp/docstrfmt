@@ -4,6 +4,9 @@ Change Log
 Unreleased
 ----------
 
+1.5.0 (2022/07/19)
+------------------
+
 **Added**
 
 - Added a flag to skip the cache.
