@@ -12,6 +12,7 @@ with open(path.join(HERE, PACKAGE_NAME, "const.py"), encoding="utf-8") as fp:
     VERSION = re.search('__version__ = "([^"]+)"', fp.read()).group(1)
 
 extras_requires = {
+    "ci": ["coveralls"],
     "d": ["aiohttp==3.*"],
     "dev": ["packaging", "pre-commit"],
     "test": ["pytest", "pytest-aiohttp"],
