@@ -922,7 +922,13 @@ class Manager:
         self.docstring_trailing_line = docstring_trailing_line
 
     def _pre_process(self, node: docutils.nodes.Node, source: str) -> None:
-        """Do some node preprocessing that is generic across node types and is therefore most convenient to do as a simple recursive function rather than as part of the big dispatcher class."""
+        """Preprocess nodes.
+
+        This does some preprocessing to all nodes that is generic across node types and
+        is therefore most convenient to do as a simple recursive function rather than as
+        part of the big dispatcher class.
+
+        """
         # Strip all system_message nodes. (Just formatting them with no markup isn't enough, since that
         # could lead to extra spaces or empty lines between other elements.)
         errors = [

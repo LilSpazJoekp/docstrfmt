@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import glob
+import logging
 import os
 import signal
 import sys
@@ -12,28 +13,21 @@ from multiprocessing import freeze_support
 from os.path import abspath, basename, isdir, join
 from pathlib import Path
 from textwrap import dedent, indent
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Iterable, List, Optional
 
 import click
 import libcst as cst
 import toml
-from black import (
-    Mode,
-    TargetVersion,
-    cancel,
-    find_pyproject_toml,
-    parse_pyproject_toml,
-    shutdown,
-)
+from black import Mode, TargetVersion, find_pyproject_toml, parse_pyproject_toml
 from click import Context
 from libcst import CSTTransformer, Expr
 from libcst.metadata import ParentNodeProvider, PositionProvider
 
-from docstrfmt.const import __version__
-from docstrfmt.debug import dump_node
-from docstrfmt.docstrfmt import Manager
-from docstrfmt.exceptions import InvalidRstErrors
-from docstrfmt.util import FileCache, plural
+from .const import __version__
+from .debug import dump_node
+from .docstrfmt import Manager
+from .exceptions import InvalidRstErrors
+from .util import FileCache, plural
 
 if TYPE_CHECKING:  # pragma: no cover
     from libcst import AssignTarget, ClassDef, FunctionDef, Module, SimpleString
@@ -56,6 +50,44 @@ DEFAULT_EXCLUDE = [
     "**/build",
     "**/dist",
 ]
+
+
+# This code is borrowed from psf/black
+# see here for license: https://github.com/psf/black/blob/master/LICENSE
+def cancel(tasks: Iterable["asyncio.Task[Any]"]) -> None:  # pragma: no cover
+    """asyncio signal handler that cancels all `tasks` and reports to stderr."""
+    reporter.error("Aborted!")
+    for task in tasks:
+        task.cancel()
+
+
+def shutdown(loop: asyncio.AbstractEventLoop) -> None:  # pragma: no cover
+    """Cancel all pending tasks on `loop`, wait for them, and close the loop."""
+    try:
+        if sys.version_info[:2] >= (3, 7):
+            all_tasks = asyncio.all_tasks
+        else:
+            all_tasks = asyncio.Task.all_tasks
+        # This part is borrowed from asyncio/runners.py in Python 3.7b2.
+        to_cancel = [task for task in all_tasks(loop) if not task.done()]
+        if not to_cancel:
+            return
+
+        for task in to_cancel:
+            task.cancel()
+        if sys.version_info >= (3, 7):
+            loop.run_until_complete(asyncio.gather(*to_cancel, return_exceptions=True))
+        else:
+            loop.run_until_complete(
+                asyncio.gather(*to_cancel, loop=loop, return_exceptions=True)
+            )
+    finally:
+        # `concurrent.futures.Future` objects cannot be cancelled once they
+        # are already running. There might be some when the `shutdown()` happened.
+        # Silence their logger's spew about the event loop being closed.
+        cf_logger = logging.getLogger("concurrent.futures")
+        cf_logger.setLevel(logging.CRITICAL)
+        loop.close()
 
 
 # Define this here to support Python <3.7.
@@ -130,6 +162,7 @@ class Visitor(CSTTransformer):
     ):
         if self._is_docstring(original_node):
             position_meta = self.get_metadata(PositionProvider, original_node)
+            old_object_type = None
             if self._last_assign:
                 self._object_names.append(self._last_assign.target.children[2].value)
                 old_object_type = copy(self._object_type)
@@ -339,7 +372,7 @@ def _format_file(
 
 
 def _parse_pyproject_config(
-    context: click.Context, param: click.Parameter, value: Optional[str]
+    context: click.Context, _: click.Parameter, value: Optional[str]
 ) -> Mode:
     if not value:
         pyproject_toml = find_pyproject_toml(tuple(context.params.get("files", (".",))))
@@ -384,7 +417,7 @@ def _parse_pyproject_config(
 
 
 def _parse_sources(
-    context: click.Context, param: click.Parameter, value: Optional[List[str]]
+    context: click.Context, _: click.Parameter, value: Optional[List[str]]
 ):
     sources = value or context.params.get("files", [])
     exclude = list(context.params.get("exclude", DEFAULT_EXCLUDE))
@@ -512,7 +545,10 @@ def _write_output(file, output, output_manager, raw):
     "-c",
     "--check",
     is_flag=True,
-    help="Check files and returns a non-zero code if files are not formatted correctly. Useful for linting. Ignored if raw-input, raw-output, stdin is used.",
+    help=(
+        "Check files and returns a non-zero code if files are not formatted correctly."
+        " Useful for linting. Ignored if raw-input, raw-output, stdin is used."
+    ),
 )
 @click.option(
     "--docstring-trailing-line/--no-docstring-trailing-line",
@@ -533,7 +569,10 @@ def _write_output(file, output, output_manager, raw):
     "--extend-exclude",
     type=str,
     multiple=True,
-    help="Path(s) to directories/files to exclude in addition to the default excludes in formatting. Supports glob patterns.",
+    help=(
+        "Path(s) to directories/files to exclude in addition to the default excludes in"
+        " formatting. Supports glob patterns."
+    ),
 )
 @click.option(
     "-t",
@@ -551,7 +590,7 @@ def _write_output(file, output, output_manager, raw):
 )
 @click.option(
     "-T",
-    "--include_txt",
+    "--include-txt",
     is_flag=True,
     help="Interpret *.txt files as reStructuredText and format them.",
 )
@@ -560,12 +599,15 @@ def _write_output(file, output, output_manager, raw):
     "--line-length",
     type=click.IntRange(4),
     default=88,
-    help="Wrap lines to the given line length where possible. Takes precedence over 'line_length' set in pyproject.toml if set.",
+    help=(
+        "Wrap lines to the given line length where possible. Takes precedence over"
+        " 'line_length' set in pyproject.toml if set."
+    ),
     show_default=True,
 )
 @click.option(
     "-p",
-    "--pyproject_config",
+    "--pyproject-config",
     "mode",
     type=click.Path(
         exists=True,
@@ -592,7 +634,13 @@ def _write_output(file, output, output_manager, raw):
     help="Format the text passed in as a string. Formatted text will be output to stdout.",
 )
 @click.option(
-    "-o", "--raw_output", is_flag=True, help="Output the formatted text to stdout."
+    "-o", "--raw-output", is_flag=True, help="Output the formatted text to stdout."
+)
+@click.option(
+    "-v",
+    "--verbose",
+    count=True,
+    help="Log debugging information about each node being formatted. Can be specified multiple times for different levels of verbosity.",
 )
 @click.option(
     "-v",
