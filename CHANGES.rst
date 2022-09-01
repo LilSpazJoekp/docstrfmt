@@ -4,6 +4,9 @@ Change Log
 Unreleased
 ----------
 
+1.5.1 (2022/09/01)
+------------------
+
 **Fixed**
 
 - Fix ``ImportError`` when importing from black. Pinned black to 22.8.*.
