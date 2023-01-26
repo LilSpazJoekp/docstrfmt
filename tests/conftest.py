@@ -30,7 +30,7 @@ def client(loop, aiohttp_client):
 
 @pytest.fixture
 def manager():
-    manager = Manager(None, black.Mode())
+    manager = Manager(None, black.Mode(), docs_path="tests/test_files/docs")
     yield manager
 
 
