@@ -1,13 +1,18 @@
 import os
 import pickle
+import sys
 import tempfile
+from functools import partial
 from pathlib import Path
 
+import click
 from docutils.parsers.rst.states import ParserError
 from docutils.utils import roman
 from platformdirs import user_cache_path
 
 from .const import __version__
+
+echo = partial(click.secho, err=True)
 
 
 class FileCache:
@@ -36,11 +41,11 @@ class FileCache:
     def get_cache_filename(self):
         docstring_trailing_line = str(self.context.params["docstring_trailing_line"])
         line_length = str(self.context.params["line_length"])
-        mode = self.context.params["mode"].get_cache_key()
+        black_config = self.context.params["black_config"].get_cache_key()
         include_txt = str(self.context.params["include_txt"])
         return (
             self.cache_dir
-            / f"cache.{'_'.join([docstring_trailing_line, line_length, mode, include_txt])}.pickle"
+            / f"cache.{'_'.join([docstring_trailing_line, line_length, black_config, include_txt])}.pickle"
         )
 
     def read_cache(self):
@@ -69,6 +74,28 @@ class FileCache:
             os.replace(f.name, cache_file)
         except OSError:  # pragma: no cover
             pass
+
+
+class Reporter:
+    def __init__(self, level=1):
+        self.level = level
+        self.error_count = 0
+
+    def _log_message(self, message, level, **formatting_kwargs):
+        if self.level >= level:
+            echo(message, **formatting_kwargs)
+            sys.stderr.flush()
+            sys.stdout.flush()
+
+    def debug(self, message, **formatting_kwargs):
+        self._log_message(message, 3, bold=False, fg="blue", **formatting_kwargs)
+
+    def error(self, message, **formatting_kwargs):
+        self._log_message(message, -1, bold=False, fg="red", **formatting_kwargs)
+
+    def print(self, message, level=0, **formatting_kwargs):
+        formatting_kwargs.setdefault("bold", level == 0)
+        self._log_message(message, level, **formatting_kwargs)
 
 
 def get_code_line(current_source, code):

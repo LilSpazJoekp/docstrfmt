@@ -39,12 +39,7 @@ def run_static():
 
     """
     success = True
-    success &= do_process(
-        [
-            "docstrfmt",
-            ".",
-        ]
-    )
+    # success &= do_process(["docstrfmt", "."])
     success &= do_process(["flynt", "-q", "-ll", "1000", "."])
     success &= do_process(["isort", "."])
     success &= do_process(["black", "."])

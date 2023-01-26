@@ -12,7 +12,7 @@ class ParseError(Exception):  # pragma: no cover
     pass
 
 
-rst_extras.register()
+log = logging.getLogger(__name__)
 
 
 async def handler(request) -> web.Response:
@@ -20,7 +20,7 @@ async def handler(request) -> web.Response:
     body = await request.text()
 
     start_time = time.perf_counter()
-    manager = Manager(logging, None)
+    manager = Manager(logging)
     try:
         try:
             text = manager.format_node(
@@ -61,6 +61,7 @@ async def handler(request) -> web.Response:
     show_default=True,
 )
 def main(bind_host, bind_port) -> None:
+    rst_extras.register()
     app = web.Application()
     app.add_routes([web.post("/", handler)])
     web.run_app(app, host=bind_host, port=bind_port)

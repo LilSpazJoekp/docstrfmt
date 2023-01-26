@@ -3,7 +3,10 @@ import re
 import string
 from collections import namedtuple
 from copy import copy
+from logging import Logger
 from math import floor
+from os import path
+from pathlib import Path
 from typing import (
     Any,
     Callable,
@@ -19,14 +22,18 @@ from typing import (
 import black
 import docutils
 from blib2to3.pgen2.tokenize import TokenError
+from docutils.core import publish_doctree
 from docutils.frontend import OptionParser
 from docutils.nodes import pending
 from docutils.parsers import rst
-from docutils.utils import Reporter, new_document, unescape
+from docutils.utils import Reporter as DocutilsReporter
+from docutils.utils import unescape
+from sphinx.io import SphinxStandaloneReader
+from sphinx.parsers import RSTParser
 
-from . import rst_extras
 from .exceptions import InvalidRstError, InvalidRstErrors
-from .util import get_code_line, make_enumerator
+from .rst_extras import SphinxLoader
+from .util import Reporter, get_code_line, make_enumerator
 
 T = TypeVar("T")
 
@@ -133,7 +140,7 @@ class CodeFormatters:
                     context.manager.reporter.error(
                         f"SyntaxError: {syntax_error.msg}:\n\nFile"
                         f' "{context.current_file}", line'
-                        f' {current_line}:\n{syntax_error.text}{" " * (syntax_error.offset-1)}^'
+                        f' {current_line}:\n{syntax_error.text}{" " * (syntax_error.offset - 1)}^'
                     )
         return code
 
@@ -223,7 +230,8 @@ class Formatters:
 
         yield from chain(sub_children)
 
-    def _prepend_if_any(self, prefix: T, items: Iterator[T]) -> Iterator[T]:
+    @staticmethod
+    def _prepend_if_any(prefix: T, items: Iterator[T]) -> Iterator[T]:
         try:
             item = next(items)
         except StopIteration:
@@ -510,9 +518,9 @@ class Formatters:
     def field_name(self, node: docutils.nodes.field_name, context) -> line_iterator:
         text = " ".join(chain(self._format_children(node, context)))
         if text.startswith(("raise", "raises")):
-            yield ":raises:"
+            yield f":raises {' '.join(text.split(' ')[1:])}:"
         elif text.startswith(("return", "returns")):
-            yield ":returns:"
+            yield f":returns {' '.join(text.split(' ')[1:])}:"
         else:
             yield f":{text}:"
 
@@ -529,8 +537,15 @@ class Formatters:
             yield from self._with_spaces(4, remaining)
 
     def footnote_reference(self, node: docutils.nodes.footnote_reference, context):
-        if node.attributes["refname"]:
+        if node.attributes.get("refname"):
             yield f"[{node.attributes['refname']}]_"
+        else:
+            yield f"[{node.resolved}]_"
+
+    def index(self, node: docutils.nodes.Node, context) -> line_iterator:
+        yield from self._chain_with_line_separator(
+            "", self._format_children(node, context)
+        )
 
     def inline(self, node: docutils.nodes.inline, context) -> inline_iterator:
         yield from chain(self._format_children(node, context))
@@ -601,6 +616,20 @@ class Formatters:
         except (AttributeError, TypeError):
             pass
         yield from self._with_spaces(4, text.splitlines())
+
+    def literal_emphasis(
+        self, node: docutils.nodes.emphasis, context
+    ) -> inline_iterator:
+        joined = "".join(chain(self._format_children(node, context))).replace(
+            "*", "\\*"
+        )
+        yield inline_markup(f"*``{joined}``*")
+
+    def literal_strong(self, node: docutils.nodes.strong, context) -> inline_iterator:
+        joined = "".join(chain(self._format_children(node, context))).replace(
+            "*", "\\*"
+        )
+        yield inline_markup(f"**``{joined}``**")
 
     def paragraph(
         self, node: docutils.nodes.paragraph, context: FormatContext
@@ -685,12 +714,12 @@ class Formatters:
             return
 
         anonymous = "target" not in attributes
-        ref = attributes["refname"]
+        ref = attributes.get("refname", "name")
         # Check whether the reference name matches the text and can be made implicit. (Reference
         # names are case-insensitive.)
         if anonymous and ref.lower() == title.lower():
             if not is_single_word:
-                title = "`" + title + "`"
+                title = f"`{title}`"
             # "x_" is equivalent to "`x <x_>`__"; it's anonymous despite having a single underscore.
             yield inline_markup(title + anonymous_suffix(False))
         else:
@@ -779,7 +808,7 @@ class Formatters:
             final_widths = [
                 max(
                     self._generate_table_matrix(context, rows, None, max_col_len),
-                    key=lambda l: l[i],
+                    key=lambda lengths: lengths[i],
                 )[i]
                 for i in range(column_count)
             ]
@@ -811,7 +840,7 @@ class Formatters:
             final_widths = [
                 max(
                     self._generate_table_matrix(context, rows, None, column_lengths),
-                    key=lambda l: l[i],
+                    key=lambda lengths: lengths[i],
                 )[i]
                 for i in range(column_count)
             ]
@@ -824,16 +853,24 @@ class Formatters:
         ]
 
     def target(self, node: docutils.nodes.target, context) -> line_iterator:
-        # if not isinstance(node.parent, (docutils.nodes.document, docutils.nodes.section)):
-        #     return
         if not node.rawsource.startswith(".. _"):
             return
         try:
             body = f" {node.attributes['refuri']}"
         except KeyError:
-            body = ""
+            if "refname" in node.attributes:
+                body = " " + node.attributes["refname"] + "_"
+            else:
+                body = ""
 
-        name = "_" if node.attributes.get("anonymous") else node.attributes["names"][0]
+        if node.attributes.get("anonymous"):
+            name = "_"
+        else:
+            names = node.attributes.get("names", [])
+            if names:
+                name = names[0]
+            else:
+                name = node.attributes.get("refid").replace("-", "_")
         yield f".. _{name}:{body}"
 
     def tbody(self, node: docutils.nodes.tbody, context) -> line_iterator:
@@ -845,6 +882,9 @@ class Formatters:
         yield " ".join(
             self._wrap_text(None, chain(self._format_children(node, context)), context)
         )
+
+    def topic(self, node: docutils.nodes.topic, context) -> line_iterator:
+        yield f".. {node.tagname}::"
 
     def Text(self, node: docutils.nodes.Text, _) -> inline_iterator:
         yield unescape(node, restore_backslashes=True).replace(r"\ ", "")
@@ -881,7 +921,7 @@ class Formatters:
         yield "----"
 
 
-class IgnoreMessagesReporter(Reporter):
+class IgnoreMessagesReporter(DocutilsReporter):
     """A Docutils error reporter that ignores some messages.
 
     We want to handle most system messages normally, but it's useful to ignore some (and
@@ -899,15 +939,21 @@ class IgnoreMessagesReporter(Reporter):
     ) -> docutils.nodes.system_message:  # pragma: no cover
         orig_level = self.halt_level
         if message in self.ignored_messages:
-            self.halt_level = Reporter.SEVERE_LEVEL + 1
+            self.halt_level = DocutilsReporter.SEVERE_LEVEL + 1
         msg = super().system_message(level, message, *children, **kwargs)
         self.halt_level = orig_level
         return msg
 
 
 class Manager:
-    def __init__(self, reporter, black_config=None, docstring_trailing_line=True):
-        rst_extras.register()
+    def __init__(
+        self,
+        reporter: Union[Reporter, Logger],
+        black_config=None,
+        docstring_trailing_line=True,
+        docs_path: Optional[str] = None,
+    ):
+        self.app = SphinxLoader(reporter, docs_path)
         self.black_config = black_config
         self.error_count = 0
         self.reporter = reporter
@@ -997,11 +1043,34 @@ class Manager:
             + "\n"
         )
 
-    def parse_string(self, file_name: str, text: str) -> docutils.nodes.document:
+    @staticmethod
+    def parse(app, text: str, docname: str = "index"):
+        """Parse a string as reStructuredText with Sphinx application."""
+        try:
+            app.env.temp_data["docname"] = docname
+            reader = SphinxStandaloneReader()
+            reader.setup(app)
+            parser = RSTParser()
+            parser.set_application(app)
+            return publish_doctree(
+                text,
+                path.join(app.srcdir, docname + ".rst"),
+                reader=reader,
+                parser=parser,
+                settings_overrides={"env": app.env, "gettext_compact": True},
+            )
+        finally:
+            app.env.temp_data.pop("docname", None)
+
+    def parse_string(self, file_name: Path, text: str) -> docutils.nodes.document:
         self.current_file = file_name
-        doc = new_document(str(self.current_file), self.settings)
-        parser = rst.Parser()
-        parser.parse(text, doc)
+        doc_name = file_name.name.split(".")[0]
+        setattr(self.settings, "env", self.app.env)
+        self.app.env.temp_data["docname"] = doc_name
+        parser = RSTParser()
+        parser.set_application(self.app)
+        # parser.parse(text, doc)
+        doc = self.parse(self.app, text, doc_name)
         doc.reporter = IgnoreMessagesReporter(
             "", self.settings.report_level, self.settings.halt_level
         )
@@ -1012,5 +1081,6 @@ class Manager:
         try:
             func = getattr(self.formatters, type(node).__name__)
         except AttributeError:  # pragma: no cover
+            # return [inline_markup(node.rawsource)]
             raise ValueError(f"Unknown node type {type(node).__name__}!")
         return func(node, context)

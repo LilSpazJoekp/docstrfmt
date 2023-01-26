@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from tests.conftest import run_test
@@ -10,4 +12,4 @@ def test_formatting(manager, length):
     file = "tests/test_files/test_file.rst"
     with open(file, encoding="utf-8") as f:
         test_string = f.read()
-    run_test(manager, file, length, test_string)
+    run_test(manager, Path(file), length, test_string)

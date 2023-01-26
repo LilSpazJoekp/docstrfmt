@@ -7,7 +7,6 @@ import signal
 import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from copy import copy
-from functools import partial
 from multiprocessing import Manager as MultiManager
 from multiprocessing import freeze_support
 from os.path import abspath, basename, isdir, join
@@ -27,12 +26,10 @@ from .const import __version__
 from .debug import dump_node
 from .docstrfmt import Manager
 from .exceptions import InvalidRstErrors
-from .util import FileCache, plural
+from .util import FileCache, Reporter, plural
 
 if TYPE_CHECKING:  # pragma: no cover
     from libcst import AssignTarget, ClassDef, FunctionDef, Module, SimpleString
-
-echo = partial(click.secho, err=True)
 
 DEFAULT_EXCLUDE = [
     "**/.direnv/",
@@ -100,28 +97,6 @@ class nullcontext(contextlib.AbstractContextManager):  # type: ignore
 
     def __exit__(self, *excinfo: Any) -> Any:
         pass
-
-
-class Reporter:
-    def __init__(self, level=1):
-        self.level = level
-        self.error_count = 0
-
-    def _log_message(self, message, level, **formatting_kwargs):
-        if self.level >= level:
-            echo(message, **formatting_kwargs)
-            sys.stderr.flush()
-            sys.stdout.flush()
-
-    def debug(self, message, **formatting_kwargs):
-        self._log_message(message, 3, bold=False, fg="blue", **formatting_kwargs)
-
-    def error(self, message, **formatting_kwargs):
-        self._log_message(message, -1, bold=False, fg="red", **formatting_kwargs)
-
-    def print(self, message, level=0, **formatting_kwargs):
-        formatting_kwargs.setdefault("bold", level == 0)
-        self._log_message(message, level, **formatting_kwargs)
 
 
 reporter = Reporter(0)
@@ -240,8 +215,7 @@ async def _run_formatter(
     file_type,
     files,
     include_txt,
-    docstring_trailing_line,
-    mode,
+    manager,
     raw_output,
     cache,
     loop,
@@ -253,7 +227,7 @@ async def _run_formatter(
     cancelled = []
     files_to_cache = []
     lock = MultiManager().Lock()
-    line_length = mode.line_length
+    line_length = manager.black_config.line_length
     misformatted_files = set()
     tasks = {
         asyncio.ensure_future(
@@ -265,8 +239,7 @@ async def _run_formatter(
                 file_type,
                 include_txt,
                 line_length,
-                mode,
-                docstring_trailing_line,
+                manager,
                 raw_output,
                 lock,
             )
@@ -313,13 +286,11 @@ def _format_file(
     file_type,
     include_txt,
     line_length,
-    mode,
-    docstring_trailing_line,
+    manager,
     raw_output,
     lock,
 ):
     error_count = 0
-    manager = Manager(reporter, mode, docstring_trailing_line)
     if file.name == "-":
         raw_output = True
     reporter.print(f"Checking {file}", 2)
@@ -556,6 +527,21 @@ def _write_output(file, output, output_manager, raw):
     help="Whether to add a blank line at the end of docstrings.",
 )
 @click.option(
+    "-d",
+    "--docs-path",
+    "docs_path",
+    type=click.Path(
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
+        allow_dash=False,
+        path_type=Path,
+    ),
+    default="docs",
+    help="Path to project docs. Used to load Sphinx and project extensions.",
+)
+@click.option(
     "-e",
     "--exclude",
     type=str,
@@ -608,7 +594,7 @@ def _write_output(file, output, output_manager, raw):
 @click.option(
     "-p",
     "--pyproject-config",
-    "mode",
+    "black_config",
     type=click.Path(
         exists=True,
         file_okay=True,
@@ -655,13 +641,14 @@ def main(
     context: Context,
     check: bool,
     docstring_trailing_line: bool,
+    docs_path: Path,
     exclude: List[str],
     extend_exclude: List[str],
     file_type: str,
     ignore_cache: bool,
     include_txt: bool,
     line_length: int,
-    mode: Mode,
+    black_config: Mode,
     quiet: bool,
     raw_input: str,
     raw_output: bool,
@@ -677,10 +664,10 @@ def main(
     misformatted_files = set()
 
     if line_length != 88:
-        mode.line_length = line_length
+        black_config.line_length = line_length
     error_count = 0
+    manager = Manager(reporter, black_config, docstring_trailing_line, str(docs_path))
     if raw_input:
-        manager = Manager(reporter, mode, docstring_trailing_line)
         file = "<raw_input>"
         check = False
         try:
@@ -709,8 +696,7 @@ def main(
                 file_type,
                 include_txt,
                 line_length,
-                mode,
-                docstring_trailing_line,
+                manager,
                 raw_output,
                 None,
             )
@@ -740,8 +726,7 @@ def main(
                     file_type,
                     files,
                     include_txt,
-                    docstring_trailing_line,
-                    mode,
+                    manager,
                     raw_output,
                     cache,
                     loop,
