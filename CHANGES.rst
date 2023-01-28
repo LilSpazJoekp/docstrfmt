@@ -13,6 +13,8 @@ Unreleased
 
 - Improved field sorting and formatting.
 - Improved handling of ``:param:`` and ``:type:`` fields.
+- Bumped minimum version of ``docutils`` to 0.19.*.
+- Bumped minimum version of ``tabulate`` to 0.9.*.
 
 **Fixed**
 
