@@ -65,6 +65,11 @@ class ExampleClass:
         :param str attr2: attr2 description.
 
         :returns: This returns something.
+        :rtype: str
+
+        :raises ValueError: This raises a ValueError.
+
+        :standard_field: Standard field
 
         """
 
@@ -74,9 +79,17 @@ class ExampleClass:
         Test method docstring description that is really really really really really
         really really long.
 
+            :standard_field: Standard field
+
         :param str attr1: attr1 description.
-        :param str attr2: attr2 description.
+        :param str attr2: Test method docstring description that is really really really
+            really really really really long.
+
+            :standard_field: Standard field, but nested
 
         :returns: This returns something.
+        :rtype: str
+
+        :raises ValueError: This raises a ValueError.
 
         """

@@ -126,9 +126,7 @@ class CodeFormatters:
                 compile(code, context.current_file, mode="exec")
             except SyntaxError as syntax_error:
                 context.manager.error_count += 1
-                with open(context.current_file, encoding="utf-8") as f:
-                    source = f.read()
-                current_line = get_code_line(source, code)
+                current_line = get_code_line(context.current_file, code, strict=True)
                 if context.manager.reporter:
                     context.manager.reporter.error(
                         f"SyntaxError: {syntax_error.msg}:\n\nFile"
@@ -422,8 +420,8 @@ class Formatters:
             sub_doc = self.manager.parse_string(
                 context.current_file, "\n".join(directive.content)
             )
-            if sub_doc.children:  # pragma: no cover
-                yield ""  # no idea how to cover this
+            if sub_doc.children:
+                yield ""
                 yield from self._with_spaces(
                     4, self.manager.perform_format(sub_doc, context.indent(4))
                 )
@@ -456,20 +454,19 @@ class Formatters:
         try:
             first_line = next(children)
         except StopIteration:
-            with open(context.current_file, encoding="utf-8") as f:
-                source = f.read()
-            line = get_code_line(source, f":{node.astext().strip()}:")
             raise InvalidRstError(
                 context.current_file,
                 "ERROR",
-                line,
+                get_code_line(
+                    context.current_file, f":{node.astext().strip()}:", strict=True
+                ),
                 f"Empty `:{node.astext().strip()}:` field. Please add a field body or"
-                " omit completely",
+                " omit completely.",
             )
         children = list(children)
         children_processed = []
         for i, child in enumerate(children):
-            if child.startswith(("..",)):
+            if child.startswith(".."):
                 blocks_in_child = [child]
                 for block in children[i + 1 :]:
                     if block.startswith("    "):
@@ -485,11 +482,6 @@ class Formatters:
             else:
                 children_processed.append(child)
         children = children_processed
-        if field_name in [":raises:", ":returns:"]:
-            if node.parent.index(node):
-                previous = node.parent.children[node.parent.children.index(node) - 1]
-                if previous.tagname == "field":
-                    yield ""
         yield f"{field_name} {first_line}"
         yield from self._with_spaces(4, children)
 
@@ -505,16 +497,119 @@ class Formatters:
         )
 
     def field_list(self, node: docutils.nodes.field_list, context) -> line_iterator:
-        yield from chain(self._format_children(node, context))
+        param_types = {}
+        param_fields = []
+        returns_fields = []
+        rtype_fields = []
+        raises_fields = []
+        other_fields = []
+        field_types_mapping = {
+            "param": param_fields,
+            "arg": param_fields,
+            "argument": param_fields,
+            "return": returns_fields,
+            "returns": returns_fields,
+            "rtype": rtype_fields,
+            "raise": raises_fields,
+            "raises": raises_fields,
+        }
+        already_typed = []
+        children = node.children
+        for child in children[:]:
+            field_body = child.children[0].children[0]
+            field_typing = None
+            try:
+                field_kind, *field_typing, field_name = field_body.split(" ")
+            except ValueError:
+                field_name = None
+                field_kind = field_body
+            child.children[0].setdefault("name", field_name)
+            if field_kind == "type":
+                field_type = child.children[1].children[0].astext()
+                if "\n" in field_type:
+                    raise InvalidRstError(
+                        context.current_file,
+                        "ERROR",
+                        get_code_line(context.current_file, field_type),
+                        "Multi-line type hints are not supported.",
+                    )
+                param_types[field_name] = field_type
+                node.remove(child)
+                continue
+            if field_typing:
+                already_typed.append(field_name)
+            if field_kind in field_types_mapping:
+                if field_kind.startswith("return") and returns_fields:
+                    raise InvalidRstError(
+                        context.current_file,
+                        "ERROR",
+                        get_code_line(context.current_file, child.astext()),
+                        "Multiple `:return:` fields are not allowed. Please"
+                        " combine them into one.",
+                    )
+                field_types_mapping[field_kind].append(child)
+            else:
+                other_fields.append(child)
+        for field in param_fields:
+            field_name = field.children[0].get("name")
+            if field_name in already_typed and field_name in param_types:
+                raise InvalidRstError(
+                    context.current_file,
+                    "ERROR",
+                    get_code_line(context.current_file, field.astext()),
+                    "Type hint is specified both in the field body and in the"
+                    " `:type:` field. Please remove one of them.",
+                )
+            else:
+                field_typing = param_types.get(field_name, None)
+                if field_typing:
+                    field.children[0].replace_self(
+                        docutils.nodes.field_name(
+                            "", f"param {field_typing} {field_name}"
+                        )
+                    )
+        yield from chain(
+            self.manager.perform_format(child, context) for child in param_fields
+        )
+        yield from self._prepend_if_any(
+            "",
+            chain(
+                self.manager.perform_format(child, context)
+                for child in returns_fields + rtype_fields
+            ),
+        )
+        yield from self._prepend_if_any(
+            "",
+            chain(
+                self.manager.perform_format(child, context) for child in raises_fields
+            ),
+        )
+        if (
+            other_fields
+            and param_fields + returns_fields + rtype_fields + raises_fields
+        ):
+            yield ""
+        yield from chain(
+            self.manager.perform_format(child, context) for child in other_fields
+        )
 
     def field_name(self, node: docutils.nodes.field_name, context) -> line_iterator:
         text = " ".join(chain(self._format_children(node, context)))
-        if text.startswith(("raise", "raises")):
-            yield ":raises:"
-        elif text.startswith(("return", "returns")):
-            yield ":returns:"
-        else:
-            yield f":{text}:"
+        body = ":"
+        field_kinds = [
+            ("param", "arg"),
+            "raise",
+            "return",
+        ]
+        for field_kind in field_kinds:
+            if text.startswith(field_kind):
+                field_kind, *_ = text.split(" ", maxsplit=1)
+                body += field_kind
+                text = text[len(field_kind) :]
+                break
+        body += text
+        body += ":"
+        yield body
 
     def footnote(self, node: docutils.nodes.footnote_reference, context):
         prefix = ".."
@@ -658,8 +753,8 @@ class Formatters:
             yield inline_markup(title + anonymous_suffix(anonymous))
             return
 
-        # Handle references to external URIs. They can be either standalone hyperlinks, written as
-        # just the URI, or an explicit "`text <url>`_" or "`text <url>`__".
+        # Handle references to external URIs. They can be either standalone hyperlinks,
+        # written as just the URI, or an explicit "`text <url>`_" or "`text <url>`__".
         if "refuri" in attributes:
             uri = attributes["refuri"]
             if uri == title or uri == "mailto:" + title:
@@ -669,15 +764,16 @@ class Formatters:
                 yield inline_markup(f"`{title} <{uri}>`{anonymous_suffix(anonymous)}")
             return
 
-        # Simple reference names can consist of "alphanumerics plus isolated (no two adjacent)
-        # internal hyphens, underscores, periods, colons and plus signs", according to
+        # Simple reference names can consist of "alphanumerics plus isolated (no two
+        # adjacent) internal hyphens, underscores, periods, colons and plus signs",
+        # according to
         # https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#reference-names.
         is_single_word = re.match("^[-_.:+a-zA-Z0-9]+$", title) and not re.search(
             "[-_.:+][-_.:+]", title
         )
 
-        # "x__" is one of the few cases to trigger an explicit "anonymous" attribute (the other
-        # being the similar "|x|__", which is already handled above).
+        # "x__" is one of the few cases to trigger an explicit "anonymous" attribute
+        # (the other being the similar "|x|__", which is already handled above).
         if "anonymous" in attributes:
             if not is_single_word:
                 title = "`" + title + "`"
@@ -686,12 +782,13 @@ class Formatters:
 
         anonymous = "target" not in attributes
         ref = attributes["refname"]
-        # Check whether the reference name matches the text and can be made implicit. (Reference
-        # names are case-insensitive.)
+        # Check whether the reference name matches the text and can be made implicit.
+        # (Reference names are case-insensitive.)
         if anonymous and ref.lower() == title.lower():
             if not is_single_word:
                 title = "`" + title + "`"
-            # "x_" is equivalent to "`x <x_>`__"; it's anonymous despite having a single underscore.
+            # "x_" is equivalent to "`x <x_>`__"; it's anonymous despite having a single
+            # underscore.
             yield inline_markup(title + anonymous_suffix(False))
         else:
             yield inline_markup(f"`{title} <{ref}_>`{anonymous_suffix(anonymous)}")
@@ -748,9 +845,9 @@ class Formatters:
 
     def table(self, node: docutils.nodes.table, context) -> line_iterator:
         rows = []
-        for row in node.traverse(docutils.nodes.row):
+        for row in node.findall(docutils.nodes.row):
             current_row = []
-            for column in row.traverse(docutils.nodes.entry):
+            for column in row.findall(docutils.nodes.entry):
                 if column.attributes.get("morerows", False) or column.attributes.get(
                     "morecols", False
                 ):
@@ -779,7 +876,7 @@ class Formatters:
             final_widths = [
                 max(
                     self._generate_table_matrix(context, rows, None, max_col_len),
-                    key=lambda l: l[i],
+                    key=lambda lengths: lengths[i],
                 )[i]
                 for i in range(column_count)
             ]
@@ -811,7 +908,7 @@ class Formatters:
             final_widths = [
                 max(
                     self._generate_table_matrix(context, rows, None, column_lengths),
-                    key=lambda l: l[i],
+                    key=lambda lengths: lengths[i],
                 )[i]
                 for i in range(column_count)
             ]
@@ -831,7 +928,11 @@ class Formatters:
         try:
             body = f" {node.attributes['refuri']}"
         except KeyError:
-            body = ""
+            body = (
+                f" {node.attributes['refname']}_"
+                if "refname" in node.attributes
+                else ""
+            )
 
         name = "_" if node.attributes.get("anonymous") else node.attributes["names"][0]
         yield f".. _{name}:{body}"

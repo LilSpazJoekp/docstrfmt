@@ -71,17 +71,23 @@ class FileCache:
             pass
 
 
-def get_code_line(current_source, code):
-    lines = current_source.splitlines()
+def get_code_line(current_file, code, strict=False):
+    with open(current_file, encoding="utf-8") as f:
+        source = f.read()
+    lines = source.splitlines()
     code_lines = code.splitlines()
     multiple = len([line for line in lines if code_lines[0] in line]) > 1
     for line_number, line in enumerate(lines, 1):
-        if line.endswith(code_lines[0]):
+        if line.endswith(code_lines[0]) if strict else code_lines[0] in line:
             if multiple:
                 current_offset = 0
                 for offset, sub_line in enumerate(code_lines):
                     current_offset = offset
-                    if not lines[line_number - 1 + offset].endswith(sub_line):
+                    if not (
+                        lines[line_number - 1 + offset].endswith(sub_line)
+                        if strict
+                        else sub_line in lines[line_number - 1 + offset]
+                    ):
                         break
                 else:
                     return line_number + current_offset

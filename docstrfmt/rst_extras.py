@@ -18,6 +18,7 @@ from sphinx.directives import code, other
 from sphinx.domains import c, cpp, python  # noqa: F401
 from sphinx.domains.python import PyCurrentModule, PyFunction
 from sphinx.ext import autodoc, autosummary
+from sphinx.roles import generic_docroles, specific_docroles
 
 T = TypeVar("T")
 
@@ -113,9 +114,11 @@ def register() -> None:
                 roles.register_canonical_role(name, ReferenceRole())
                 roles.register_canonical_role(f"{domain.name}:{name}", ReferenceRole())
 
-    # `list-table` directives are parsed into table nodes by default and could be formatted as such,
-    # but that's vulnerable to producing malformed tables when the given column widths are too
-    # small.
+    for name, nodeclass in generic_docroles.items():
+        roles.register_local_role(name, generic_role)  # type: ignore
+
+    for name, func in specific_docroles.items():
+        roles.register_local_role(name, generic_role)
 
     # docutils directives
     _add_directive("contents", parts.Contents)
@@ -123,6 +126,8 @@ def register() -> None:
     _add_directive("image", images.Image)
     _add_directive("include", misc.Include)
     _add_directive("list-table", tables.ListTable, raw=False)
+    _add_directive("csv-table", tables.CSVTable, raw=False)
+    _add_directive("rst-table", tables.RSTTable, raw=False)
     _add_directive("math", body.MathBlock)
     _add_directive("raw", misc.Raw)
 
