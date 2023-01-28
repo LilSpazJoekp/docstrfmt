@@ -876,7 +876,7 @@ class Formatters:
             final_widths = [
                 max(
                     self._generate_table_matrix(context, rows, None, max_col_len),
-                    key=lambda l: l[i],
+                    key=lambda lengths: lengths[i],
                 )[i]
                 for i in range(column_count)
             ]
@@ -908,7 +908,7 @@ class Formatters:
             final_widths = [
                 max(
                     self._generate_table_matrix(context, rows, None, column_lengths),
-                    key=lambda l: l[i],
+                    key=lambda lengths: lengths[i],
                 )[i]
                 for i in range(column_count)
             ]

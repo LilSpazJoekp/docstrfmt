@@ -16,5 +16,5 @@ def _dump_lines(node: docutils.nodes.Node) -> Iterator[Tuple[int, str]]:
         body = str({k: v for k, v in node.attributes.items() if v})
     yield 0, f"{head} {body}"
     for c in node.children:
-        for n, l in _dump_lines(c):
-            yield n + 1, l
+        for n, line in _dump_lines(c):
+            yield n + 1, line
