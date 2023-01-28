@@ -4,6 +4,10 @@ Change Log
 Unreleased
 ----------
 
+**Added**
+
+- Added more missing roles.
+
 **Changed**
 
 - Improved field sorting and formatting.

@@ -617,6 +617,34 @@ Comments
     (Trailing spaces are still removed, since that happens early in the
     reST parser.)
 
+Extras
+------
+
+- :any:`any`
+- :command:`command`
+- :dfn:`dfn`
+- :doc:`doc`
+- :envvar:`envvar`
+- :file:`file`
+- :guilabel:`guilabel`
+- :kbd:`kbd`
+- :keyword:`keyword`
+- :mailheader:`mailheader`
+- :makevar:`makevar`
+- :manpage:`manpage`
+- :math:`math`
+- :menuselection:`menuselection`
+- :mimetype:`mimetype`
+- :newsgroup:`newsgroup`
+- :option:`option`
+- :PEP:`pep`
+- :program:`program`
+- :ref:`ref`
+- :regexp:`(r|re)|regexp`
+- :RFC:`rfc`
+- :samp:`samp`
+- :term:`term`
+
 What Next?
 ----------
 
