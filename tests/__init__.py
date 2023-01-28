@@ -35,7 +35,6 @@ def node_eq(node1, node2):
 
     if isinstance(node1, docutils.nodes.literal_block):
         if "python" in node1["classes"]:
-
             # Check that either the outputs are equal or both calls to Black fail to parse.
             t1 = t2 = object()
             try:

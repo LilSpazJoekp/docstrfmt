@@ -144,7 +144,47 @@ def test_invalid_blank_return_py(runner):
     assert result.exit_code == 1
     assert result.output.startswith(
         f'InvalidRstError: ERROR: File "{os.path.abspath(file)}", line 67:\nEmpty'
-        " `:returns:` field. Please add a field body or omit completely"
+        " `:returns:` field. Please add a field body or omit completely."
+    )
+    assert result.output.endswith(
+        "1 file were checked.\nDone, but 1 error occurred ❌💥❌\n"
+    )
+
+
+def test_invalid_duplicate_returns_py(runner):
+    file = "tests/test_files/error_files/py_file_error_duplicate_returns.py"
+    result = runner.invoke(main, args=[file])
+    assert result.exit_code == 1
+    assert result.output.startswith(
+        f'InvalidRstError: ERROR: File "{os.path.abspath(file)}", line 10:\nMultiple'
+        " `:return:` fields are not allowed. Please combine them into one."
+    )
+    assert result.output.endswith(
+        "1 file were checked.\nDone, but 1 error occurred ❌💥❌\n"
+    )
+
+
+def test_invalid_duplicate_types_py(runner):
+    file = "tests/test_files/error_files/py_file_error_duplicate_types.py"
+    result = runner.invoke(main, args=[file])
+    assert result.exit_code == 1
+    assert result.output.startswith(
+        f'InvalidRstError: ERROR: File "{os.path.abspath(file)}", line 8:\nType hint '
+        "is specified both in the field body and in the `:type:` field. Please remove"
+        " one of them."
+    )
+    assert result.output.endswith(
+        "1 file were checked.\nDone, but 1 error occurred ❌💥❌\n"
+    )
+
+
+def test_invalid_multiline_types_py(runner):
+    file = "tests/test_files/error_files/py_file_error_multiline_types.py"
+    result = runner.invoke(main, args=[file])
+    assert result.exit_code == 1
+    assert result.output.startswith(
+        f'InvalidRstError: ERROR: File "{os.path.abspath(file)}", line 10:\nMulti-line'
+        " type hints are not supported."
     )
     assert result.output.endswith(
         "1 file were checked.\nDone, but 1 error occurred ❌💥❌\n"
@@ -156,7 +196,7 @@ def test_invalid_code_block_rst(runner):
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
     assert result.output.startswith(
-        f'{"SyntaxError: unterminated string literal (detected at line 1)" if sys.version_info >= (3,10,0) else "SyntaxError: EOL while scanning string literal"}:\n\nFile'
+        f'{"SyntaxError: unterminated string literal (detected at line 1)" if sys.version_info >= (3, 10, 0) else "SyntaxError: EOL while scanning string literal"}:\n\nFile'
         f' "{os.path.abspath(file)}", line 3:'
     )
     assert result.output.endswith(
@@ -168,9 +208,12 @@ def test_invalid_code_block_py(runner):
     file = "tests/test_files/error_files/py_file_error_bad_codeblock.py"
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
+    if sys.version_info >= (3, 10, 0):
+        error = "SyntaxError: unterminated string literal (detected at line 2)"
+    else:
+        error = "SyntaxError: EOL while scanning string literal"
     assert result.output.startswith(
-        f'{"SyntaxError: unterminated string literal (detected at line 2)" if sys.version_info >= (3,10,0) else "SyntaxError: EOL while scanning string literal"}:\n\nFile'
-        f' "{os.path.abspath(file)}", line 44:'
+        f'{error}:\n\nFile "{os.path.abspath(file)}", line 44:'
     )
     assert result.output.endswith(
         "1 file were checked.\nDone, but 2 errors occurred ❌💥❌\n"
@@ -428,9 +471,11 @@ def test_verbose(runner, verbose, file):
         ]
     results.append(
         (
-            "Checking"
-            f" {file_path}\n============================================================\n-"
-            " document",
+            (
+                "Checking"
+                f" {file_path}\n============================================================\n-"
+                " document"
+            ),
             suffix,
         )
     )
@@ -458,3 +503,19 @@ def test_newline_preserved(runner, tmp_path, file, newline):
     with open(test_file_path, encoding="utf-8") as output_file:
         output_file.read()
         assert output_file.newlines == newline
+
+
+def test_type_replaced(runner, tmp_path):
+    file = "tests/test_files/error_files/py_file_type_field_removal.py"
+    args = ["-o", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert (
+        result.output
+        == '"""This is an example python file"""\n\n\nclass ExampleClass:\n    def'
+        ' __init__(self, *args, **kwargs):\n        """First doc str\n\n       '
+        " :param list args: Args\n        :param dict kwargs: Kwargs but with a"
+        " really long description that will need to\n            be rewrapped"
+        " because it is really long and won't fit in the default 88\n           "
+        ' characters.\n\n        :returns: Returns\n\n        """\n'
+    )

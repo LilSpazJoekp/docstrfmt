@@ -4,6 +4,15 @@ Change Log
 Unreleased
 ----------
 
+**Changed**
+
+- Improved field sorting and formatting.
+- Improved handling of ``:param:`` and ``:type:`` fields.
+
+**Fixed**
+
+- Fix ``:raises:`` field not supporting types.
+
 1.5.1 (2022/09/01)
 ------------------
 

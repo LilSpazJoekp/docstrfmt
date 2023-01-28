@@ -195,14 +195,16 @@ class Visitor(CSTTransformer):
                 correct_ending = int(self._blank_line) + 1 == end_line_count
             if source == output and correct_ending:
                 reporter.print(
-                    f"Docstring for {object_display_name} in file {str(self.file)!r} is formatted correctly. Nice!",
+                    f"Docstring for {object_display_name} in file {str(self.file)!r} is"
+                    " formatted correctly. Nice!",
                     1,
                 )
             else:
                 self.misformatted = True
                 file_link = f'File "{self.file}"'
                 reporter.print(
-                    f"Found incorrectly formatted docstring. Docstring for {object_display_name} in {file_link}.",
+                    "Found incorrectly formatted docstring. Docstring for"
+                    f" {object_display_name} in {file_link}.",
                     1,
                 )
                 value = indent(
@@ -561,7 +563,9 @@ def _write_output(file, output, output_manager, raw):
     type=str,
     multiple=True,
     default=DEFAULT_EXCLUDE,
-    help="Path(s) to directories/files to exclude in formatting. Supports glob patterns.",
+    help=(
+        "Path(s) to directories/files to exclude in formatting. Supports glob patterns."
+    ),
     show_default=True,
 )
 @click.option(
@@ -625,13 +629,19 @@ def _write_output(file, output, output_manager, raw):
     "-q",
     "--quiet",
     is_flag=True,
-    help="Don't emit non-error messages to stderr. Errors are still emitted; silence those with 2>/dev/null. Overrides --verbose.",
+    help=(
+        "Don't emit non-error messages to stderr. Errors are still emitted; silence"
+        " those with 2>/dev/null. Overrides --verbose."
+    ),
 )
 @click.option(
     "-r",
     "--raw-input",
     type=str,
-    help="Format the text passed in as a string. Formatted text will be output to stdout.",
+    help=(
+        "Format the text passed in as a string. Formatted text will be output to"
+        " stdout."
+    ),
 )
 @click.option(
     "-o", "--raw-output", is_flag=True, help="Output the formatted text to stdout."
@@ -640,13 +650,19 @@ def _write_output(file, output, output_manager, raw):
     "-v",
     "--verbose",
     count=True,
-    help="Log debugging information about each node being formatted. Can be specified multiple times for different levels of verbosity.",
+    help=(
+        "Log debugging information about each node being formatted. Can be specified"
+        " multiple times for different levels of verbosity."
+    ),
 )
 @click.option(
     "-v",
     "--verbose",
     count=True,
-    help="Log debugging information about each node being formatted. Can be specified multiple times for different levels of verbosity.",
+    help=(
+        "Log debugging information about each node being formatted. Can be specified"
+        " multiple times for different levels of verbosity."
+    ),
 )
 @click.version_option(version=__version__)
 @click.argument("files", nargs=-1, type=str, callback=_parse_sources)
@@ -755,11 +771,13 @@ def main(
     if misformatted_files and not raw_output:
         if check:
             reporter.print(
-                f"{len(misformatted_files)} out of {plural('file', len(files))} could be reformatted."
+                f"{len(misformatted_files)} out of {plural('file', len(files))} could"
+                " be reformatted."
             )
         else:
             reporter.print(
-                f"{len(misformatted_files)} out of {plural('file', len(files))} were reformatted."
+                f"{len(misformatted_files)} out of {plural('file', len(files))} were"
+                " reformatted."
             )
     elif not raw_output:
         reporter.print(f"{plural('file', len(files))} were checked.")
