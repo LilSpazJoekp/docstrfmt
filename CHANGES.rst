@@ -7,6 +7,7 @@ Unreleased
 **Added**
 
 - Added more missing roles.
+- Added support for Python 3.11.
 
 **Changed**
 
@@ -16,6 +17,10 @@ Unreleased
 **Fixed**
 
 - Fix ``:raises:`` field not supporting types.
+
+**Removed**
+
+- Removed support for Python 3.6.
 
 1.5.1 (2022/09/01)
 ------------------
