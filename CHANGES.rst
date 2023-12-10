@@ -8,13 +8,14 @@ Unreleased
 
 - Added more missing roles.
 - Added support for Python 3.11.
+- Added support for Python 3.12.
 
 **Changed**
 
 - Improved field sorting and formatting.
 - Improved handling of ``:param:`` and ``:type:`` fields.
-- Bumped minimum version of ``docutils`` to 0.19.*.
-- Bumped minimum version of ``tabulate`` to 0.9.*.
+- Bumped ``black``, ``docutils``, ``libcst``, ``platformdirs``, and ``sphinx`` to latest
+  versions.
 
 **Fixed**
 
@@ -23,6 +24,7 @@ Unreleased
 **Removed**
 
 - Removed support for Python 3.6.
+- Removed support for Python 3.7.
 
 1.5.1 (2022/09/01)
 ------------------
