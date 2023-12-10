@@ -640,7 +640,7 @@ class Formatters:
 
         indent = 4 * context.line_block_depth
         context = context.indent(indent)
-        prefix1 = "|" + " " * (indent - 1)
+        prefix1 = f"|{' ' * (indent - 1)}"
         prefix2 = " " * indent
         for first, line in self._enum_first(
             self._wrap_text(
@@ -663,7 +663,7 @@ class Formatters:
                 )
                 context.current_ordinal += 1
         width = len(context.bullet) + 1
-        bullet = context.bullet + " "
+        bullet = f"{context.bullet} "
         spaces = " " * width
         context = context.indent(width)
         context.bullet = ""
@@ -757,7 +757,7 @@ class Formatters:
         # written as just the URI, or an explicit "`text <url>`_" or "`text <url>`__".
         if "refuri" in attributes:
             uri = attributes["refuri"]
-            if uri == title or uri == "mailto:" + title:
+            if uri == title or uri == f"mailto:{title}":
                 yield inline_markup(title)
             else:
                 anonymous = "target" not in attributes
@@ -776,7 +776,7 @@ class Formatters:
         # (the other being the similar "|x|__", which is already handled above).
         if "anonymous" in attributes:
             if not is_single_word:
-                title = "`" + title + "`"
+                title = f"`{title}`"
             yield inline_markup(title + anonymous_suffix(True))
             return
 
@@ -786,7 +786,7 @@ class Formatters:
         # (Reference names are case-insensitive.)
         if anonymous and ref.lower() == title.lower():
             if not is_single_word:
-                title = "`" + title + "`"
+                title = f"`{title}`"
             # "x_" is equivalent to "`x <x_>`__"; it's anonymous despite having a single
             # underscore.
             yield inline_markup(title + anonymous_suffix(False))
@@ -1082,21 +1082,19 @@ class Manager:
             self._pre_process(child, source)
 
     def format_node(self, width, node: docutils.nodes.Node, is_docstring=False) -> str:
-        return (
-            "\n".join(
-                self.perform_format(
-                    node,
-                    FormatContext(
-                        width,
-                        current_file=self.current_file,
-                        manager=self,
-                        black_config=self.black_config,
-                        is_docstring=is_docstring,
-                    ),
-                )
+        formatted_node = "\n".join(
+            self.perform_format(
+                node,
+                FormatContext(
+                    width,
+                    current_file=self.current_file,
+                    manager=self,
+                    black_config=self.black_config,
+                    is_docstring=is_docstring,
+                ),
             )
-            + "\n"
         )
+        return f"{formatted_node}\n"
 
     def parse_string(self, file_name: str, text: str) -> docutils.nodes.document:
         self.current_file = file_name

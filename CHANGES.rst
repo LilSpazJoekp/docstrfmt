@@ -8,6 +8,7 @@ Unreleased
 
 - Added more missing roles.
 - Added support for Python 3.11.
+- Added support for Python 3.12.
 
 **Changed**
 
