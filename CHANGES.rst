@@ -23,6 +23,7 @@ Unreleased
 **Removed**
 
 - Removed support for Python 3.6.
+- Removed support for Python 3.7.
 
 1.5.1 (2022/09/01)
 ------------------
