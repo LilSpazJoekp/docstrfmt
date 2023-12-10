@@ -131,7 +131,7 @@ class CodeFormatters:
                     context.manager.reporter.error(
                         f"SyntaxError: {syntax_error.msg}:\n\nFile"
                         f' "{context.current_file}", line'
-                        f' {current_line}:\n{syntax_error.text}{" " * (syntax_error.offset-1)}^'
+                        f' {current_line}:\n{syntax_error.text}{" " * (syntax_error.offset - 1)}^'
                     )
         return code
 

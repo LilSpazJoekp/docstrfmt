@@ -93,3 +93,7 @@ class ExampleClass:
         :raises ValueError: This raises a ValueError.
 
         """
+        my_position, im_active = 1, True
+        match my_position, im_active:
+            case [1, True]:
+                print("Hello world")
