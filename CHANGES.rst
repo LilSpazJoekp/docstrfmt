@@ -4,6 +4,9 @@ Change Log
 Unreleased
 ----------
 
+1.6.0 (2023/12/10)
+------------------
+
 **Added**
 
 - Added more missing roles.
