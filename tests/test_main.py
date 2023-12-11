@@ -513,9 +513,10 @@ def test_type_replaced(runner, tmp_path):
     assert (
         result.output
         == '"""This is an example python file"""\n\n\nclass ExampleClass:\n    def'
-        ' __init__(self, *args, **kwargs):\n        """First doc str\n\n       '
-        " :param list args: Args\n        :param dict kwargs: Kwargs but with a"
-        " really long description that will need to\n            be rewrapped"
-        " because it is really long and won't fit in the default 88\n           "
-        ' characters.\n\n        :returns: Returns\n\n        """\n'
+        ' __init__(self, arg, *args, **kwargs):\n        """First doc str\n\n       '
+        " :param arg: Arg\n        :param list args: Args\n        :param dict kwargs:"
+        " Kwargs but with a really long description that will need to\n            be"
+        " rewrapped because it is really long and won't fit in the default 88\n"
+        "            characters.\n\n        :returns: Returns\n\n        :var str arg:"
+        ' Arg\n\n        """\n'
     )

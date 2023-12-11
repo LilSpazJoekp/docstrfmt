@@ -497,34 +497,59 @@ class Formatters:
         )
 
     def field_list(self, node: docutils.nodes.field_list, context) -> line_iterator:
-        param_types = {}
         param_fields = []
+        param_types = {}
+        var_fields = []
+        var_types = {}
         returns_fields = []
         rtype_fields = []
         raises_fields = []
         other_fields = []
         field_types_mapping = {
             "param": param_fields,
-            "arg": param_fields,
-            "argument": param_fields,
-            "return": returns_fields,
+            "var": var_fields,
             "returns": returns_fields,
             "rtype": rtype_fields,
-            "raise": raises_fields,
             "raises": raises_fields,
+        }
+        field_name_mapping = {
+            "arg": "param",
+            "argument": "param",
+            "key": "param",
+            "keyword": "param",
+            "param": "param",
+            "parameter": "param",
+            "return": "returns",
+            "returns": "returns",
+            "except": "raises",
+            "exception": "raises",
+            "raise": "raises",
+            "raises": "raises",
+            "cvar": "var",
+            "ivar": "var",
+            "var": "var",
         }
         already_typed = []
         children = node.children
         for child in children[:]:
             field_body = child.children[0].children[0]
-            field_typing = None
             try:
                 field_kind, *field_typing, field_name = field_body.split(" ")
             except ValueError:
+                field_kind = field_body.split(" ")[0]
+                field_typing = []
                 field_name = None
-                field_kind = field_body
+            new_field_kind = field_name_mapping.get(field_kind, field_kind)
+            if field_kind != new_field_kind:
+                to_join = [new_field_kind, *field_typing]
+                if field_name:
+                    to_join.append(field_name)
+                child.children[0].replace_self(
+                    docutils.nodes.field_name("", " ".join(to_join))
+                )
+                field_kind = new_field_kind
             child.children[0].setdefault("name", field_name)
-            if field_kind == "type":
+            if field_kind in ["type", "vartype"]:
                 field_type = child.children[1].children[0].astext()
                 if "\n" in field_type:
                     raise InvalidRstError(
@@ -533,7 +558,10 @@ class Formatters:
                         get_code_line(context.current_file, field_type),
                         "Multi-line type hints are not supported.",
                     )
-                param_types[field_name] = field_type
+                if field_kind == "type":
+                    param_types[field_name] = field_type
+                if field_kind == "vartype":
+                    var_types[field_name] = field_type
                 node.remove(child)
                 continue
             if field_typing:
@@ -550,44 +578,59 @@ class Formatters:
                 field_types_mapping[field_kind].append(child)
             else:
                 other_fields.append(child)
-        for field in param_fields:
-            field_name = field.children[0].get("name")
-            if field_name in already_typed and field_name in param_types:
-                raise InvalidRstError(
-                    context.current_file,
-                    "ERROR",
-                    get_code_line(context.current_file, field.astext()),
-                    "Type hint is specified both in the field body and in the"
-                    " `:type:` field. Please remove one of them.",
-                )
-            else:
-                field_typing = param_types.get(field_name, None)
-                if field_typing:
-                    field.children[0].replace_self(
-                        docutils.nodes.field_name(
-                            "", f"param {field_typing} {field_name}"
-                        )
+        for fields, types, type_field_name, field_type in [
+            (param_fields, param_types, "type", "param"),
+            (var_fields, var_types, "vartype", "var"),
+        ]:
+            for field in fields:
+                field_name = field.children[0].get("name")
+                if field_name in already_typed and field_name in types:
+                    raise InvalidRstError(
+                        context.current_file,
+                        "ERROR",
+                        get_code_line(context.current_file, field.astext()),
+                        "Type hint is specified both in the field body and in the"
+                        f" `:{type_field_name}:` field. Please remove one of them.",
                     )
+                else:
+                    field_typing = types.get(field_name, [])
+                    if field_typing:
+                        field.children[0].replace_self(
+                            docutils.nodes.field_name(
+                                "", f"{field_type} {field_typing} {field_name}"
+                            )
+                        )
         yield from chain(
             self.manager.perform_format(child, context) for child in param_fields
         )
-        yield from self._prepend_if_any(
-            "",
-            chain(
-                self.manager.perform_format(child, context)
-                for child in returns_fields + rtype_fields
-            ),
-        )
-        yield from self._prepend_if_any(
-            "",
-            chain(
-                self.manager.perform_format(child, context) for child in raises_fields
-            ),
-        )
+        previous_fields = param_fields
         if (
-            other_fields
-            and param_fields + returns_fields + rtype_fields + raises_fields
+            previous_fields
+            and returns_fields
+            + rtype_fields
+            + raises_fields
+            + var_fields
+            + other_fields
         ):
+            yield ""
+        yield from chain(
+            self.manager.perform_format(child, context)
+            for child in returns_fields + rtype_fields
+        )
+        previous_fields = returns_fields + rtype_fields
+        if previous_fields and raises_fields + var_fields + other_fields:
+            yield ""
+        yield from chain(
+            self.manager.perform_format(child, context) for child in raises_fields
+        )
+        previous_fields = raises_fields
+        if previous_fields and var_fields + other_fields:
+            yield ""
+        yield from chain(
+            self.manager.perform_format(child, context) for child in var_fields
+        )
+        previous_fields = var_fields
+        if previous_fields and other_fields:
             yield ""
         yield from chain(
             self.manager.perform_format(child, context) for child in other_fields
@@ -597,7 +640,7 @@ class Formatters:
         text = " ".join(chain(self._format_children(node, context)))
         body = ":"
         field_kinds = [
-            ("param", "arg"),
+            "param",
             "raise",
             "return",
         ]
