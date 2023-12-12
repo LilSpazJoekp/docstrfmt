@@ -2,9 +2,10 @@
 
 
 class ExampleClass:
-    def __init__(self, *args, **kwargs):
+    def __init__(self, arg, *args, **kwargs):
         """First doc str
 
+        :parameter arg: Arg
         :type kwargs: dict
         :param args: Args
         :param kwargs: Kwargs but with a really long description that will need to be
@@ -12,5 +13,8 @@ class ExampleClass:
             characters.
         :returns: Returns
         :type args: list
+
+        :var arg: Arg
+        :vartype arg: str
 
         """

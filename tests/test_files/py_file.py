@@ -69,6 +69,8 @@ class ExampleClass:
 
         :raises ValueError: This raises a ValueError.
 
+        :var attr1: attr1 description.
+
         :standard_field: Standard field
 
         """
