@@ -4,6 +4,9 @@ Change Log
 Unreleased
 ----------
 
+1.6.1 (2023/12/12)
+------------------
+
 **Fixed**
 
 - Fix incorrect blank line padding around ``:returns:`` and ``:raises:`` fields.
