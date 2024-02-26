@@ -23,7 +23,7 @@ docstrfmt: a formatter for Sphinx flavored reStructuredText
 
 .. image:: https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg
     :alt: Contributor Covenant
-    :target: https://github.com/ilSpazJoekp/docstrfmt/blob/master/CODE_OF_CONDUCT.md
+    :target: https://github.com/LilSpazJoekp/docstrfmt/blob/master/CODE_OF_CONDUCT.md
 
 *Strongly inspired by* rstfmt_ and rustfmt_.
 
