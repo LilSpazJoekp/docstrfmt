@@ -133,9 +133,11 @@ def register() -> None:
 
     # sphinx directives
     _add_directive("autosummary", autosummary.Autosummary)
+    _add_directive("code-block", code.CodeBlock)
     _add_directive("currentmodule", PyCurrentModule)
     _add_directive("deprecated", other.VersionChange, raw=False)
     _add_directive("function", PyFunction)
+    _add_directive("highlight", code.Highlight)
     _add_directive("literalinclude", code.LiteralInclude)
     _add_directive("py:function", PyFunction)
     _add_directive("rst-class", other.Class)
