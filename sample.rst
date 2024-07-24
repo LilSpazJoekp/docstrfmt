@@ -109,6 +109,9 @@ Python code blocks are formatted with Black_ and Go ones with gofmt_ (if it's fo
 ``PATH``).
 
 .. code-block:: python
+    :caption: An example of code-block options
+    :linenos:
+    :emphasize-lines: 2,4,5
 
     x = [
         "here are some items",

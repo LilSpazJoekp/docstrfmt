@@ -254,8 +254,8 @@ Results in:
     This is preformatted text, and the
     last "::" paragraph is removed
 
-Code blocks can have additional options to add a caption, insert line 
-numbers, emphasize specific lines, and more. 
+Code blocks can have additional options to add a caption, insert line numbers, emphasize
+specific lines, and more.
 
 .. code-block::
 
@@ -270,7 +270,7 @@ numbers, emphasize specific lines, and more.
             current_date_string = f"{now.year}-{now.month}-{now.day}"
             return current_date_string
 
-Results in: 
+Results in:
 
 .. code-block:: python
     :caption: An example of code-block options
@@ -297,26 +297,25 @@ Python code blocks are formatted with Black_ (if it's found on ``PATH``).
 
     this is just text
 
-You can also control code highlighting. The default mode is to 
-highlight Python code but don't give an error if a language is
-not recognized: 
+You can also control code highlighting. The default mode is to highlight Python code but
+don't give an error if a language is not recognized:
 
 Some Python code:
 
 ::
 
-   def main():
-      print("Hello, world!")
+    def main():
+       print("Hello, world!")
 
 Followed by some C code
 
 ::
 
-   void main() {
-      printf("Hello, world!");
-   }
+    void main() {
+       printf("Hello, world!");
+    }
 
-----------
+----
 
 If we insert the directive:
 
@@ -324,26 +323,26 @@ If we insert the directive:
 
     .. highlight:: C
 
-Then C code will be highlighted. 
-    
+Then C code will be highlighted.
+
 .. highlight:: C
 
 Some Python code:
 
 ::
 
-   def main():
-      print("Hello, world!")
+    def main():
+       print("Hello, world!")
 
 Followed by some C code
 
 ::
 
-   void main() {
-      printf("Hello, world!");
-   }
+    void main() {
+       printf("Hello, world!");
+    }
 
-----------
+----
 
 You can also turn off code highlighting completely by using ``none``:
 
@@ -357,20 +356,20 @@ Some Python code:
 
 ::
 
-   def main():
-      print("Hello, world!")
+    def main():
+       print("Hello, world!")
 
 Followed by some C code
 
 ::
 
-   void main() {
-      printf("Hello, world!");
-   }
+    void main() {
+       printf("Hello, world!");
+    }
 
-----------
+----
 
-And then go back to default highlighting (Python with silent failures). 
+And then go back to default highlighting (Python with silent failures).
 
 .. code-block::
 
@@ -499,7 +498,7 @@ To indicate the document title in reStructuredText, use a unique adornment style
 beginning of the document. To indicate the document subtitle, use another unique
 adornment style immediately after the document title. For example:
 
-.. code-block::
+::
 
     ================
      Document Title
