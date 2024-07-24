@@ -16,7 +16,6 @@ from sphinx.directives import code, other
 
 # Import these only to load their domain subclasses.
 from sphinx.domains import c, cpp, python  # noqa: F401
-from sphinx.domains.python import PyCurrentModule, PyFunction
 from sphinx.ext import autodoc, autosummary
 from sphinx.roles import generic_docroles, specific_docroles
 
@@ -114,6 +113,10 @@ def register() -> None:
                 roles.register_canonical_role(name, ReferenceRole())
                 roles.register_canonical_role(f"{domain.name}:{name}", ReferenceRole())
 
+        for name, directive_callable in domain.directives.items():
+            _add_directive(name, directive_callable)
+            _add_directive(f"{domain.name}:{name}", directive_callable)
+
     for name, nodeclass in generic_docroles.items():
         roles.register_local_role(name, generic_role)  # type: ignore
 
@@ -128,19 +131,16 @@ def register() -> None:
     _add_directive("list-table", tables.ListTable, raw=False)
     _add_directive("csv-table", tables.CSVTable, raw=False)
     _add_directive("rst-table", tables.RSTTable, raw=False)
+    _add_directive("rst-class", misc.Class)
     _add_directive("math", body.MathBlock)
     _add_directive("raw", misc.Raw)
 
     # sphinx directives
     _add_directive("autosummary", autosummary.Autosummary)
     _add_directive("code-block", code.CodeBlock)
-    _add_directive("currentmodule", PyCurrentModule)
     _add_directive("deprecated", other.VersionChange, raw=False)
-    _add_directive("function", PyFunction)
     _add_directive("highlight", code.Highlight)
     _add_directive("literalinclude", code.LiteralInclude)
-    _add_directive("py:function", PyFunction)
-    _add_directive("rst-class", other.Class)
     _add_directive("seealso", other.SeeAlso, raw=False)
     _add_directive("toctree", other.TocTree)
     _add_directive("versionadded", other.VersionChange, raw=False)

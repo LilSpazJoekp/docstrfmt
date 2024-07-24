@@ -131,6 +131,19 @@ Functions
     :param args: Docs.
     :type args: List[any]
 
+.. data:: API_ERROR
+
+    Indicates some unknown error.
+
+.. py:data:: X
+
+    x = [
+        "here are some items",
+        "indented and with line breaks",
+        "the way Black does it",
+    ]
+
+
 Comments
 --------
 
