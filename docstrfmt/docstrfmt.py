@@ -482,9 +482,25 @@ class Formatters:
     def field(self, node: docutils.nodes.field, context) -> line_iterator:
         children = chain(self._format_children(node, context))
         field_name = next(children)
+        is_empty_sphinx_metadata_field = field_name.startswith(
+            (":nocomments", ":nosearch", ":orphan")
+        )
         try:
             first_line = next(children)
+            if first_line and is_empty_sphinx_metadata_field:
+                raise InvalidRstError(
+                    context.current_file,
+                    "ERROR",
+                    get_code_line(
+                        context.current_file, f":{node.astext().strip()}:", strict=True
+                    ),
+                    f"Non-empty Sphinx `:{node.astext().strip()}:` metadata"
+                    " field. Please remove field body or omit completely.",
+                )
         except StopIteration:
+            if is_empty_sphinx_metadata_field:
+                yield from chain(self._format_children(node, context))
+                return
             raise InvalidRstError(
                 context.current_file,
                 "ERROR",
@@ -494,6 +510,7 @@ class Formatters:
                 f"Empty `:{node.astext().strip()}:` field. Please add a field body or"
                 " omit completely.",
             )
+
         children = list(children)
         children_processed = []
         for i, child in enumerate(children):

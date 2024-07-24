@@ -252,6 +252,20 @@ def test_invalid_rst_file(runner):
     assert result.output == "ValueError: stdin can not be used with other paths\n"
 
 
+def test_invalid_sphinx_metadata_rst(runner):
+    file = "tests/test_files/error_files/test_invalid_sphinx_metadata.rst"
+    result = runner.invoke(main, args=[file])
+    assert result.exit_code == 1
+    assert result.output.startswith(
+        f'InvalidRstError: ERROR: File "{os.path.abspath(file)}":\nNon-empty Sphinx'
+        " `:nocomments\n\ninvalid:` metadata field. Please remove field body or omit"
+        " completely."
+    )
+    assert result.output.endswith(
+        "1 file were checked.\nDone, but 1 error occurred ❌💥❌\n"
+    )
+
+
 def test_invalid_table(runner):
     file = "tests/test_files/error_files/test_invalid_table.rst"
     result = runner.invoke(main, args=[file])
