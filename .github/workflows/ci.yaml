@@ -12,11 +12,11 @@ jobs:
     name: Lint ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: 3.x
-      - uses: actions/cache@v1
+      - uses: actions/cache@v4
         with:
           key: v0-${{ runner.os }}-pip-lint-${{ hashFiles('setup.py') }}
           path: ~/.cache/pip
@@ -42,11 +42,11 @@ jobs:
     name: Test ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: 3.x
-      - uses: actions/cache@v1
+      - uses: actions/cache@v4
         with:
           key: v0-${{ runner.os }}-pip-test-${{ hashFiles('setup.py') }}
           path: ~/.cache/pip
@@ -66,11 +66,11 @@ jobs:
     name: Test Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: actions/cache@v1
+      - uses: actions/cache@v4
         with:
           key: v0-${{ runner.os }}-pip-test-${{ hashFiles('setup.py') }}
           path: ~/.cache/pip
