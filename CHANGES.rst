@@ -8,6 +8,7 @@ Unreleased
 
 - Added support for in ``code-block`` directive.
 - Added support for ``highlight`` directive.
+- Added support for Sphinx metadata fields.
 
 1.6.1 (2023/12/12)
 ------------------
