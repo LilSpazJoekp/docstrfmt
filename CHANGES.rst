@@ -4,6 +4,9 @@ Change Log
 Unreleased
 ----------
 
+1.7.0 (2024/07/25)
+------------------
+
 **Added**
 
 - Added support for ``code-block`` directive.
