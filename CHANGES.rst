@@ -6,7 +6,7 @@ Unreleased
 
 **Added**
 
-- Added support for  in ``code-block`` directive.
+- Added support for in ``code-block`` directive.
 - Added support for ``highlight`` directive.
 
 1.6.1 (2023/12/12)

@@ -702,7 +702,7 @@ class Formatters:
             yield f"[{node.attributes['refname']}]_"
 
     def inline(self, node: docutils.nodes.inline, context) -> inline_iterator:
-        yield from chain(self._format_children(node, context)) # pragma: no cover
+        yield from chain(self._format_children(node, context))  # pragma: no cover
 
     def label(self, node: docutils.nodes.footnote_reference, context):
         yield f"[{' '.join(chain(self._format_children(node, context)))}]"
