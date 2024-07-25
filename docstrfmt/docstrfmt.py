@@ -18,6 +18,7 @@ from typing import (
 
 import black
 import docutils
+from attr import dataclass
 from blib2to3.pgen2.tokenize import TokenError
 from docutils.frontend import OptionParser
 from docutils.nodes import pending
@@ -116,24 +117,32 @@ word_info = namedtuple(
 )
 
 
+@dataclass
 class CodeFormatters:
-    @staticmethod
-    def python(code: str, context: FormatContext) -> str:
+    code: str
+    content_offset: int
+    context: FormatContext
+
+    def python(self) -> str:
         try:
-            code = black.format_str(code, mode=context.black_config).rstrip()
+            self.code = black.format_str(
+                self.code, mode=self.context.black_config
+            ).rstrip()
         except (UserWarning, black.InvalidInput, TokenError):
             try:
-                compile(code, context.current_file, mode="exec")
+                compile(self.code, "<code-block>", mode="exec")
             except SyntaxError as syntax_error:
-                context.manager.error_count += 1
-                current_line = get_code_line(context.current_file, code, strict=True)
-                if context.manager.reporter:
-                    context.manager.reporter.error(
+                self.context.manager.error_count += 1
+                document_line = get_code_line(
+                    self.context.current_file, self.code, True
+                ) - len(self.code.splitlines())
+                if self.context.manager.reporter:
+                    self.context.manager.reporter.error(
                         f"SyntaxError: {syntax_error.msg}:\n\nFile"
-                        f' "{context.current_file}", line'
-                        f' {current_line}:\n{syntax_error.text}{" " * (syntax_error.offset - 1)}^'
+                        f' "{self.context.current_file}", line'
+                        f' {document_line + syntax_error.lineno}:\n{syntax_error.text}\n{" " * (syntax_error.offset - 1)}^'
                     )
-        return code
+        return self.code
 
 
 class Formatters:
@@ -409,22 +418,44 @@ class Formatters:
     def directive(self, node: docutils.nodes.Node, context) -> line_iterator:
         directive = node.attributes["directive"]
 
-        yield " ".join([f".. {directive.name}::", *directive.arguments])
+        is_code_block = directive.name in ["code", "code-block"]
+
+        yield " ".join(
+            [
+                f".. {'code-block' if is_code_block else directive.name}::",
+                *directive.arguments,
+            ]
+        )
         # Just rely on the order being stable, hopefully.
         for k, v in directive.options.items():
             yield f"    :{k}:" if v is None else f"    :{k}: {v}"
 
-        if directive.raw:
-            yield from self._prepend_if_any("", self._with_spaces(4, directive.content))
-        else:
-            sub_doc = self.manager.parse_string(
-                context.current_file, "\n".join(directive.content)
-            )
-            if sub_doc.children:
-                yield ""
-                yield from self._with_spaces(
-                    4, self.manager.perform_format(sub_doc, context.indent(4))
+        if is_code_block:
+            language = directive.arguments[0] if directive.arguments else None
+            text = "\n".join(directive.content.data)
+            try:
+                func = getattr(
+                    CodeFormatters(text, directive.content_offset, context), language
                 )
+                text = func()
+            except (AttributeError, TypeError):
+                pass
+            yield ""
+            yield from self._with_spaces(4, text.splitlines())
+        else:
+            if directive.raw:
+                yield from self._prepend_if_any(
+                    "", self._with_spaces(4, directive.content)
+                )
+            else:
+                sub_doc = self.manager.parse_string(
+                    context.current_file, "\n".join(directive.content)
+                )
+                if sub_doc.children:
+                    yield ""
+                    yield from self._with_spaces(
+                        4, self.manager.perform_format(sub_doc, context.indent(4))
+                    )
 
     def document(self, node: docutils.nodes.document, context) -> line_iterator:
         yield from self._chain_with_line_separator(
@@ -671,7 +702,7 @@ class Formatters:
             yield f"[{node.attributes['refname']}]_"
 
     def inline(self, node: docutils.nodes.inline, context) -> inline_iterator:
-        yield from chain(self._format_children(node, context))
+        yield from chain(self._format_children(node, context))  # pragma: no cover
 
     def label(self, node: docutils.nodes.footnote_reference, context):
         yield f"[{' '.join(chain(self._format_children(node, context)))}]"
@@ -723,22 +754,10 @@ class Formatters:
     def literal_block(
         self, node: docutils.nodes.literal_block, context: FormatContext
     ) -> line_iterator:
-        languages = [
-            class_type
-            for class_type in node.attributes["classes"]
-            if class_type != "code"
-        ]
-        language = languages[0] if languages else None
-        yield f".. code-block::{f' {language}' if language else ''}"
-        yield ""
-        text = "".join(chain(self._format_children(node, context)))
-
-        try:
-            func = getattr(CodeFormatters(), language)
-            text = func(text, context)
-        except (AttributeError, TypeError):
-            pass
-        yield from self._with_spaces(4, text.splitlines())
+        yield "::"
+        yield from self._prepend_if_any(
+            "", self._with_spaces(4, node.rawsource.splitlines())
+        )
 
     def paragraph(
         self, node: docutils.nodes.paragraph, context: FormatContext
