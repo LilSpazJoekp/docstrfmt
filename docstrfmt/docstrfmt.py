@@ -3,6 +3,7 @@ import re
 import string
 from collections import namedtuple
 from copy import copy
+from dataclasses import dataclass
 from math import floor
 from typing import (
     Any,
@@ -18,7 +19,6 @@ from typing import (
 
 import black
 import docutils
-from attr import dataclass
 from blib2to3.pgen2.tokenize import TokenError
 from docutils.frontend import OptionParser
 from docutils.nodes import pending
