@@ -18,7 +18,7 @@ from typing import (
 
 import black
 import docutils
-from attr import dataclass
+from dataclasses import dataclass
 from blib2to3.pgen2.tokenize import TokenError
 from docutils.frontend import OptionParser
 from docutils.nodes import pending

@@ -4,6 +4,10 @@ Change Log
 Unreleased
 ----------
 
+**Fixed**
+
+- Incorrect import of ``dataclass``.
+
 1.7.0 (2024/07/25)
 ------------------
 
