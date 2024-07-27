@@ -38,6 +38,18 @@ class ExampleClass:
         self.test = "value"
         """Test attr docstring
 
+        .. thisdirectivedoesnotexit:: arguments but with white space
+            :field1: value1
+            :field2: value2
+            :field3:
+
+            some
+                text
+                    that
+                        shouldn't change
+
+        This is an unknown role :lolno:`dolphin` but it's okay.
+
         .. code-block:: python
 
             print("Hello world")

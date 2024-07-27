@@ -42,9 +42,9 @@ class ExampleClass:
         self.test = "test"
         """Test attr docstring
 
-        .. codeblock:: python
-
-            print("Hello world")
+        = ===
+        1 222
+        == ==
 
         ..
 

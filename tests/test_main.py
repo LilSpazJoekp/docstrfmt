@@ -336,7 +336,7 @@ def test_raw_input_rst_error(runner):
     result = runner.invoke(main, args=args)
     assert result.exit_code == 1
     assert result.output.startswith(
-        'ERROR: File "<raw_input>", line 1:\nUnknown directive type "codeblock".'
+        'ERROR: File "<raw_input>", line 3:\nMalformed table.\nText in column margin in table line 2.'
     )
 
 
@@ -348,7 +348,7 @@ def test_raw_input_rst_errors_py(runner):
     result = runner.invoke(main, args=args)
     assert result.exit_code == 1
     assert result.output.startswith(
-        'ERROR: File "<raw_input>", line 6:\nUnknown directive type "codeblock".'
+        'ERROR: File "<raw_input>", line 5:\nMalformed table.\nText in column margin in table line 2.'
     )
 
 
@@ -399,8 +399,8 @@ def test_rst_error(runner):
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
     assert result.output.startswith(
-        f'ERROR: File "{os.path.abspath(file)}", line 1:\nUnknown directive type'
-        ' "codeblock".'
+        f'ERROR: File "{os.path.abspath(file)}", line 3:\nMalformed table.\nText in'
+        " column margin in table line 2."
     )
     assert result.output.endswith(
         "1 file were checked.\nDone, but 1 error occurred ❌💥❌\n"

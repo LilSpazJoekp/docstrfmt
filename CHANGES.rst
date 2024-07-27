@@ -4,6 +4,12 @@ Change Log
 Unreleased
 ----------
 
+**Added**
+
+- Added support for nested tables.
+- Added support for arbitrary directives.
+- Added support for arbitrary roles.
+
 **Fixed**
 
 - Incorrect import of ``dataclass``.

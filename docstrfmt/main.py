@@ -332,7 +332,7 @@ def _format_file(
         input_string = f.read()
         newline = getattr(f, "newlines", None)
         # If mixed or unknown newlines, fall back to the platform default
-        if not isinstance(newline, str):
+        if not isinstance(newline, str):  # pragma: no cover
             newline = None
     try:
         if file.suffix == ".py" or (file_type == "py" and file.name == "-"):
