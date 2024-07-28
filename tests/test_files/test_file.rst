@@ -569,9 +569,9 @@ Vestibulum vitae gravida lorem, vel laoreet lorem.
 Ref Roles
 ---------
 
-This is text with a ref role :func:`f`. This has :func:`f`\ s an ``s`` after it. This is
-an :ref:`example explicit ref <reference_roles>` to this section. This is an `anonymous
-link <http://example.com>`_
+This is text with a ref role :func:`f`. This has py:func:`f`\ s an ``s`` after it. This
+i an :ref:`example explicit ref <reference_roles>` to this section. This is an
+`anonymous link <http://example.com>`_
 
 Functions
 ---------
@@ -671,9 +671,22 @@ True      True         has note block
       - list item 4
 ===== ================ ==============
 
-===== ============================= =====================================================================================================
+======= ==================
+nested. ===== ===== ======
+        A     B     A or B
+        ===== ===== ======
+        False False False
+        True  False True
+        False True  True
+        True  True  True
+        ===== ===== ======
+second  below table
+row
+======= ==================
+
+===== ============================= ======================================================================================================
 A     B                             A or B
-===== ============================= =====================================================================================================
+===== ============================= ======================================================================================================
 False False                         False
 True  False                         True
 False True                          True
@@ -690,9 +703,9 @@ True      True                      has note block
 True                                .. code-block:: python
 
                                         print(
-                                            "This code block is really long and wont be able to be wrapped in the default 88 characters."
+                                            "This code block is really long and won't be able to be wrapped in the default 88 characters."
                                         )
-===== ============================= =====================================================================================================
+===== ============================= ======================================================================================================
 
 Fields
 ------
@@ -722,6 +735,18 @@ Fields
 
         note
 
+
+.. thisdirectivedoesnotexit:: arguments but with white space
+    :field1: value1
+    :field2: value2
+    :field3:
+
+    some
+        text
+            that
+                shouldn't change
+
+This is an unknown role :lolno:`dolphin` but it's okay.
 
 Comments
 --------

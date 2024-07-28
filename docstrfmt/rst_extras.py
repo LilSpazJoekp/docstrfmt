@@ -69,6 +69,7 @@ def _add_directive(
     cls: Type[docutils.parsers.rst.Directive],
     *,
     raw: bool = True,
+    is_injected: bool = False,
 ) -> None:
     # We create a new class inheriting from the given directive class to automatically pick up the
     # argument counts and most of the other attributes that define how the directive is parsed, so
@@ -82,7 +83,11 @@ def _add_directive(
         "option_spec": autodoc.directive.DummyOptionSpec(),
         "run": lambda self: [directive(directive=self)],
         "raw": raw,
+        "has_content": True if is_injected else cls.has_content,
     }
+    if is_injected:
+        namespace["final_argument_whitespace"] = True
+        namespace["optional_arguments"] = 1
     directives.register_directive(
         name, type(f"docstrfmt_{cls.__name__}", (cls,), namespace)
     )

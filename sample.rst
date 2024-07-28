@@ -143,7 +143,6 @@ Functions
         "the way Black does it",
     ]
 
-
 Comments
 --------
 
