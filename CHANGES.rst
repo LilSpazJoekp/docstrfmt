@@ -4,6 +4,9 @@ Change Log
 Unreleased
 ----------
 
+1.8.0 (2024/07/28)
+------------------
+
 **Added**
 
 - Added support for nested tables.
