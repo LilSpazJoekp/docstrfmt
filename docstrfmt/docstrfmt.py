@@ -196,9 +196,11 @@ class Formatters:
         self, node: docutils.nodes.Node, context
     ) -> Iterator[Iterator[str]]:
         return (
-            self.manager.perform_format(child, context)
-            if index == 0
-            else self.manager.perform_format(child, context.wrap_first_at(0))
+            (
+                self.manager.perform_format(child, context)
+                if index == 0
+                else self.manager.perform_format(child, context.wrap_first_at(0))
+            )
             for index, child in enumerate(node.children)
         )
 
@@ -893,8 +895,8 @@ class Formatters:
                 None, chain(self._format_children(node, context)), context, node.line
             )
         )
-        anonymous_suffix: Callable[[bool], str] = (
-            lambda anonymous: "__" if anonymous else "_"
+        anonymous_suffix: Callable[[bool], str] = lambda anonymous: (
+            "__" if anonymous else "_"
         )
         attributes = node.attributes  # type: ignore
         children = node.children  # type: ignore
