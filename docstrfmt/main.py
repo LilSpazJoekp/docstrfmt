@@ -326,8 +326,8 @@ def _format_file(
         raw_output = True
     reporter.print(f"Checking {file}", 2)
     misformatted = False
-    with nullcontext(sys.stdin) if file.name == "-" else open(
-        file, encoding="utf-8"
+    with (
+        nullcontext(sys.stdin) if file.name == "-" else open(file, encoding="utf-8")
     ) as f:
         input_string = f.read()
         newline = getattr(f, "newlines", None)

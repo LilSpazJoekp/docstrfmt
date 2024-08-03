@@ -1,6 +1,5 @@
 """This is an example python file"""
 
-
 test = "value"
 
 

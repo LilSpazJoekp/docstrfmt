@@ -51,7 +51,7 @@ setup(
     },
     extras_require=extras_requires,
     install_requires=[
-        "black==23.*",
+        "black==24.*",
         "click==8.*",
         "docutils==0.20.*",
         "libcst==1.*",

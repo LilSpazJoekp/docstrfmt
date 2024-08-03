@@ -1,4 +1,5 @@
 """docstrfmt Test Suite."""
+
 import black
 import docutils.nodes
 

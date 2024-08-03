@@ -143,7 +143,7 @@ def test_invalid_blank_return_py(runner):
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
     assert result.output.startswith(
-        f'InvalidRstError: ERROR: File "{os.path.abspath(file)}", line 67:\nEmpty'
+        f'InvalidRstError: ERROR: File "{os.path.abspath(file)}", line 66:\nEmpty'
         " `:returns:` field. Please add a field body or omit completely."
     )
     assert result.output.endswith(
@@ -213,7 +213,7 @@ def test_invalid_code_block_py(runner):
     else:
         error = "SyntaxError: EOL while scanning string literal"
     assert result.output.startswith(
-        f'{error}:\n\nFile "{os.path.abspath(file)}", line 44:'
+        f'{error}:\n\nFile "{os.path.abspath(file)}", line 43:'
     )
     assert result.output.endswith(
         "1 file were checked.\nDone, but 2 errors occurred ❌💥❌\n"
