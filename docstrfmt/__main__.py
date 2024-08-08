@@ -1,4 +1,3 @@
-# pragma: no cover
-from docstrfmt.main import main
+from docstrfmt.main import main  # pragma: no cover
 
-main()
+main()  # pragma: no cover
