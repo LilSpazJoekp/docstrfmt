@@ -37,7 +37,10 @@ def test_check(runner, file):
 def test_call(file):
     args = ["-c", "-l", "80", os.path.abspath(file)]
     result = subprocess.run(
-        [sys.executable, "-m", "docstrfmt", *args], stderr=subprocess.PIPE, text=True
+        [sys.executable, "-m", "docstrfmt", *args],
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="unicode-escape" if os.name == "nt" else None,
     )
     assert result.returncode == 1
     assert result.stderr.endswith(
