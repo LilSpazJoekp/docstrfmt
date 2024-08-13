@@ -842,7 +842,7 @@ class Formatters:
             and node.attributes["classes"][0] == "code"
         ):
             args = "".join([f" {arg}" for arg in node.attributes["classes"][1:]])
-            yield f".. code::{args}"
+            yield f".. code-block::{args}"
         else:
             yield "::"
         yield from self._prepend_if_any(
