@@ -837,7 +837,14 @@ class Formatters:
     def literal_block(
         self, node: docutils.nodes.literal_block, context: FormatContext
     ) -> line_iterator:
-        yield "::"
+        if (
+            len(node.attributes["classes"]) > 1
+            and node.attributes["classes"][0] == "code"
+        ):
+            args = "".join([f" {arg}" for arg in node.attributes["classes"][1:]])
+            yield f".. code::{args}"
+        else:
+            yield "::"
         yield from self._prepend_if_any(
             "", self._with_spaces(4, node.rawsource.splitlines())
         )
