@@ -839,7 +839,7 @@ class Formatters:
     ) -> line_iterator:
         if (
             len(node.attributes["classes"]) > 1
-            and node.attributes["classes"][0] == "code"
+            and node.attributes["classes"][0] in ["code", "code-block"]
         ):
             args = "".join([f" {arg}" for arg in node.attributes["classes"][1:]])
             yield f".. code-block::{args}"
