@@ -837,10 +837,10 @@ class Formatters:
     def literal_block(
         self, node: docutils.nodes.literal_block, context: FormatContext
     ) -> line_iterator:
-        if (
-            len(node.attributes["classes"]) > 1
-            and node.attributes["classes"][0] in ["code", "code-block"]
-        ):
+        if len(node.attributes["classes"]) > 1 and node.attributes["classes"][0] in [
+            "code",
+            "code-block",
+        ]:
             args = "".join([f" {arg}" for arg in node.attributes["classes"][1:]])
             yield f".. code-block::{args}"
         else:
