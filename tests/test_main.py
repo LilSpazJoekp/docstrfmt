@@ -109,6 +109,17 @@ def test_encoding_stdin(runner):
     assert result.output == file
 
 
+@pytest.mark.parametrize("blocktype", [
+    "::", ".. block::", ".. code-block::", ".. code-block:: java"
+])
+def test_code_block_argless(runner, blocktype):
+    file = f"{blocktype}\n\n    A"""
+    args = ["-"]
+    result = runner.invoke(main, args=args, input=file)
+    assert result.exit_code == 0
+    assert result.output == f"{blocktype}\n\n    A\n"
+
+
 def test_exclude(runner):
     args = [
         "-e",
