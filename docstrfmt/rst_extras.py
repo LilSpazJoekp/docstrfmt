@@ -15,7 +15,7 @@ from docutils.parsers.rst.directives import body, images, misc, parts, tables
 from sphinx.directives import code, other
 
 # Import these only to load their domain subclasses.
-from sphinx.domains import c, cpp, python, changeset  # noqa: F401
+from sphinx.domains import c, changeset, cpp, python  # noqa: F401
 from sphinx.ext import autodoc, autosummary
 from sphinx.roles import generic_docroles, specific_docroles
 
