@@ -15,7 +15,7 @@ from docutils.parsers.rst.directives import body, images, misc, parts, tables
 from sphinx.directives import code, other
 
 # Import these only to load their domain subclasses.
-from sphinx.domains import c, cpp, python  # noqa: F401
+from sphinx.domains import c, changeset, cpp, python  # noqa: F401
 from sphinx.ext import autodoc, autosummary
 from sphinx.roles import generic_docroles, specific_docroles
 
@@ -143,13 +143,13 @@ def register() -> None:
     # sphinx directives
     _add_directive("autosummary", autosummary.Autosummary)
     _add_directive("code-block", code.CodeBlock)
-    _add_directive("deprecated", other.VersionChange, raw=False)
+    _add_directive("deprecated", changeset.VersionChange, raw=False)
     _add_directive("highlight", code.Highlight)
     _add_directive("literalinclude", code.LiteralInclude)
     _add_directive("seealso", other.SeeAlso, raw=False)
     _add_directive("toctree", other.TocTree)
-    _add_directive("versionadded", other.VersionChange, raw=False)
-    _add_directive("versionchanged", other.VersionChange, raw=False)
+    _add_directive("versionadded", changeset.VersionChange, raw=False)
+    _add_directive("versionchanged", changeset.VersionChange, raw=False)
 
     for d in set(_subclasses(autodoc.Documenter)):
         if d.objtype != "object":
