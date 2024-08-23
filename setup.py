@@ -56,7 +56,7 @@ setup(
         "docutils==0.20.*",
         "libcst==1.*",
         "platformdirs==4.*",
-        "sphinx==7",
+        "sphinx==5.*",
         "tabulate==0.9.*",
         "toml==0.10.*",
     ],
