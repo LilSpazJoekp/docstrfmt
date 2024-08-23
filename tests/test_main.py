@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 
 import pytest
@@ -26,6 +27,23 @@ def test_check(runner, file):
     result = runner.invoke(main, args=args)
     assert result.exit_code == 1
     assert result.output.endswith(
+        "could be reformatted.\n1 out of 1 file could be reformatted.\nDone! 🎉\n"
+    )
+
+
+@pytest.mark.parametrize(
+    "file", ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"]
+)
+def test_call(file):
+    args = ["-c", "-l", "80", os.path.abspath(file)]
+    result = subprocess.run(
+        [sys.executable, "-m", "docstrfmt", *args],
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="unicode-escape" if os.name == "nt" else None,
+    )
+    assert result.returncode == 1
+    assert result.stderr.endswith(
         "could be reformatted.\n1 out of 1 file could be reformatted.\nDone! 🎉\n"
     )
 
