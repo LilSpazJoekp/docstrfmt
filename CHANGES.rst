@@ -4,6 +4,14 @@ Change Log
 Unreleased
 ----------
 
+**Added**
+
+- Added support to run using ``python -m``.
+
+**Changed**
+
+- Relaxed sphinx dependency.
+
 1.8.0 (2024/07/28)
 ------------------
 
