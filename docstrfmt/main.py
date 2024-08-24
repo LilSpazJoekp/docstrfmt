@@ -655,15 +655,6 @@ def _write_output(file, output, output_manager, raw):
         " multiple times for different levels of verbosity."
     ),
 )
-@click.option(
-    "-v",
-    "--verbose",
-    count=True,
-    help=(
-        "Log debugging information about each node being formatted. Can be specified"
-        " multiple times for different levels of verbosity."
-    ),
-)
 @click.version_option(version=__version__)
 @click.argument("files", nargs=-1, type=str, callback=_parse_sources)
 @click.pass_context
