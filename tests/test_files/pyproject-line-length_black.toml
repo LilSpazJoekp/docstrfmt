@@ -1,0 +1,6 @@
+[tool.black]
+line-length = 123
+target_version = ['PY37']
+
+[tool.docstrfmt]
+files = [ 'tests/test_files/test_file.rst' ]

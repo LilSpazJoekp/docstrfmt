@@ -73,8 +73,22 @@ Usage
     # Format the given files, printing all output to stdout.
     docstrfmt -o <file>...
 
-    # Wrap paragraphs to the given line length where possible (default 88).
+    # Wrap paragraphs to the given line length where possible (default to whatever is
+    # set for black).
+
     docstrfmt -l <length>
+
+.. note::
+
+    Line length is resolved in the following order:
+
+    1. The length specified with the ``-l`` flag.
+    2. The ``line-length`` specified in the ``tool.docstrfmt`` section in
+       ``pyproject.toml``.
+    3. The ``line-length`` specified in the ``tool.black`` section in
+       ``pyproject.toml``.
+    4. The default line length of black's default line length (88 at the time of this
+       writing).
 
 Like Black's blackd_, there is also a daemon that provides formatting via HTTP requests
 to avoid the cost of starting and importing everything on every run.
@@ -93,14 +107,14 @@ to avoid the cost of starting and importing everything on every run.
     # Print the formatted version of a file.
     curl http://locahost:5219 --data-binary @<file>
 
-    # Specify the line length (default 88).
+    # Specify the line length (default to whatever is set for black).
     curl -H 'X-Line-Length: 72' http://locahost:5219 --data-binary @<file>
 
     # Mimic the standalone tool: read from stdin, write to stdout, exit with
     # a nonzero status code if there are errors.
     curl -fsS http://locahost:5219 --data-binary @/dev/stdin
 
-With editors
+With Editors
 ~~~~~~~~~~~~
 
 PyCharm

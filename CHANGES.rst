@@ -12,6 +12,10 @@ Unreleased
 
 - Relaxed sphinx dependency.
 
+**Fixed**
+
+- Line length is now correctly resolved. Previously, it was always set to 88.
+
 1.8.0 (2024/07/28)
 ------------------
 
