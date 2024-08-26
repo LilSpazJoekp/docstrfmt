@@ -4,6 +4,9 @@ Change Log
 Unreleased
 ----------
 
+1.9.0 (2024/08/26)
+------------------
+
 **Added**
 
 - Added support to run using ``python -m``.
