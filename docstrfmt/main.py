@@ -18,7 +18,13 @@ from typing import TYPE_CHECKING, Any, Iterable, List, Optional
 import click
 import libcst as cst
 import toml
-from black import Mode, TargetVersion, find_pyproject_toml, parse_pyproject_toml
+from black import (
+    DEFAULT_LINE_LENGTH,
+    Mode,
+    TargetVersion,
+    find_pyproject_toml,
+    parse_pyproject_toml,
+)
 from click import Context
 from libcst import CSTTransformer, Expr
 from libcst.metadata import ParentNodeProvider, PositionProvider
@@ -244,6 +250,7 @@ async def _run_formatter(
     include_txt,
     docstring_trailing_line,
     mode,
+    line_length,
     raw_output,
     cache,
     loop,
@@ -255,7 +262,6 @@ async def _run_formatter(
     cancelled = []
     files_to_cache = []
     lock = MultiManager().Lock()
-    line_length = mode.line_length
     misformatted_files = set()
     tasks = {
         asyncio.ensure_future(
@@ -415,7 +421,7 @@ def _parse_pyproject_config(
         black_config["target_versions"] = target_version
         return Mode(**black_config)
     else:
-        return Mode(line_length=88)
+        return Mode()
 
 
 def _parse_sources(
@@ -535,6 +541,10 @@ def _process_rst(
     return misformatted, error_count
 
 
+def _resolve_length(context: click.Context, _: click.Parameter, value: Optional[int]):
+    return value or context.params.get("line_length", None)
+
+
 def _write_output(file, output, output_manager, raw):
     with output_manager as f:
         f.write(output)
@@ -602,12 +612,12 @@ def _write_output(file, output, output_manager, raw):
     "-l",
     "--line-length",
     type=click.IntRange(4),
-    default=88,
     help=(
         "Wrap lines to the given line length where possible. Takes precedence over"
-        " 'line_length' set in pyproject.toml if set."
+        " 'line-length' set in pyproject.toml if set. Defaults to the length provided"
+        " to black if not set."
     ),
-    show_default=True,
+    callback=_resolve_length,
 )
 @click.option(
     "-p",
@@ -683,8 +693,11 @@ def main(
         reporter.level = -1
     misformatted_files = set()
 
-    if line_length != 88:
-        mode.line_length = line_length
+    if line_length is None:
+        if mode.line_length != DEFAULT_LINE_LENGTH:
+            line_length = mode.line_length
+        else:
+            line_length = DEFAULT_LINE_LENGTH
     error_count = 0
     if raw_input:
         manager = Manager(reporter, mode, docstring_trailing_line)
@@ -749,6 +762,7 @@ def main(
                     include_txt,
                     docstring_trailing_line,
                     mode,
+                    line_length,
                     raw_output,
                     cache,
                     loop,

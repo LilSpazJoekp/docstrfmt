@@ -3,6 +3,8 @@ import subprocess
 import sys
 
 import pytest
+import toml
+from black import DEFAULT_LINE_LENGTH
 
 from docstrfmt.main import main
 
@@ -311,6 +313,70 @@ def test_line_length(runner, length, file):
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output.endswith("checked.\nDone! 🎉\n")
+
+
+def test_line_length_resolution__none_set(runner):
+    # None is set, should default to black default
+    args = ["-p", "tests/test_files/pyproject-line-length_none.toml"]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output.endswith("checked.\nDone! 🎉\n")
+    result = runner.invoke(main, args=args + ["-l", DEFAULT_LINE_LENGTH])
+    assert result.exit_code == 0
+    assert result.output.endswith("checked.\nDone! 🎉\n")
+
+
+def test_line_length_resolution__black_set(runner):
+    # black is set, should use black value
+    args = ["-p", "tests/test_files/pyproject-line-length_black.toml"]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output.startswith("Reformatted")
+    toml_config = toml.load(args[1])
+    result = runner.invoke(
+        main, args=args + ["-l", toml_config["tool"]["black"]["line-length"]]
+    )
+    assert result.exit_code == 0
+    assert result.output.endswith("checked.\nDone! 🎉\n")
+
+
+def test_line_length_resolution__docstrfmt_set(runner):
+    # docstrfmt is set, should use docstrfmt value
+    args = ["-p", "tests/test_files/pyproject-line-length_docstrfmt.toml"]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output.startswith("Reformatted")
+    toml_config = toml.load(args[1])
+    result = runner.invoke(
+        main, args=args + ["-l", toml_config["tool"]["docstrfmt"]["line-length"]]
+    )
+    assert result.exit_code == 0
+    assert result.output.endswith("checked.\nDone! 🎉\n")
+
+
+def test_line_length_resolution__black_docstrfmt_set(runner):
+    # black and docstrfmt is set, should use docstrfmt value
+    args = ["-p", "tests/test_files/pyproject-line-length_black+docstrfmt.toml"]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output.startswith("Reformatted")
+    toml_config = toml.load(args[1])
+    result = runner.invoke(
+        main, args=args + ["-l", toml_config["tool"]["docstrfmt"]["line-length"]]
+    )
+    assert result.exit_code == 0
+    assert result.output.endswith("checked.\nDone! 🎉\n")
+
+
+def test_line_length_resolution__cli_black_docstrfmt_set(runner):
+    # cli, black, and docstrfmt is set, should use cli value
+    args = ["-p", "tests/test_files/pyproject-line-length_black+docstrfmt.toml"]
+    result = runner.invoke(main, args=args + ["-l", 125])
+    assert result.exit_code == 0
+    assert result.output.startswith("Reformatted")
+    result = runner.invoke(main, args=args + ["-l", 126])
+    assert result.exit_code == 0
+    assert result.output.startswith("Reformatted")
 
 
 def test_pyproject_toml(runner):

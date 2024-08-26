@@ -4,6 +4,7 @@ import time
 import click
 import docutils
 from aiohttp import web
+from black import DEFAULT_LINE_LENGTH
 
 from . import Manager, rst_extras
 
@@ -16,7 +17,7 @@ rst_extras.register()
 
 
 async def handler(request) -> web.Response:
-    width = int(request.headers.get("X-Line-Length", 88))
+    width = int(request.headers.get("X-Line-Length", DEFAULT_LINE_LENGTH))
     body = await request.text()
 
     start_time = time.perf_counter()
