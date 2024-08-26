@@ -141,7 +141,6 @@ word_info = namedtuple(
 @dataclass
 class CodeFormatters:
     code: str
-    content_offset: int
     context: FormatContext
 
     def python(self) -> str:
@@ -474,9 +473,7 @@ class Formatters:
             language = directive.arguments[0] if directive.arguments else None
             text = "\n".join(directive.content.data)
             try:
-                func = getattr(
-                    CodeFormatters(text, directive.content_offset, context), language
-                )
+                func = getattr(CodeFormatters(text, context), language)
                 text = func()
             except (AttributeError, TypeError):
                 pass
@@ -843,6 +840,16 @@ class Formatters:
         ]:
             args = "".join([f" {arg}" for arg in node.attributes["classes"][1:]])
             yield f".. code-block::{args}"
+            language = node.attributes["classes"][1]
+            text = node.rawsource
+            try:
+                func = getattr(CodeFormatters(text, context), language)
+                text = func()
+            except (AttributeError, TypeError):
+                pass
+            yield ""
+            yield from self._with_spaces(4, text.splitlines())
+            return
         else:
             yield "::"
         yield from self._prepend_if_any(

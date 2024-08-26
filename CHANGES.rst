@@ -15,6 +15,8 @@ Unreleased
 **Fixed**
 
 - Line length is now correctly resolved. Previously, it was always set to 88.
+- Fix handling of ``.. code::`` blocks. They should now be correctly formatted to ``..
+  code-block::``.
 
 1.8.0 (2024/07/28)
 ------------------

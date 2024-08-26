@@ -110,14 +110,22 @@ def test_encoding_stdin(runner):
 
 
 @pytest.mark.parametrize(
-    "blocktype", ["::", ".. block::", ".. code-block::", ".. code-block:: java"]
+    "block_type,expected_block_type",
+    [
+        ("::", "::"),
+        (".. code:: sh", ".. code-block:: sh"),
+        (".. code:: python", ".. code-block:: python"),
+        (".. code-block::", ".. code-block::"),
+        (".. code-block:: java", ".. code-block:: java"),
+    ],
 )
-def test_code_block_argless(runner, blocktype):
-    file = f"{blocktype}\n\n    A"
+def test_code_to_codeblock(runner, block_type, expected_block_type):
+    file = f"{block_type}\n\n    name = ''"
     args = ["-"]
     result = runner.invoke(main, args=args, input=file)
     assert result.exit_code == 0
-    assert result.output == f"{blocktype}\n\n    A\n"
+    name_value = '""' if "python" in file else "''"
+    assert result.output == f"{expected_block_type}\n\n    name = {name_value}\n"
 
 
 def test_exclude(runner):
