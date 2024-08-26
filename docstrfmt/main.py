@@ -1,11 +1,11 @@
 import asyncio
-import contextlib
 import glob
 import logging
 import os
 import signal
 import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from contextlib import nullcontext
 from copy import copy
 from functools import partial
 from multiprocessing import Manager as MultiManager
@@ -94,18 +94,6 @@ def shutdown(loop: asyncio.AbstractEventLoop) -> None:  # pragma: no cover
         cf_logger = logging.getLogger("concurrent.futures")
         cf_logger.setLevel(logging.CRITICAL)
         loop.close()
-
-
-# Define this here to support Python <3.7.
-class nullcontext(contextlib.AbstractContextManager):  # type: ignore
-    def __init__(self, enter_result: Any = None):
-        self.enter_result = enter_result
-
-    def __enter__(self) -> Any:
-        return self.enter_result
-
-    def __exit__(self, *excinfo: Any) -> Any:
-        pass
 
 
 class Reporter:

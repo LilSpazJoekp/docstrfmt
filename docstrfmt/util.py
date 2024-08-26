@@ -1,6 +1,8 @@
 import os
 import pickle
+import sys
 import tempfile
+from contextlib import nullcontext
 from pathlib import Path
 
 from docutils.parsers.rst.states import ParserError
@@ -72,7 +74,11 @@ class FileCache:
 
 
 def get_code_line(current_file, code, strict=False):
-    with open(current_file, encoding="utf-8") as f:
+    with (
+        nullcontext(sys.stdin)
+        if current_file.name == "-"
+        else open(current_file, encoding="utf-8")
+    ) as f:
         source = f.read()
     lines = source.splitlines()
     code_lines = code.splitlines()
