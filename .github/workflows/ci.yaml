@@ -39,6 +39,8 @@ jobs:
       matrix:
         os: [ macOS-latest, ubuntu-latest, windows-latest ]
   test-multi-os:
+    env:
+      PYTHONUTF8: 1
     name: Test ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     steps:

@@ -41,9 +41,12 @@ class ExampleClass:
         self.test = "test"
         """Test attr docstring
 
-        = ===
-        1 222
-        == ==
+        .. figure:: /_static/figure.png
+            :scale: 50%
+
+            = ===
+            1 222
+            == ==
 
         ..
 

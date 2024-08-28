@@ -10,16 +10,6 @@ from click.testing import CliRunner
 
 from docstrfmt import Manager
 from docstrfmt.server import handler
-from tests import node_eq
-
-
-def run_test(manager, file, width, test_string):
-    doc = manager.parse_string(file, test_string)
-    output = manager.format_node(width, doc)
-    doc2 = manager.parse_string(file, output)
-    output2 = manager.format_node(width, doc2)
-    assert node_eq(doc, doc2)
-    assert output == output2
 
 
 @pytest.fixture
@@ -36,7 +26,7 @@ def manager():
 
 
 @pytest.fixture
-def runner(loop):
+def runner():
     runner = CliRunner()
     files_to_copy = os.path.abspath("tests/test_files")
     with runner.isolated_filesystem() as temp_dir:

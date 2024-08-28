@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import glob
 import logging
@@ -33,7 +35,7 @@ from .const import __version__
 from .debug import dump_node
 from .docstrfmt import Manager
 from .exceptions import InvalidRstErrors
-from .util import FileCache, plural
+from .util import FileCache, LineResolver, plural
 
 if TYPE_CHECKING:  # pragma: no cover
     from libcst import AssignTarget, ClassDef, FunctionDef, Module, SimpleString
@@ -124,7 +126,14 @@ reporter = Reporter(0)
 class Visitor(CSTTransformer):
     METADATA_DEPENDENCIES = (PositionProvider, ParentNodeProvider)
 
-    def __init__(self, object_name, file, line_length, manager):
+    def __init__(
+        self,
+        file: Path | str,
+        input_string: str,
+        line_length: int,
+        manager: Manager,
+        object_name: str,
+    ):
         super().__init__()
         self._last_assign = None
         self._object_names = [object_name]
@@ -135,6 +144,7 @@ class Visitor(CSTTransformer):
         self.manager = manager
         self.misformatted = False
         self.error_count = 0
+        self.line_resolver = LineResolver(self.file, input_string)
 
     def _is_docstring(self, node: "SimpleString") -> bool:
         return node.quote.startswith(('"""', "'''")) and isinstance(
@@ -165,7 +175,9 @@ class Visitor(CSTTransformer):
             source = dedent(
                 (" " * indent_level) + original_node.evaluated_value
             ).rstrip()
-            doc = self.manager.parse_string(self.file, source)
+            doc = self.manager.parse_string(
+                self.file, source, self.line_resolver.offset(original_node.value)
+            )
             if reporter.level >= 3:
                 reporter.debug("=" * 60)
                 reporter.debug(dump_node(doc))
@@ -173,7 +185,12 @@ class Visitor(CSTTransformer):
             if width < 1:
                 self.error_count += 1
                 raise ValueError(f"Invalid starting width {self.line_length}")
-            output = self.manager.format_node(width, doc, True).rstrip()
+            try:
+                output = self.manager.format_node(width, doc, True).rstrip()
+            except InvalidRstErrors as errors:
+                self.error_count += 1
+                reporter.error(str(errors))
+                return updated_node
             self.error_count += self.manager.error_count
             self.manager.error_count = 0
             object_display_name = (
@@ -359,11 +376,11 @@ def _format_file(
     except InvalidRstErrors as errors:
         reporter.error(str(errors))
         error_count += 1
-        reporter.print(f"Failed to format {str(file)!r}")
+        reporter.print(f"Failed to format '{str(file)}'")
     except Exception as error:
         reporter.error(f"{error.__class__.__name__}: {error}")
         error_count += 1
-        reporter.print(f"Failed to format {str(file)!r}")
+        reporter.print(f"Failed to format '{str(file)}'")
     return misformatted, error_count
 
 
@@ -460,7 +477,7 @@ def _process_python(
 ):
     filename = basename(file)
     object_name = filename.split(".")[0]
-    visitor = Visitor(object_name, file, line_length, manager)
+    visitor = Visitor(file, input_string, line_length, manager, object_name)
     module = cst.parse_module(input_string)
     wrapper = cst.MetadataWrapper(module)
     result = wrapper.visit(visitor)
@@ -469,7 +486,7 @@ def _process_python(
     if visitor.misformatted:
         misformatted = True
         if check and not raw_output:
-            reporter.print(f"File {str(file)!r} could be reformatted.")
+            reporter.print(f"File '{str(file)}' could be reformatted.")
         else:
             if file == "-" or raw_output:
                 with lock or nullcontext():
@@ -507,14 +524,14 @@ def _process_rst(
     error_count = manager.error_count
     misformatted = False
     if output == input_string:
-        reporter.print(f"File {str(file)!r} is formatted correctly. Nice!", 1)
+        reporter.print(f"File '{str(file)}' is formatted correctly. Nice!", 1)
         if raw_output:
             with lock or nullcontext():
                 _write_output(file, input_string, nullcontext(sys.stdout), raw_output)
     else:
         misformatted = True
         if check and not raw_output:
-            reporter.print(f"File {str(file)!r} could be reformatted.")
+            reporter.print(f"File '{str(file)}' could be reformatted.")
         else:
             if file == "-" or raw_output:
                 with lock or nullcontext():
@@ -537,7 +554,7 @@ def _write_output(file, output, output_manager, raw):
     with output_manager as f:
         f.write(output)
     if not raw:
-        reporter.print(f"Reformatted {str(file)!r}.")
+        reporter.print(f"Reformatted '{str(file)}'.")
 
 
 @click.command(context_settings=dict(help_option_names=["-h", "--help"]))
@@ -694,17 +711,19 @@ def main(
         try:
             misformatted = False
             if file_type == "py":
-                misformatted, _ = _process_python(
+                misformatted, error_count = _process_python(
                     check, file, raw_input, line_length, manager, True
                 )
             elif file_type == "rst":
-                misformatted, _ = _process_rst(
+                misformatted, error_count = _process_rst(
                     check, file, raw_input, line_length, manager, True
                 )
             if misformatted:
                 misformatted_files.add(file)
         except InvalidRstErrors as errors:
             reporter.error(str(errors))
+            context.exit(1)
+        if error_count > 0:
             context.exit(1)
         context.exit(0)
 
@@ -773,7 +792,7 @@ def main(
                 " reformatted."
             )
     elif not raw_output:
-        reporter.print(f"{plural('file', len(files))} were checked.")
+        reporter.print(f"{plural('file', len(files))} was checked.")
     if error_count > 0:
         reporter.print(f"Done, but {plural('error', error_count)} occurred ❌💥❌")
     elif not raw_output:
