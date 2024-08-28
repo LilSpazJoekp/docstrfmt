@@ -1,6 +1,6 @@
 import pytest
 
-from tests.conftest import run_test
+from tests import node_eq
 
 test_lengths = [8, 13, 34, 55, 89, 144, 72]
 
@@ -10,4 +10,9 @@ def test_formatting(manager, length):
     file = "tests/test_files/test_file.rst"
     with open(file, encoding="utf-8") as f:
         test_string = f.read()
-    run_test(manager, file, length, test_string)
+    doc = manager.parse_string(file, test_string)
+    output = manager.format_node(length, doc)
+    doc2 = manager.parse_string(file, output)
+    output2 = manager.format_node(length, doc2)
+    assert node_eq(doc, doc2)
+    assert output == output2

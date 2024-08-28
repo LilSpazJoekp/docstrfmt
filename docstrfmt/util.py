@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import os
 import pickle
 import sys
 import tempfile
+from collections import defaultdict
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -10,6 +13,26 @@ from docutils.utils import roman
 from platformdirs import user_cache_path
 
 from .const import __version__
+
+
+class LineResolver:
+    def __init__(self, file, source):
+        self.file = file
+        self.source = source
+        self._results = defaultdict(list)
+        self._searches = set()
+
+    def offset(self, code) -> int:
+        if code not in self._searches:
+            if code not in self.source:  # pragma: no cover should be impossible
+                raise ValueError(f"Code not found in {self.file}")
+            self._searches.add(code)
+            split = self.source.split(code)
+            for i, block in enumerate(split[:-1]):
+                self._results[code].append(code.join(split[: i + 1]).count("\n") + 1)
+        if not self._results[code]:  # pragma: no cover should be impossible
+            raise ValueError(f"Code not found in {self.file}")
+        return self._results[code].pop(0)
 
 
 class FileCache:

@@ -4,6 +4,15 @@ Change Log
 Unreleased
 ----------
 
+**Changed**
+
+- Better line number reporting for syntax errors in Python code blocks.
+
+**Fixed**
+
+- When processing Python files, the file is now fully processed and all errors are
+  reported at once.
+
 1.9.0 (2024/08/26)
 ------------------
 

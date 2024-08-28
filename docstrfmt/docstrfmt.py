@@ -486,7 +486,9 @@ class Formatters:
                 )
             else:
                 sub_doc = self.manager.parse_string(
-                    context.current_file, "\n".join(directive.content)
+                    context.current_file,
+                    "\n".join(directive.content),
+                    self.manager.current_offset + directive.content_offset,
                 )
                 if sub_doc.children:
                     yield ""
@@ -1219,6 +1221,7 @@ class Manager:
     def __init__(self, reporter, black_config=None, docstring_trailing_line=True):
         rst_extras.register()
         self.black_config = black_config
+        self.current_offset = 0
         self.error_count = 0
         self.reporter = reporter
         self.settings = OptionParser(components=[rst.Parser]).get_default_values()
@@ -1231,7 +1234,9 @@ class Manager:
         self.current_file = None
         self.docstring_trailing_line = docstring_trailing_line
 
-    def _pre_process(self, node: docutils.nodes.Node) -> None:
+    def _pre_process(
+        self, node: docutils.nodes.Node, line_offset: int, block_length: int
+    ) -> None:
         """Preprocess nodes.
 
         This does some preprocessing to all nodes that is generic across node types and
@@ -1254,7 +1259,8 @@ class Manager:
                     InvalidRstError(
                         self.current_file,
                         error.attributes["type"],
-                        error.line,
+                        (block_length - 1 if error.line is None else error.line)
+                        + line_offset,
                         error.children[0].children[0],
                     )
                     for error in errors
@@ -1288,7 +1294,7 @@ class Manager:
 
         # Recurse.
         for child in node.children:
-            self._pre_process(child)
+            self._pre_process(child, line_offset, block_length)
 
     def format_node(self, width, node: docutils.nodes.Node, is_docstring=False) -> str:
         formatted_node = "\n".join(
@@ -1305,8 +1311,11 @@ class Manager:
         )
         return f"{formatted_node}\n"
 
-    def parse_string(self, file_name: str, text: str) -> docutils.nodes.document:
+    def parse_string(
+        self, file_name: str, text: str, line_offset: int = 0
+    ) -> docutils.nodes.document:
         self.current_file = file_name
+        self.current_offset = line_offset
         self._patch_unknown_directives(text)
         doc = new_document(str(self.current_file), self.settings)
         parser = rst.Parser()
@@ -1314,7 +1323,7 @@ class Manager:
         doc.reporter = IgnoreMessagesReporter(
             "", self.settings.report_level, self.settings.halt_level
         )
-        self._pre_process(doc)
+        self._pre_process(doc, line_offset, len(text.splitlines()))
         return doc
 
     def perform_format(
