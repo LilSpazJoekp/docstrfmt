@@ -10,12 +10,6 @@ def iter_descendants(node):
         yield from iter_descendants(c)
 
 
-def text_contents(node):
-    return "".join(
-        n.astext() for n in iter_descendants(node) if isinstance(n, docutils.nodes.Text)
-    )
-
-
 def node_eq(node1, node2):
     if type(node1) is not type(node2):  # pragma: no cover
         print("different type")
@@ -56,3 +50,9 @@ def node_eq(node1, node2):
             print(2, i, c)
         return False
     return all(node_eq(c1, c2) for c1, c2 in zip(node1.children, node2.children))
+
+
+def text_contents(node):
+    return "".join(
+        n.astext() for n in iter_descendants(node) if isinstance(n, docutils.nodes.Text)
+    )

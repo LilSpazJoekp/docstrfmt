@@ -14,100 +14,8 @@ from docutils.parsers.rst.states import ParserError
 from docutils.utils import roman
 from platformdirs import user_cache_path
 
-if TYPE_CHECKING: # pragma: no cover
+if TYPE_CHECKING:  # pragma: no cover
     import click
-
-
-class LineResolver:
-    """A class to resolve the line number of a code block in a file."""
-
-    def __init__(self, file: Path, source: str):
-        """Initialize the class."""
-        self.file = file
-        self.source = source
-        self._results = defaultdict(list)
-        self._searches = set()
-
-    def offset(self, code: str) -> int:
-        """Get the line number of the code in the file."""
-        if code not in self._searches:
-            if code not in self.source:  # pragma: no cover should be impossible
-                msg = f"Code not found in {self.file}"
-                raise ValueError(msg)
-            self._searches.add(code)
-            split = self.source.split(code)
-            for i, _block in enumerate(split[:-1]):
-                self._results[code].append(code.join(split[: i + 1]).count("\n") + 1)
-        if not self._results[code]:  # pragma: no cover should be impossible
-            msg = f"Code not found in {self.file}"
-            raise ValueError(msg)
-        return self._results[code].pop(0)
-
-
-class FileCache:
-    """A class to manage the cache of files."""
-
-    def __init__(self, context: click.Context, ignore_cache: bool = False):
-        """Initialize the cache."""
-        from . import __version__
-
-        self.cache_dir = user_cache_path("docstrfmt", version=__version__)
-        self.context = context
-        self.cache = self._read_cache()
-        self.ignore_cache = ignore_cache
-
-    @staticmethod
-    def _get_file_info(file):  # noqa: ANN001,ANN205
-        file_info = file.stat()
-        return file_info.st_mtime, file_info.st_size
-
-    def gen_todo_list(self, files: list[str]) -> tuple[set[Path], set[Path]]:
-        """Generate the list of files to process."""
-        todo, done = set(), set()
-        for file in (Path(f).resolve() for f in files):
-            if self.cache.get(file) != self._get_file_info(file) or self.ignore_cache:
-                todo.add(file)
-            else:  # pragma: no cover
-                done.add(file)
-        return todo, done
-
-    def _get_cache_filename(self):
-        docstring_trailing_line = str(self.context.params["docstring_trailing_line"])
-        line_length = str(self.context.params["line_length"])
-        mode = self.context.params["mode"].get_cache_key()
-        include_txt = str(self.context.params["include_txt"])
-        return (
-            self.cache_dir
-            / f"cache.{f'{docstring_trailing_line}_{line_length}_{mode}_{include_txt}'}.pickle"
-        )
-
-    def _read_cache(self):
-        """Read the cache file."""
-        cache_file = self._get_cache_filename()
-        if not cache_file.exists():
-            return {}
-        with cache_file.open("rb") as f:
-            try:
-                return pickle.load(f)  # noqa: S301
-            except (pickle.UnpicklingError, ValueError):  # pragma: no cover
-                return {}
-
-    def write_cache(self, files: list[Path]) -> None:
-        """Update the cache file."""
-        cache_file = self._get_cache_filename()
-        try:
-            self.cache_dir.mkdir(parents=True, exist_ok=True)
-            new_cache = {
-                **self.cache,
-                **{file.resolve(): self._get_file_info(file) for file in files},
-            }
-            with tempfile.NamedTemporaryFile(
-                dir=str(cache_file.parent), delete=False
-            ) as f:
-                pickle.dump(new_cache, f, protocol=4)
-            Path(f.name).replace(cache_file)
-        except OSError:  # pragma: no cover
-            pass
 
 
 def get_code_line(current_file: Path, code: str, strict: bool = False) -> int:
@@ -171,6 +79,98 @@ def make_enumerator(ordinal: int, sequence: str, fmt: tuple[str, str]) -> str:
             msg = f'unknown enumerator sequence: "{sequence}"'
             raise ParserError(msg)
     return fmt[0] + enumerator + fmt[1]
+
+
+class FileCache:
+    """A class to manage the cache of files."""
+
+    @staticmethod
+    def _get_file_info(file):  # noqa: ANN001,ANN205
+        file_info = file.stat()
+        return file_info.st_mtime, file_info.st_size
+
+    def __init__(self, context: click.Context, ignore_cache: bool = False):
+        """Initialize the cache."""
+        from . import __version__
+
+        self.cache_dir = user_cache_path("docstrfmt", version=__version__)
+        self.context = context
+        self.cache = self._read_cache()
+        self.ignore_cache = ignore_cache
+
+    def _get_cache_filename(self):
+        docstring_trailing_line = str(self.context.params["docstring_trailing_line"])
+        line_length = str(self.context.params["line_length"])
+        mode = self.context.params["mode"].get_cache_key()
+        include_txt = str(self.context.params["include_txt"])
+        return (
+            self.cache_dir
+            / f"cache.{f'{docstring_trailing_line}_{line_length}_{mode}_{include_txt}'}.pickle"
+        )
+
+    def _read_cache(self):
+        """Read the cache file."""
+        cache_file = self._get_cache_filename()
+        if not cache_file.exists():
+            return {}
+        with cache_file.open("rb") as f:
+            try:
+                return pickle.load(f)  # noqa: S301
+            except (pickle.UnpicklingError, ValueError):  # pragma: no cover
+                return {}
+
+    def gen_todo_list(self, files: list[str]) -> tuple[set[Path], set[Path]]:
+        """Generate the list of files to process."""
+        todo, done = set(), set()
+        for file in (Path(f).resolve() for f in files):
+            if self.cache.get(file) != self._get_file_info(file) or self.ignore_cache:
+                todo.add(file)
+            else:  # pragma: no cover
+                done.add(file)
+        return todo, done
+
+    def write_cache(self, files: list[Path]) -> None:
+        """Update the cache file."""
+        cache_file = self._get_cache_filename()
+        try:
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+            new_cache = {
+                **self.cache,
+                **{file.resolve(): self._get_file_info(file) for file in files},
+            }
+            with tempfile.NamedTemporaryFile(
+                dir=str(cache_file.parent), delete=False
+            ) as f:
+                pickle.dump(new_cache, f, protocol=4)
+            Path(f.name).replace(cache_file)
+        except OSError:  # pragma: no cover
+            pass
+
+
+class LineResolver:
+    """A class to resolve the line number of a code block in a file."""
+
+    def __init__(self, file: Path, source: str):
+        """Initialize the class."""
+        self.file = file
+        self.source = source
+        self._results = defaultdict(list)
+        self._searches = set()
+
+    def offset(self, code: str) -> int:
+        """Get the line number of the code in the file."""
+        if code not in self._searches:
+            if code not in self.source:  # pragma: no cover should be impossible
+                msg = f"Code not found in {self.file}"
+                raise ValueError(msg)
+            self._searches.add(code)
+            split = self.source.split(code)
+            for i, _block in enumerate(split[:-1]):
+                self._results[code].append(code.join(split[: i + 1]).count("\n") + 1)
+        if not self._results[code]:  # pragma: no cover should be impossible
+            msg = f"Code not found in {self.file}"
+            raise ValueError(msg)
+        return self._results[code].pop(0)
 
 
 class plural:  # noqa: N801

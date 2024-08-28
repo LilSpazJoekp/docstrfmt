@@ -10,14 +10,6 @@ class DocstrfmtError(Exception):
 class InvalidRstError(ValueError):
     """An error that occurred while parsing RST."""
 
-    def __init__(self, file: str, level: str, line: int, message: str):
-        """Initialize an invalid RST error."""
-        self.file = file
-        self.level = level
-
-        self.line = line
-        self.message = message
-
     @property
     def error_message(self) -> str:
         """Return a formatted error message."""
@@ -25,6 +17,14 @@ class InvalidRstError(ValueError):
             f"{self.level}: File"
             f' "{self.file}"{f", line {self.line}" if self.line else ""}:\n{self.message}'
         )
+
+    def __init__(self, file: str, level: str, line: int, message: str):
+        """Initialize an invalid RST error."""
+        self.file = file
+        self.level = level
+
+        self.line = line
+        self.message = message
 
     def __str__(self) -> str:
         """Return a string representation of the error."""

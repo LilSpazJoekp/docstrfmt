@@ -26,42 +26,6 @@ from .const import ROLE_ALIASES
 T = TypeVar("T")
 
 
-class directive(docutils.nodes.Element):  # noqa: N801
-    """A directive that doesn't do anything."""
-
-
-class role(docutils.nodes.Element):  # noqa: N801
-    """A role that doesn't do anything."""
-
-
-class ref_role(docutils.nodes.Element):  # noqa: N801
-    """A role that doesn't do anything."""
-
-
-class ReferenceRole(sphinx.util.docutils.ReferenceRole):
-    """Role that doesn't do anything."""
-
-    def run(
-        self,
-    ) -> tuple[list[docutils.nodes.Node], list[docutils.nodes.system_message]]:
-        """Run the role."""
-        node = ref_role(
-            self.rawtext,
-            name=self.name,
-            has_explicit_title=self.has_explicit_title,
-            target=self.target,
-            title=self.title,
-        )
-        return [node], []
-
-
-def generic_role(r: str, rawtext: str, text: str, *_: Any, **__: Any) -> Any:
-    """Provide a generic role that doesn't do anything."""
-    r = ROLE_ALIASES.get(r.lower(), r)
-    text = docutils.utils.unescape(text, restore_backslashes=True)
-    return [role(rawtext, text=text, role=r)], []
-
-
 def _add_directive(
     name: str,
     cls: type[docutils.parsers.rst.Directive],
@@ -92,10 +56,11 @@ def _add_directive(
     )
 
 
-def _subclasses(cls: type[T]) -> Iterator[type[T]]:
-    for subclass in cls.__subclasses__():
-        yield subclass
-        yield from _subclasses(subclass)
+def generic_role(r: str, rawtext: str, text: str, *_: Any, **__: Any) -> Any:
+    """Provide a generic role that doesn't do anything."""
+    r = ROLE_ALIASES.get(r.lower(), r)
+    text = docutils.utils.unescape(text, restore_backslashes=True)
+    return [role(rawtext, text=text, role=r)], []
 
 
 def register() -> None:
@@ -163,3 +128,38 @@ def register() -> None:
         pass
     else:  # pragma: no cover
         _add_directive("argparse", sphinxarg.ext.ArgParseDirective)
+
+
+class ReferenceRole(sphinx.util.docutils.ReferenceRole):
+    """Role that doesn't do anything."""
+
+    def run(
+        self,
+    ) -> tuple[list[docutils.nodes.Node], list[docutils.nodes.system_message]]:
+        """Run the role."""
+        node = ref_role(
+            self.rawtext,
+            name=self.name,
+            has_explicit_title=self.has_explicit_title,
+            target=self.target,
+            title=self.title,
+        )
+        return [node], []
+
+
+class directive(docutils.nodes.Element):  # noqa: N801
+    """A directive that doesn't do anything."""
+
+
+class ref_role(docutils.nodes.Element):  # noqa: N801
+    """A role that doesn't do anything."""
+
+
+class role(docutils.nodes.Element):  # noqa: N801
+    """A role that doesn't do anything."""
+
+
+def _subclasses(cls: type[T]) -> Iterator[type[T]]:
+    for subclass in cls.__subclasses__():
+        yield subclass
+        yield from _subclasses(subclass)

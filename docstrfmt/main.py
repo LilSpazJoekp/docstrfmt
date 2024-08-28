@@ -796,8 +796,6 @@ def main(  # noqa: PLR0912,PLR0915
 
 reporter = Reporter(0)
 
-reporter = Reporter(0)
-
 if __name__ == "__main__":  # pragma: no cover
     freeze_support()
     main()

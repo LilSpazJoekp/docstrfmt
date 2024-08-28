@@ -7,11 +7,6 @@ from typing import Iterator
 import docutils.nodes
 
 
-def dump_node(node: docutils.nodes.Node) -> str:
-    """Dump a docutils node to a string."""
-    return "\n".join(["    " * indent + line for indent, line in _dump_lines(node)])
-
-
 def _dump_lines(node: docutils.nodes.Node) -> Iterator[tuple[int, str]]:
     """Dump a docutils node to a list of strings."""
     node_type = type(node).__name__
@@ -24,3 +19,8 @@ def _dump_lines(node: docutils.nodes.Node) -> Iterator[tuple[int, str]]:
     for c in node.children:
         for n, line in _dump_lines(c):
             yield n + 1, line
+
+
+def dump_node(node: docutils.nodes.Node) -> str:
+    """Dump a docutils node to a string."""
+    return "\n".join(["    " * indent + line for indent, line in _dump_lines(node)])

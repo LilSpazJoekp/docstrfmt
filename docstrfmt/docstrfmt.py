@@ -36,7 +36,7 @@ from .exceptions import InvalidRstError, InvalidRstErrors
 from .rst_extras import _add_directive, generic_role
 from .util import get_code_line, make_enumerator
 
-if TYPE_CHECKING: # pragma: no cover
+if TYPE_CHECKING:  # pragma: no cover
     from pathlib import Path
 
 T = TypeVar("T")
@@ -64,6 +64,61 @@ pre_markup_break_chars = space_chars | set("-:/'\"<([{")
 post_markup_break_chars = space_chars | set("-.,:;!?\\/'\")]}>")
 
 chain = itertools.chain.from_iterable
+
+
+class IgnoreMessagesReporter(Reporter):
+    """A Docutils error reporter that ignores some messages.
+
+    We want to handle most system messages normally, but it's useful to ignore some (and
+    just doing it by level would be too coarse). In particular, having too short a title
+    line leads to a warning but parses just fine; ignoring that message means we can
+    automatically fix lengths whether they're too short or too long (though they do have
+    to be at least four characters to be parsed correctly in the first place).
+
+    """
+
+    ignored_messages = {"Title overline too short.", "Title underline too short."}
+
+    def system_message(
+        self, level: int, message: str, *children: Any, **kwargs: Any
+    ) -> docutils.nodes.system_message:  # pragma: no cover
+        orig_level = self.halt_level
+        if message in self.ignored_messages:
+            self.halt_level = Reporter.SEVERE_LEVEL + 1
+        msg = super().system_message(level, message, *children, **kwargs)
+        self.halt_level = orig_level
+        return msg
+
+
+class UnknownNodeTransformer(Transform):
+    """Transform to handle unknown nodes."""
+
+    default_priority = 0
+
+    def apply(self, **_: Any):
+        """Apply the transform."""
+        for node in self.document.findall(docutils.nodes.system_message):
+            message = node.children[0].children[0].astext()
+            for regex, handler in unknown_handlers:
+                match = regex.match(message)
+                if match:
+                    handler(match.group(1))
+                    break
+
+
+class inline_markup:  # noqa: N801
+    def __init__(self, text: str) -> None:
+        self.text = text
+
+
+inline_item = Union[str, inline_markup]
+inline_iterator = Iterator[inline_item]
+line_iterator = Iterator[str]
+
+word_info = namedtuple(  # noqa: PYI024
+    "word_info",
+    ["text", "in_markup", "start_space", "end_space", "start_punct", "end_punct"],
+)
 
 
 class FormatContext:
@@ -112,41 +167,20 @@ class FormatContext:
     def with_bullet(self, bullet: str) -> FormatContext:
         return self._replace(bullet=bullet)
 
+    def with_column_widths(self, widths: list[int]) -> FormatContext:
+        return self._replace(column_widths=widths)
+
     def with_ordinal(self, current_ordinal: int) -> FormatContext:
         return self._replace(current_ordinal=current_ordinal)
 
     def with_ordinal_format(self, ordinal_format: str) -> FormatContext:
         return self._replace(ordinal_format=ordinal_format)
 
-    def with_column_widths(self, widths: list[int]) -> FormatContext:
-        return self._replace(column_widths=widths)
-
     def with_width(self, width: int) -> FormatContext:
         return self._replace(width=width)
 
     def wrap_first_at(self, width: int) -> FormatContext:
         return self._replace(first_line_len=width)
-
-
-def pairwise(items: Iterable[T]) -> Iterator[tuple[T, T]]:
-    a, b = itertools.tee(items)
-    next(b, None)
-    return zip(a, b)
-
-
-class inline_markup:  # noqa: N801
-    def __init__(self, text: str) -> None:
-        self.text = text
-
-
-inline_item = Union[str, inline_markup]
-inline_iterator = Iterator[inline_item]
-line_iterator = Iterator[str]
-
-word_info = namedtuple(  # noqa: PYI024
-    "word_info",
-    ["text", "in_markup", "start_space", "end_space", "start_punct", "end_punct"],
-)
 
 
 @dataclass
@@ -176,9 +210,152 @@ class CodeFormatters:
         return self.code
 
 
+class Manager:
+    def __init__(
+        self,
+        reporter: Reporter,
+        black_config: Mode = None,
+        docstring_trailing_line: bool = True,
+    ):
+        rst_extras.register()
+        self.black_config = black_config
+        self.current_offset = 0
+        self.error_count = 0
+        self.reporter = reporter
+        self.settings = OptionParser(components=[rst.Parser]).get_default_values()
+        self.settings.smart_quotes = True
+        self.settings.report_level = 5
+        self.settings.halt_level = 5
+        self.settings.file_insertion_enabled = False
+        self.settings.tab_width = 8
+        self.formatters = Formatters(self)
+        self.current_file = None
+        self.docstring_trailing_line = docstring_trailing_line
+
+    def _patch_unknown_directives(self, text: str) -> None:
+        doc = new_document(str(self.current_file), self.settings)
+        parser = rst.Parser()
+        parser.parse(text, doc)
+        doc.reporter = IgnoreMessagesReporter(
+            "", self.settings.report_level, self.settings.halt_level
+        )
+        doc.transformer.add_transform(UnknownNodeTransformer)
+        doc.transformer.apply_transforms()
+
+    def _pre_process(
+        self, node: docutils.nodes.Node, line_offset: int, block_length: int
+    ) -> None:
+        """Preprocess nodes.
+
+        This does some preprocessing to all nodes that is generic across node types and
+        is therefore most convenient to do as a simple recursive function rather than as
+        part of the big dispatcher class.
+
+        """
+        # Strip all system_message nodes. (Just formatting them with no markup isn't enough, since that
+        # could lead to extra spaces or empty lines between other elements.)
+        errors = [
+            child
+            for child in node.children
+            if isinstance(child, docutils.nodes.system_message)
+            and child.attributes["type"] != "INFO"
+        ]
+        if errors:
+            self.error_count += len(errors)
+            raise InvalidRstErrors(
+                [
+                    InvalidRstError(
+                        self.current_file,
+                        error.attributes["type"],
+                        (block_length - 1 if error.line is None else error.line)
+                        + line_offset,
+                        error.children[0].children[0],
+                    )
+                    for error in errors
+                ]
+            )
+        node.children = [
+            child
+            for child in node.children
+            if not isinstance(child, docutils.nodes.system_message)
+        ]
+
+        # Match references to targets, which helps later with distinguishing whether they're anonymous.
+        for reference, target in pairwise(node.children):
+            if isinstance(reference, docutils.nodes.reference) and isinstance(
+                target, docutils.nodes.target
+            ):
+                reference.attributes["target"] = target
+        start = None
+        for i, child in enumerate(itertools.chain(node.children, [None])):
+            in_run = start is not None
+            is_target = isinstance(child, docutils.nodes.target)
+            if in_run and not is_target:
+                # Anonymous targets have a value of `[]` for "names", which will sort to the top. Also,
+                # it's important here that `sorted` is stable, or anonymous targets could break.
+                node.children[start:i] = sorted(
+                    node.children[start:i], key=lambda t: t.attributes["names"]
+                )
+                start = None
+            elif not in_run and is_target:
+                start = i
+
+        # Recurse.
+        for child in node.children:
+            self._pre_process(child, line_offset, block_length)
+
+    def format_node(
+        self, width: int, node: docutils.nodes.Node, is_docstring: bool = False
+    ) -> str:
+        formatted_node = "\n".join(
+            self.perform_format(
+                node,
+                FormatContext(
+                    width,
+                    current_file=self.current_file,
+                    manager=self,
+                    black_config=self.black_config,
+                    is_docstring=is_docstring,
+                ),
+            )
+        )
+        return f"{formatted_node}\n"
+
+    def parse_string(
+        self, file_name: Path | str, text: str, line_offset: int = 0
+    ) -> docutils.nodes.document:
+        """Parse a string of reStructuredText."""
+        self.current_file = file_name
+        self.current_offset = line_offset
+        self._patch_unknown_directives(text)
+        doc = new_document(str(self.current_file), self.settings)
+        parser = rst.Parser()
+        parser.parse(text, doc)
+        doc.reporter = IgnoreMessagesReporter(
+            "", self.settings.report_level, self.settings.halt_level
+        )
+        self._pre_process(doc, line_offset, len(text.splitlines()))
+        return doc
+
+    def perform_format(
+        self, node: docutils.nodes.Node, context: FormatContext
+    ) -> Iterator[str]:
+        """Format a node."""
+        try:
+            func = getattr(self.formatters, type(node).__name__)
+        except AttributeError:  # pragma: no cover
+            msg = f'Unknown node type {type(node).__name__} at File "{context.current_file}", line {node.line}'
+            raise ValueError(msg) from None
+        return func(node, context)
+
+
+def pairwise(items: Iterable[T]) -> Iterator[tuple[T, T]]:
+    a, b = itertools.tee(items)
+    next(b, None)
+    return zip(a, b)
+
+
 class Formatters:
-    def __init__(self, manager: Manager):
-        self.manager = manager
 
     @staticmethod
     def _chain_with_line_separator(
@@ -201,6 +378,106 @@ class Formatters:
     @staticmethod
     def _enum_first(items: Iterable[T]) -> Iterator[tuple[bool, T]]:
         return zip(itertools.chain([True], itertools.repeat(False)), items)
+
+    @staticmethod
+    def _wrap_text(
+        width: int | None,
+        items: Iterable[inline_item],
+        context: FormatContext,
+        current_line: int,
+    ) -> Iterator[str]:
+        if width is not None and width <= 0:
+            msg = f'Invalid starting width {context.starting_width} in File "{context.current_file}", line {current_line}'
+            raise ValueError(msg)
+        raw_words = []
+        for item in list(items):
+            new_words = []
+            if isinstance(item, str):
+                if not item:  # pragma: no cover
+                    # An empty string is treated as having trailing punctuation: it only
+                    # shows up when two inline markup blocks are separated by
+                    # backslash-space, and this means that after it is merged with its
+                    # predecessor the resulting word will not cause a second escape to
+                    # be introduced when merging with the successor.
+                    new_words = [word_info(item, False, False, False, False, True)]
+                else:
+                    new_words = [
+                        word_info(word, False, False, False, False, False)
+                        for word in item.split()
+                    ]
+                    if item:
+                        if not new_words:
+                            new_words = [word_info("", False, True, True, True, True)]
+                        if item[0] in space_chars:
+                            new_words[0] = new_words[0]._replace(start_space=True)
+                        if item[-1] in space_chars:
+                            new_words[-1] = new_words[-1]._replace(end_space=True)
+                        if item[0] in post_markup_break_chars:
+                            new_words[0] = new_words[0]._replace(start_punct=True)
+                        if item[-1] in pre_markup_break_chars:
+                            new_words[-1] = new_words[-1]._replace(end_punct=True)
+            elif isinstance(item, inline_markup):
+                new_words = [
+                    word_info(word, True, False, False, False, False)
+                    for word in item.text.split()
+                ]
+            raw_words.append(new_words)
+        raw_words = list(chain(raw_words))
+        words = [word_info("", False, True, True, True, True)]
+        for word in raw_words:
+            last = words[-1]
+            if not last.in_markup and word.in_markup and not last.end_space:
+                join = "" if last.end_punct else r"\ "
+                words[-1] = word_info(
+                    last.text + join + word.text, True, False, False, False, False
+                )
+            elif last.in_markup and not word.in_markup and not word.start_space:
+                join = "" if word.start_punct else r"\ "
+                words[-1] = word_info(
+                    last.text + join + word.text,
+                    False,
+                    False,
+                    word.end_space,
+                    word.start_punct,
+                    word.end_punct,
+                )
+            else:
+                words.append(word)
+
+        word_strings = (word.text for word in words if word.text)
+
+        if width is None:
+            yield " ".join(word_strings)
+            return
+
+        words: list[str] = []
+        current_line_length = 0
+        if context.first_line_len:
+            width -= context.first_line_len
+        for word in word_strings:
+            next_line_len = (
+                current_line_length
+                + (context.subsequent_indent if bool(words) else 0)
+                + bool(words)
+                + len(word)
+            )
+            if words and next_line_len > width:
+                yield " " * context.subsequent_indent + " ".join(words)
+                if context.first_line_len:
+                    width += context.first_line_len
+                    context.first_line_len = None
+                words = []
+                next_line_len = len(word)
+            words.append(word)
+            current_line_length = next_line_len
+        if words:
+            yield " ".join(words)
+
+    def Text(self, node: docutils.nodes.Text, _) -> inline_iterator:
+        yield unescape(node, restore_backslashes=True).replace(r"\ ", "")
+
+    def __init__(self, manager: Manager):
+        self.manager = manager
 
     def _format_children(
         self, node: docutils.nodes.Node, context: FormatContext
@@ -305,100 +582,6 @@ class Formatters:
         spaces = " " * space_count
         for line in lines:
             yield spaces + line if line else line
-
-    @staticmethod
-    def _wrap_text(
-        width: int | None,
-        items: Iterable[inline_item],
-        context: FormatContext,
-        current_line: int,
-    ) -> Iterator[str]:
-        if width is not None and width <= 0:
-            msg = f'Invalid starting width {context.starting_width} in File "{context.current_file}", line {current_line}'
-            raise ValueError(msg)
-        raw_words = []
-        for item in list(items):
-            new_words = []
-            if isinstance(item, str):
-                if not item:  # pragma: no cover
-                    # An empty string is treated as having trailing punctuation: it only
-                    # shows up when two inline markup blocks are separated by
-                    # backslash-space, and this means that after it is merged with its
-                    # predecessor the resulting word will not cause a second escape to
-                    # be introduced when merging with the successor.
-                    new_words = [word_info(item, False, False, False, False, True)]
-                else:
-                    new_words = [
-                        word_info(word, False, False, False, False, False)
-                        for word in item.split()
-                    ]
-                    if item:
-                        if not new_words:
-                            new_words = [word_info("", False, True, True, True, True)]
-                        if item[0] in space_chars:
-                            new_words[0] = new_words[0]._replace(start_space=True)
-                        if item[-1] in space_chars:
-                            new_words[-1] = new_words[-1]._replace(end_space=True)
-                        if item[0] in post_markup_break_chars:
-                            new_words[0] = new_words[0]._replace(start_punct=True)
-                        if item[-1] in pre_markup_break_chars:
-                            new_words[-1] = new_words[-1]._replace(end_punct=True)
-            elif isinstance(item, inline_markup):
-                new_words = [
-                    word_info(word, True, False, False, False, False)
-                    for word in item.text.split()
-                ]
-            raw_words.append(new_words)
-        raw_words = list(chain(raw_words))
-        words = [word_info("", False, True, True, True, True)]
-        for word in raw_words:
-            last = words[-1]
-            if not last.in_markup and word.in_markup and not last.end_space:
-                join = "" if last.end_punct else r"\ "
-                words[-1] = word_info(
-                    last.text + join + word.text, True, False, False, False, False
-                )
-            elif last.in_markup and not word.in_markup and not word.start_space:
-                join = "" if word.start_punct else r"\ "
-                words[-1] = word_info(
-                    last.text + join + word.text,
-                    False,
-                    False,
-                    word.end_space,
-                    word.start_punct,
-                    word.end_punct,
-                )
-            else:
-                words.append(word)
-
-        word_strings = (word.text for word in words if word.text)
-
-        if width is None:
-            yield " ".join(word_strings)
-            return
-
-        words: list[str] = []
-        current_line_length = 0
-        if context.first_line_len:
-            width -= context.first_line_len
-        for word in word_strings:
-            next_line_len = (
-                current_line_length
-                + (context.subsequent_indent if bool(words) else 0)
-                + bool(words)
-                + len(word)
-            )
-            if words and next_line_len > width:
-                yield " " * context.subsequent_indent + " ".join(words)
-                if context.first_line_len:
-                    width += context.first_line_len
-                    context.first_line_len = None
-                words = []
-                next_line_len = len(word)
-            words.append(word)
-            current_line_length = next_line_len
-        if words:
-            yield " ".join(words)
 
     def admonition(
         self, node: nodes.admonition, context: FormatContext
@@ -1162,9 +1345,6 @@ class Formatters:
             )
         )
 
-    def Text(self, node: docutils.nodes.Text, _) -> inline_iterator:
-        yield unescape(node, restore_backslashes=True).replace(r"\ ", "")
-
     def tgroup(
         self, node: docutils.nodes.tgroup, context: FormatContext
     ) -> line_iterator:
@@ -1201,182 +1381,3 @@ class Formatters:
         self, node: docutils.nodes.transition, context: FormatContext
     ) -> line_iterator:
         yield "----"
-
-
-class IgnoreMessagesReporter(Reporter):
-    """A Docutils error reporter that ignores some messages.
-
-    We want to handle most system messages normally, but it's useful to ignore some (and
-    just doing it by level would be too coarse). In particular, having too short a title
-    line leads to a warning but parses just fine; ignoring that message means we can
-    automatically fix lengths whether they're too short or too long (though they do have
-    to be at least four characters to be parsed correctly in the first place).
-
-    """
-
-    ignored_messages = {"Title overline too short.", "Title underline too short."}
-
-    def system_message(
-        self, level: int, message: str, *children: Any, **kwargs: Any
-    ) -> docutils.nodes.system_message:  # pragma: no cover
-        orig_level = self.halt_level
-        if message in self.ignored_messages:
-            self.halt_level = Reporter.SEVERE_LEVEL + 1
-        msg = super().system_message(level, message, *children, **kwargs)
-        self.halt_level = orig_level
-        return msg
-
-
-class Manager:
-    def __init__(
-        self,
-        reporter: Reporter,
-        black_config: Mode = None,
-        docstring_trailing_line: bool = True,
-    ):
-        rst_extras.register()
-        self.black_config = black_config
-        self.current_offset = 0
-        self.error_count = 0
-        self.reporter = reporter
-        self.settings = OptionParser(components=[rst.Parser]).get_default_values()
-        self.settings.smart_quotes = True
-        self.settings.report_level = 5
-        self.settings.halt_level = 5
-        self.settings.file_insertion_enabled = False
-        self.settings.tab_width = 8
-        self.formatters = Formatters(self)
-        self.current_file = None
-        self.docstring_trailing_line = docstring_trailing_line
-
-    def _pre_process(
-        self, node: docutils.nodes.Node, line_offset: int, block_length: int
-    ) -> None:
-        """Preprocess nodes.
-
-        This does some preprocessing to all nodes that is generic across node types and
-        is therefore most convenient to do as a simple recursive function rather than as
-        part of the big dispatcher class.
-
-        """
-        # Strip all system_message nodes. (Just formatting them with no markup isn't enough, since that
-        # could lead to extra spaces or empty lines between other elements.)
-        errors = [
-            child
-            for child in node.children
-            if isinstance(child, docutils.nodes.system_message)
-            and child.attributes["type"] != "INFO"
-        ]
-        if errors:
-            self.error_count += len(errors)
-            raise InvalidRstErrors(
-                [
-                    InvalidRstError(
-                        self.current_file,
-                        error.attributes["type"],
-                        (block_length - 1 if error.line is None else error.line)
-                        + line_offset,
-                        error.children[0].children[0],
-                    )
-                    for error in errors
-                ]
-            )
-        node.children = [
-            child
-            for child in node.children
-            if not isinstance(child, docutils.nodes.system_message)
-        ]
-
-        # Match references to targets, which helps later with distinguishing whether they're anonymous.
-        for reference, target in pairwise(node.children):
-            if isinstance(reference, docutils.nodes.reference) and isinstance(
-                target, docutils.nodes.target
-            ):
-                reference.attributes["target"] = target
-        start = None
-        for i, child in enumerate(itertools.chain(node.children, [None])):
-            in_run = start is not None
-            is_target = isinstance(child, docutils.nodes.target)
-            if in_run and not is_target:
-                # Anonymous targets have a value of `[]` for "names", which will sort to the top. Also,
-                # it's important here that `sorted` is stable, or anonymous targets could break.
-                node.children[start:i] = sorted(
-                    node.children[start:i], key=lambda t: t.attributes["names"]
-                )
-                start = None
-            elif not in_run and is_target:
-                start = i
-
-        # Recurse.
-        for child in node.children:
-            self._pre_process(child, line_offset, block_length)
-
-    def format_node(
-        self, width: int, node: docutils.nodes.Node, is_docstring: bool = False
-    ) -> str:
-        formatted_node = "\n".join(
-            self.perform_format(
-                node,
-                FormatContext(
-                    width,
-                    current_file=self.current_file,
-                    manager=self,
-                    black_config=self.black_config,
-                    is_docstring=is_docstring,
-                ),
-            )
-        )
-        return f"{formatted_node}\n"
-
-    def parse_string(
-        self, file_name: Path | str, text: str, line_offset: int = 0
-    ) -> docutils.nodes.document:
-        """Parse a string of reStructuredText."""
-        self.current_file = file_name
-        self.current_offset = line_offset
-        self._patch_unknown_directives(text)
-        doc = new_document(str(self.current_file), self.settings)
-        parser = rst.Parser()
-        parser.parse(text, doc)
-        doc.reporter = IgnoreMessagesReporter(
-            "", self.settings.report_level, self.settings.halt_level
-        )
-        self._pre_process(doc, line_offset, len(text.splitlines()))
-        return doc
-
-    def perform_format(
-        self, node: docutils.nodes.Node, context: FormatContext
-    ) -> Iterator[str]:
-        """Format a node."""
-        try:
-            func = getattr(self.formatters, type(node).__name__)
-        except AttributeError:  # pragma: no cover
-            msg = f'Unknown node type {type(node).__name__} at File "{context.current_file}", line {node.line}'
-            raise ValueError(msg) from None
-        return func(node, context)
-
-    def _patch_unknown_directives(self, text: str) -> None:
-        doc = new_document(str(self.current_file), self.settings)
-        parser = rst.Parser()
-        parser.parse(text, doc)
-        doc.reporter = IgnoreMessagesReporter(
-            "", self.settings.report_level, self.settings.halt_level
-        )
-        doc.transformer.add_transform(UnknownNodeTransformer)
-        doc.transformer.apply_transforms()
-
-
-class UnknownNodeTransformer(Transform):
-    """Transform to handle unknown nodes."""
-
-    default_priority = 0
-
-    def apply(self, **_: Any):
-        """Apply the transform."""
-        for node in self.document.findall(docutils.nodes.system_message):
-            message = node.children[0].children[0].astext()
-            for regex, handler in unknown_handlers:
-                match = regex.match(message)
-                if match:
-                    handler(match.group(1))
-                    break
