@@ -3,16 +3,14 @@
 
 import argparse
 import sys
-from os import path
 from subprocess import CalledProcessError, check_call
-
-current_directory = path.abspath(path.join(__file__, ".."))
+from tempfile import TemporaryDirectory
 
 
 def do_process(args, shell=False):
     """Run program provided by args.
 
-    Return True on success.
+    Return ``True`` on success.
 
     Output failed message on non-zero exit and return False.
 
@@ -39,16 +37,7 @@ def run_static():
 
     """
     success = True
-    success &= do_process(
-        [
-            "docstrfmt",
-            ".",
-        ]
-    )
-    success &= do_process(["flynt", "-q", "-ll", "1000", "."])
-    success &= do_process(["isort", "."])
-    success &= do_process(["black", "."])
-    success &= do_process(["flake8", "--exclude=.eggs,.venv"])
+    success &= do_process(["pre-commit", "run", "--all-files"])
 
     return success
 
@@ -60,7 +49,7 @@ def run_unit():
     to fail.
 
     """
-    return do_process(["pytest", "--rootdir", "tests"])
+    return do_process(["pytest"])
 
 
 def main():
@@ -76,7 +65,7 @@ def main():
         "-n",
         "--unstatic",
         action="store_true",
-        help="Do not run static tests (black/flake8)",
+        help="Do not run static tests (black/flake8/pydocstyle/sphinx-build)",
         default=False,
     )
     parser.add_argument(

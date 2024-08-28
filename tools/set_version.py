@@ -38,7 +38,7 @@ def handle_version(version):
 
 
 def increment_development_version():
-    with open("docstrfmt/const.py") as fp:
+    with open("docstrfmt/__init__.py") as fp:
         version = re.search('__version__ = "([^"]+)"', fp.read()).group(1)
 
     parsed_version = valid_version(version)
@@ -86,7 +86,7 @@ def update_changelog(version):
 
 
 def update_package(version):
-    with open("docstrfmt/const.py") as fp:
+    with open("docstrfmt/__init__.py") as fp:
         content = fp.read()
 
     updated = re.sub('__version__ = "([^"]+)"', f'__version__ = "{version}"', content)
@@ -94,7 +94,7 @@ def update_package(version):
         sys.stderr.write("Package version string not changed\n")
         return False
 
-    with open("docstrfmt/const.py", "w") as fp:
+    with open("docstrfmt/__init__.py", "w") as fp:
         fp.write(updated)
 
     print(version)

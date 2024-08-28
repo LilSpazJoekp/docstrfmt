@@ -1,12 +1,14 @@
-"""This module handles adding constructs to the reST parser in a way that makes sense for docstrfmt.
+"""Handles adding constructs to the reST parser in a way that makes sense for docstrfmt.
 
 Non-standard directives and roles are inserted into the tree unparsed (wrapped in custom
-node classes defined here) so we can format them the way they came in without without
-caring about what they would normally expand to.
+node classes defined here) so we can format them the way they came in without caring
+about what they would normally expand to.
 
 """
 
-from typing import Any, Iterator, List, Tuple, Type, TypeVar
+from __future__ import annotations
+
+from typing import Any, Iterator, TypeVar
 
 import docutils
 import sphinx
@@ -19,25 +21,30 @@ from sphinx.domains import c, changeset, cpp, python  # noqa: F401
 from sphinx.ext import autodoc, autosummary
 from sphinx.roles import generic_docroles, specific_docroles
 
+from .const import ROLE_ALIASES
+
 T = TypeVar("T")
 
 
-class directive(docutils.nodes.Element):
-    pass
+class directive(docutils.nodes.Element):  # noqa: N801
+    """A directive that doesn't do anything."""
 
 
-class role(docutils.nodes.Element):
-    pass
+class role(docutils.nodes.Element):  # noqa: N801
+    """A role that doesn't do anything."""
 
 
-class ref_role(docutils.nodes.Element):
-    pass
+class ref_role(docutils.nodes.Element):  # noqa: N801
+    """A role that doesn't do anything."""
 
 
 class ReferenceRole(sphinx.util.docutils.ReferenceRole):
+    """Role that doesn't do anything."""
+
     def run(
         self,
-    ) -> Tuple[List[docutils.nodes.Node], List[docutils.nodes.system_message]]:
+    ) -> tuple[list[docutils.nodes.Node], list[docutils.nodes.system_message]]:
+        """Run the role."""
         node = ref_role(
             self.rawtext,
             name=self.name,
@@ -48,29 +55,21 @@ class ReferenceRole(sphinx.util.docutils.ReferenceRole):
         return [node], []
 
 
-role_aliases = {
-    "pep": "PEP",
-    "pep-reference": "PEP",
-    "rfc": "RFC",
-    "rfc-reference": "RFC",
-    "subscript": "sub",
-    "superscript": "sup",
-}
-
-
 def generic_role(r: str, rawtext: str, text: str, *_: Any, **__: Any) -> Any:
-    r = role_aliases.get(r.lower(), r)
+    """Provide a generic role that doesn't do anything."""
+    r = ROLE_ALIASES.get(r.lower(), r)
     text = docutils.utils.unescape(text, restore_backslashes=True)
     return [role(rawtext, text=text, role=r)], []
 
 
 def _add_directive(
     name: str,
-    cls: Type[docutils.parsers.rst.Directive],
+    cls: type[docutils.parsers.rst.Directive],
     *,
     raw: bool = True,
     is_injected: bool = False,
 ) -> None:
+    """Add a directive to the parser."""
     # We create a new class inheriting from the given directive class to automatically pick up the
     # argument counts and most of the other attributes that define how the directive is parsed, so
     # parsing can happen as normal. The things we change are:
@@ -93,13 +92,14 @@ def _add_directive(
     )
 
 
-def _subclasses(cls: Type[T]) -> Iterator[Type[T]]:
+def _subclasses(cls: type[T]) -> Iterator[type[T]]:
     for subclass in cls.__subclasses__():
         yield subclass
         yield from _subclasses(subclass)
 
 
 def register() -> None:
+    """Register the custom directives and roles."""
     for r in [
         # Standard roles (https://docutils.sourceforge.io/docs/ref/rst/roles.html) that don't have
         # equivalent non-role-based markup.
@@ -122,10 +122,10 @@ def register() -> None:
             _add_directive(name, directive_callable)
             _add_directive(f"{domain.name}:{name}", directive_callable)
 
-    for name, nodeclass in generic_docroles.items():
-        roles.register_local_role(name, generic_role)  # type: ignore
+    for name, _nodeclass in generic_docroles.items():
+        roles.register_local_role(name, generic_role)
 
-    for name, func in specific_docroles.items():
+    for name, _func in specific_docroles.items():
         roles.register_local_role(name, generic_role)
 
     # docutils directives

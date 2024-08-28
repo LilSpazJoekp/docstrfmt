@@ -8,6 +8,7 @@ jobs:
         ssh-key: ${{ secrets.SSH_DEPLOY_KEY }}
     - uses: actions/setup-python@v2
       with:
+        cache: pip
         python-version: 3.x
     - name: Install dependencies
       run: pip install packaging
