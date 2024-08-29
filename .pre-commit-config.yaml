@@ -1,0 +1,41 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [ --fix=no ]
+      - id: name-tests-test
+        args: [ --pytest-test-first ]
+        files: ^tests/integration/.*\.py|tests/unit/.*\.py$
+      - id: sort-simple-yaml
+        files: ^(\.github/workflows/.*\.ya?ml|\.readthedocs.ya?ml)$
+      - id: trailing-whitespace
+
+  - repo: https://github.com/pappasam/toml-sort
+    rev: v0.23.1
+    hooks:
+      - id: toml-sort-fix
+        files: ^(.*\.toml)$
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.2
+    hooks:
+      - id: ruff
+        args: [ --exit-non-zero-on-fix, --fix ]
+        files: ^(docstrfmt/.*.py)$
+
+  - repo: https://github.com/psf/black
+    hooks:
+      - id: black
+    rev: 24.8.0
+
+  - repo: https://github.com/LilSpazJoekp/docstrfmt
+    hooks:
+      - id: docstrfmt
+    rev: v1.8.0

@@ -2,4 +2,4 @@
 target_version = ['PY37']
 
 [tool.docstrfmt]
-files = [ 'tests/test_files/test_file.rst' ]
+files = ['tests/test_files/test_file.rst']
