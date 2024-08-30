@@ -84,15 +84,14 @@ Usage
 
     1. The length specified with the ``-l`` flag.
     2. The ``line-length`` specified in the ``tool.docstrfmt`` section in the file
-       specified with ``-p`` or ``--pyproject-config``.
+       specified with``--pyproject-config``.
     3. The ``line-length`` specified in the ``tool.black`` section in the file specified
-       with ``-p`` or ``--pyproject-config``.
+       with ``--pyproject-config``.
     4. The ``line-length`` specified in the ``tool.docstrfmt`` section in a
        ``pyproject.toml`` autodetected `like Black`_.
     5. The ``line-length`` specified in the ``tool.black`` section in a
        ``pyproject.toml`` autodetected `like Black`_.
-    6. The default line length of `Black's default line length`_ (88 at the time of this
-       writing).
+    6. `Black's default line length`_ (88 at the time of this writing).
 
 Like Black's blackd_, there is also a daemon that provides formatting via HTTP requests
 to avoid the cost of starting and importing everything on every run.
