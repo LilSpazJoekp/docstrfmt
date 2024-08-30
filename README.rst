@@ -83,15 +83,15 @@ Usage
     Line length is resolved in the following order:
 
     1. The length specified with the ``-l`` flag.
-    2. The ``line-length`` specified in the ``tool.docstrfmt`` section in
-       the file specified with ``-p`` or ``--pyproject-config``.
-    3. The ``line-length`` specified in the ``tool.black`` section in
-       the file specified with ``-p`` or ``--pyproject-config``.
-    4. The ``line-length`` specified in the ``tool.docstrfmt`` section in
-       the ``pyproject.toml`` of the current project.
-    5. The ``line-length`` specified in the ``tool.black`` section in
-       the ``pyproject.toml`` of the current project.
-    6. The default line length of black's default line length (88 at the time of this
+    2. The ``line-length`` specified in the ``tool.docstrfmt`` section in the file
+       specified with ``-p`` or ``--pyproject-config``.
+    3. The ``line-length`` specified in the ``tool.black`` section in the file specified
+       with ``-p`` or ``--pyproject-config``.
+    4. The ``line-length`` specified in the ``tool.docstrfmt`` section in a
+       ``pyproject.toml`` autodetected `like Black`_.
+    5. The ``line-length`` specified in the ``tool.black`` section in a
+       ``pyproject.toml`` autodetected `like Black`_.
+    6. The default line length of `Black's default line length`_ (88 at the time of this
        writing).
 
 Like Black's blackd_, there is also a daemon that provides formatting via HTTP requests
@@ -209,9 +209,13 @@ With pre-commit
 
 .. _black: https://github.com/psf/black
 
+.. _black's default line length: https://black.readthedocs.io/en/stable/the_black_code_style/current_style.html#line-length
+
 .. _blackd: https://github.com/psf/black#blackd
 
 .. _docutils: https://docutils.sourceforge.io/
+
+.. _like black: https://ichard26-testblackdocs.readthedocs.io/en/refactor_docs/pyproject_toml.html#where-black-looks-for-the-file
 
 .. _pandoc: https://pandoc.org/
 
