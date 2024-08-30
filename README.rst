@@ -84,7 +84,7 @@ Usage
 
     1. The length specified with the ``-l`` flag.
     2. The ``line-length`` specified in the ``tool.docstrfmt`` section in the file
-       specified with``--pyproject-config``.
+       specified with ``--pyproject-config``.
     3. The ``line-length`` specified in the ``tool.black`` section in the file specified
        with ``--pyproject-config``.
     4. The ``line-length`` specified in the ``tool.docstrfmt`` section in a
