@@ -1,5 +1,6 @@
 .. meta::
-    :description: Simple file to test the formatting.
+   :description: Simple file to test the formatting.
+   :keywords: rSt, formatter, test
 
 A ReStructuredText Primer
 =========================
