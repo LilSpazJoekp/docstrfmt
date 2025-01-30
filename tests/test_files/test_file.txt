@@ -1,3 +1,6 @@
+.. meta::
+    :description: Simple file to test the formatting.
+
 A ReStructuredText Primer
 =========================
 
