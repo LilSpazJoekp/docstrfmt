@@ -37,7 +37,7 @@ license = {file = "LICENSE.txt"}
 maintainers = [{name = "Joel Payne", email = "lilspazjoekp@gmail.com"}]
 name = "docstrfmt"
 readme = "README.rst"
-requires-python = "~=3.8"
+requires-python = ">=3.8,<4"
 
 [project.optional-dependencies]
 ci = ["coveralls"]
