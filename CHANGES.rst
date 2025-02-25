@@ -4,6 +4,9 @@ Change Log
 Unreleased
 ----------
 
+1.10.0 (2025/02/25)
+-------------------
+
 **Added**
 
 - Added support for meta directive.
