@@ -540,7 +540,11 @@ def test_raw_output(runner, file):
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     if file.endswith("rst"):
-        assert result.output.startswith("A ReStructuredText Primer")
+        assert result.output.startswith(
+            ".. meta::\n"
+            "    :description: Simple file to test the formatting.\n"
+            "    :keywords: rSt, formatter, test\n\nA ReStructuredText Primer"
+        )
     elif file.endswith("py"):
         assert result.output.startswith('"""This is an example python file"""')
     output = result.output
