@@ -108,6 +108,7 @@ def register() -> None:
     _add_directive("rst-table", tables.RSTTable, raw=False)
     _add_directive("rst-class", misc.Class)
     _add_directive("math", body.MathBlock)
+    _add_directive("meta", misc.Meta)
     _add_directive("raw", misc.Raw)
 
     # sphinx directives
