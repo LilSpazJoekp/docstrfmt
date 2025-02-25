@@ -4,6 +4,9 @@ Change Log
 Unreleased
 ----------
 
+1.10.0 (2025/02/25)
+-------------------
+
 **Changed**
 
 - Better line number reporting for syntax errors in Python code blocks.
