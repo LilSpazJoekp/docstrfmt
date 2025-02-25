@@ -4,6 +4,10 @@ Change Log
 Unreleased
 ----------
 
+**Added**
+
+- Added support for meta directive.
+
 **Changed**
 
 - Better line number reporting for syntax errors in Python code blocks.
@@ -12,6 +16,7 @@ Unreleased
 
 - When processing Python files, the file is now fully processed and all errors are
   reported at once.
+- Fixed compatibility issue with Sphinx.
 
 1.9.0 (2024/08/26)
 ------------------
