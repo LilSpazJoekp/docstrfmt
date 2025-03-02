@@ -63,8 +63,8 @@ docstrfmt = "docstrfmt.main:main"
 docstrfmtd = "docstrfmt.server:main [d]"
 
 [project.urls]
-"Issue Tracker" = "https://github.com/LilSpazJoekp/docstfmt/issues"
-"Source Code" = "https://github.com/LilSpazJoekp/docstfmt"
+"Issue Tracker" = "https://github.com/LilSpazJoekp/docstrfmt/issues"
+"Source Code" = "https://github.com/LilSpazJoekp/docstrfmt"
 
 [tool.black]
 extend_exclude = '/(\.venv.*)/'
