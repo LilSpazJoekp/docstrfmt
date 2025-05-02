@@ -4,6 +4,17 @@ Change Log
 Unreleased
 ----------
 
+**Added**
+
+- Added support for Python 3.13.
+
+**Changed**
+
+- Relaxed pins from dependencies, keeping only the lower pins. This allows docstrfmt to
+  be installed alongside other packages more easily.
+- Bumped minimum Python version to 3.9 (removed support for Python 3.8, which is EOL).
+
+
 1.10.0 (2025/02/25)
 -------------------
 
