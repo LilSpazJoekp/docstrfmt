@@ -4,6 +4,10 @@ Change Log
 Unreleased
 ----------
 
+**Removed**
+
+- Removed support for Python 3.8.
+
 1.10.0 (2025/02/25)
 -------------------
 
