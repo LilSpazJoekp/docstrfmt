@@ -15,6 +15,7 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Programming Language :: Python",
   "Topic :: Documentation",
   "Topic :: Documentation :: Sphinx",
@@ -22,14 +23,14 @@ classifiers = [
   "Topic :: Utilities"
 ]
 dependencies = [
-  "black==24.*",
-  "click==8.*",
-  "docutils==0.20.*",
-  "libcst==1.*",
-  "platformdirs==4.*",
-  "sphinx>=7,<9",
-  "tabulate==0.9.*",
-  "toml==0.10.*"
+  "black>=24",
+  "click>=8",
+  "docutils>=0.20",
+  "libcst>=1",
+  "platformdirs>=4",
+  "sphinx>=7",
+  "tabulate>=0.9",
+  "toml>=0.10"
 ]
 dynamic = ["version", "description"]
 keywords = ["black", "docutils", "autoformatter", "formatter", "lint", "restructuredtext", "rst", "sphinx"]
@@ -37,12 +38,12 @@ license = {file = "LICENSE.txt"}
 maintainers = [{name = "Joel Payne", email = "lilspazjoekp@gmail.com"}]
 name = "docstrfmt"
 readme = "README.rst"
-requires-python = ">=3.8,<4"
+requires-python = ">=3.8"
 
 [project.optional-dependencies]
 ci = ["coveralls"]
 d = [
-  "aiohttp==3.*"
+  "aiohttp>=3"
 ]
 dev = [
   "packaging",
@@ -51,7 +52,7 @@ dev = [
 ]
 lint = [
   "pre-commit",
-  "ruff >=0.0.292"
+  "ruff>=0.0.292"
 ]
 test = [
   "pytest",
