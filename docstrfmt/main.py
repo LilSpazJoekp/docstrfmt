@@ -17,7 +17,8 @@ from multiprocessing import Manager as MultiManager
 from os.path import abspath, isdir, join
 from pathlib import Path
 from textwrap import dedent, indent
-from typing import TYPE_CHECKING, Any, ContextManager, Iterable
+from typing import TYPE_CHECKING, Any
+
 
 import click
 import libcst as cst
@@ -41,6 +42,8 @@ from .exceptions import InvalidRstErrors
 from .util import FileCache, LineResolver, plural
 
 if TYPE_CHECKING:  # pragma: no cover
+    from contextlib import AbstractContextManager
+    from typing import Iterable
     from _typeshed import SupportsWrite
     from libcst import AssignTarget, ClassDef, FunctionDef, Module, SimpleString
 
@@ -343,7 +346,7 @@ async def _run_formatter(
 
 
 def _write_output(
-    file: Path, output: str, output_manager: ContextManager[SupportsWrite], raw: bool
+    file: Path, output: str, output_manager: AbstractContextManager[SupportsWrite], raw: bool
 ):
     with output_manager as f:
         f.write(output)

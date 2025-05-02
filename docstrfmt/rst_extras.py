@@ -8,7 +8,10 @@ about what they would normally expand to.
 
 from __future__ import annotations
 
-from typing import Any, Iterator, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+
+if TYPE_CHECKING:
+    from typing import Iterator
 
 import docutils
 import sphinx
