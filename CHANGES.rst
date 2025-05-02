@@ -12,8 +12,10 @@ Unreleased
 
 - Relaxed pins from dependencies, keeping only the lower pins. This allows docstrfmt to
   be installed alongside other packages more easily.
-- Bumped minimum Python version to 3.9 (removed support for Python 3.8, which is EOL).
 
+**Removed**
+
+- Removed support for Python 3.8.
 
 1.10.0 (2025/02/25)
 -------------------
