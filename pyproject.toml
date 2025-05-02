@@ -22,7 +22,7 @@ classifiers = [
   "Topic :: Utilities"
 ]
 dependencies = [
-  "black==24.*",
+  "black==25.*",
   "click==8.*",
   "docutils==0.20.*",
   "libcst==1.*",
