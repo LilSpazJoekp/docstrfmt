@@ -24,7 +24,7 @@ classifiers = [
 dependencies = [
   "black==24.*",
   "click==8.*",
-  "docutils==0.20.*",
+  "docutils==0.21.*",
   "libcst==1.*",
   "platformdirs==4.*",
   "sphinx>=7,<9",
