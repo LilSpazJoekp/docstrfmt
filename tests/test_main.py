@@ -708,12 +708,8 @@ def test_globbing(runner, file):
 
 
 def test_comment_preserve_single_line(runner):
-    file = (
-        "..  A comment in a single line is not placed on the next one.\n"
-    )
-    fixed = (
-        ".. A comment in a single line is not placed on the next one.\n"
-    )
+    file = "..  A comment in a single line is not placed on the next one.\n"
+    fixed = ".. A comment in a single line is not placed on the next one.\n"
     args = ["-r", file]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
