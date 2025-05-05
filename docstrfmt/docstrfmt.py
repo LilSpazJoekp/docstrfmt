@@ -623,6 +623,12 @@ class Formatters:
     def comment(
         self, node: docutils.nodes.comment, context: FormatContext
     ) -> line_iterator:
+        if len(node.children) == 1:
+            text = "\n".join(chain(self._format_children(node, context)))
+            if "\n" not in text:
+                yield f".. {text}"
+                return
+
         yield ".."
         if node.children:
             text = "\n".join(chain(self._format_children(node, context)))
