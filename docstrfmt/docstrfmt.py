@@ -6,14 +6,13 @@ import itertools
 import re
 import string
 from collections import namedtuple
+from collections.abc import Iterable, Iterator
 from copy import copy
 from dataclasses import dataclass
 from math import floor
 from typing import (
     TYPE_CHECKING,
     Any,
-    Iterable,
-    Iterator,
     TypeVar,
     Union,
 )
