@@ -20,18 +20,17 @@ from typing import (
 
 import black
 import docutils
+import docutils.nodes
 from black import Mode
 from blib2to3.pgen2.tokenize import TokenError
 from docutils import nodes
 from docutils.frontend import OptionParser
-from docutils.nodes import pending, tgroup
 from docutils.parsers import rst
 from docutils.parsers.rst import Directive, roles
 from docutils.transforms import Transform
 from docutils.utils import Reporter, new_document, unescape
 
 from . import rst_extras
-from .const import SECTION_CHARS
 from .exceptions import InvalidRstError, InvalidRstErrors
 from .rst_extras import _add_directive, generic_role
 from .util import make_enumerator
@@ -143,6 +142,7 @@ class FormatContext:
         self.ordinal_format = "arabic"
         self.section_depth = 0
         self.subsequent_indent = 0
+        self.use_adornments = None
         for key, value in kwargs.items():
             setattr(self, key, value)
 
@@ -207,7 +207,7 @@ class CodeFormatters:
                     self.context.manager.reporter.error(
                         f"SyntaxError: {syntax_error.msg}:\n\nFile"
                         f' "{self.context.current_file}", line'
-                        f' {document_line + syntax_error.lineno}:\n{syntax_error.text}\n{" " * (syntax_error.offset - 1)}^'
+                        f" {document_line + syntax_error.lineno}:\n{syntax_error.text}\n{' ' * (syntax_error.offset - 1)}^"
                     )
         return self.code
 
@@ -219,6 +219,7 @@ class Manager:
         black_config: Mode = None,
         docstring_trailing_line: bool = True,
         format_python_code_blocks: bool = True,
+        section_adornments: list[tuple[str, bool]] | None = None,
     ):
         rst_extras.register()
         self.black_config = black_config
@@ -237,6 +238,7 @@ class Manager:
         self.docstring_trailing_line = docstring_trailing_line
         self.format_python_code_blocks = format_python_code_blocks
         self._in_docstring = False  # for resolving line numbers in code blocks
+        self.section_adornments = section_adornments
 
     def _patch_unknown_directives(self, text: str) -> None:
         doc = new_document(str(self.current_file), self.settings)
@@ -332,6 +334,47 @@ class Manager:
         )
         return f"{formatted_node}\n"
 
+    def _register_adornments(
+        self, input_lines: list[str], document: docutils.nodes.document
+    ) -> None:
+        """Register adornments from source text on all individual sections.
+
+        This method will parse the document tree and original text to-be-formatted, and
+        will register, at the document tree, the current document configuration
+        representing the adornments for parts, chapters and sections on each level of
+        the document.  In particular, it will install an attribute called
+        ``adornment-character`` with the character used for underline or overlining the
+        section, and ``adornment-overline``, if the section should be overlined or not.
+
+        Parameters
+        ----------
+        input_lines
+            The lines of input (splitted by newline), that we must format.
+        document
+            The pre-parsed document tree, that will be modified with new section
+            attributes as described above.
+
+        """
+        for section in document.traverse(nodes.section):
+            title_node = section.next_node(nodes.title)
+            if (
+                title_node
+                and hasattr(title_node, "line")
+                and title_node.line is not None
+            ):
+                underline = input_lines[title_node.line - 1].strip()[0]
+                overline_lineno = title_node.line - 3
+                overline = False
+
+                if overline_lineno >= 0:
+                    candidate_overline = input_lines[overline_lineno].strip()
+                    if candidate_overline and candidate_overline[0] == underline:
+                        overline = True
+
+                # Store this information in the document tree
+                section["adornment-character"] = underline
+                section["adornment-overline"] = overline
+
     def parse_string(
         self, file_name: Path | str, text: str, line_offset: int = 0
     ) -> docutils.nodes.document:
@@ -347,6 +390,9 @@ class Manager:
         )
         parser.parse(text, doc)
         self._pre_process(doc, line_offset, len(text.splitlines()))
+        input_lines = text.splitlines()
+        self._pre_process(doc, line_offset, len(input_lines))
+        self._register_adornments(input_lines, doc)
         return doc
 
     def perform_format(
@@ -393,7 +439,6 @@ def pairwise(items: Iterable[T]) -> Iterator[tuple[T, T]]:
 
 
 class Formatters:
-
     @staticmethod
     def _chain_with_line_separator(
         separator: T, items: Iterable[Iterable[T]]
@@ -1167,7 +1212,7 @@ class Formatters:
         )
 
     def pending(
-        self, node: pending, context: FormatContext
+        self, node: docutils.nodes.pending, context: FormatContext
     ) -> inline_iterator:  # pragma: no cover
         msg = f'Unknown node found at File "{context.current_file}", line {node.line}'
         raise NotImplementedError(msg)
@@ -1347,7 +1392,7 @@ class Formatters:
         column_count = len(rows[0])
         total_width = context.width - column_count + 1
 
-        nested_column_count = len(list(node.findall(tgroup)))
+        nested_column_count = len(list(node.findall(docutils.nodes.tgroup)))
         table_matrix_min = self._generate_table_matrix(
             context, rows, (nested_column_count * 2) - 1
         )
@@ -1466,9 +1511,31 @@ class Formatters:
                 None, chain(self._format_children(node, context)), context, node.line
             )
         )
-        char = SECTION_CHARS[context.section_depth - 1]
-        yield text
-        yield char * len(text)
+        char: str = node.parent["adornment-character"]
+        overline: bool = node.parent["adornment-overline"]
+        if context.manager.section_adornments is not None:
+            try:
+                char, overline = context.manager.section_adornments[
+                    context.section_depth - 1
+                ]
+            except IndexError:
+                context.manager.reporter.error(
+                    f"Section at line {node.line} is at depth "
+                    f"{context.section_depth}, however there are only "
+                    f"{len(context.manager.section_adornments)} adornments to pick "
+                    f"from. You must review your inputs or change settings."
+                )
+                raise
+
+        if overline:
+            # section headings with overline are centered
+            yield char * (2 + len(text))
+            yield " " + text
+            yield char * (2 + len(text))
+        else:
+            # sections headings without overline are justified
+            yield text
+            yield char * len(text)
 
     def title_reference(
         self, node: docutils.nodes.title_reference, context: FormatContext

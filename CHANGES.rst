@@ -13,6 +13,14 @@ Unreleased
   2. ``pyproject.toml`` setting
   3. Black config setting
   4. Default of 88
+- Added command-line option (-s) to control whether to format section headers, and
+  optionally how.
+
+**Fixed**
+
+- By default, do not change section adornments defined by the user.
+- Changed default section heading adornments to match the ones described at
+  https://devguide.python.org/documentation/markup/#sections.
 
 1.11.1 (2025/08/26)
 -------------------
