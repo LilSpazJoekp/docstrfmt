@@ -909,3 +909,56 @@ def test_section_reformatting_insufficient_adornments(runner):
     result = runner.invoke(main, args=args)
     assert result.exit_code == 1
     assert "there are only 2 adornments to pick from" in result.output
+
+
+def test_section_reformatting_numpydoc(runner):
+    file = """
+              def function(param1: str, param2: int) -> None:
+                  \"\"\"This is a docstring for a python function.
+
+                  This is the summary.
+
+                  Parameters
+                  ----------
+                  param1
+                     Description for param1.
+                  param2
+                     Description for param2.
+
+                  Returns
+                  -------
+                     Absolutely nothing.
+                  \"\"\"
+                  pass
+           """
+
+    fixed = """
+               def function(param1: str, param2: int) -> None:
+                   \"\"\"This is a docstring for a python function.
+
+                   This is the summary.
+
+                   Parameters
+                   ----------
+
+                   param1
+                       Description for param1.
+
+                   param2
+                       Description for param2.
+
+                   Returns
+                   -------
+
+                       Absolutely nothing.
+
+                   \"\"\"
+                   pass
+           """
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    args = ["-t", "py", "-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
