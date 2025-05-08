@@ -9,6 +9,8 @@ Unreleased
 - Added support for Python 3.14.
 - Added ability to skip formatting Python code blocks with the
   ``--format-python-code-blocks/--no-format-python-code-blocks`` or ``-N`` flag.
+- Added command-line option (-s) to control whether to format section headers, and
+  optionally how.
 
 **Fixed**
 
@@ -19,6 +21,9 @@ Unreleased
   4. Default of 88
 - Image and Unicode substitution definitions were not being formatted correctly.
 - Files specified in pyproject are now parsed correctly.
+- By default, do not change section adornments defined by the user.
+- Changed default section heading adornments to match the ones described at
+  https://devguide.python.org/documentation/markup/#sections.
 
 **Removed**
 

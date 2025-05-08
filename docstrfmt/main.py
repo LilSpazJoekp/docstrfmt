@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import glob
+import itertools
 import logging
 import os
 import signal
@@ -38,6 +39,7 @@ from libcst import CSTTransformer, Expr
 from libcst.metadata import ParentNodeProvider, PositionProvider
 
 from . import DEFAULT_EXCLUDE, __version__
+from .const import SECTION_CHARS
 from .debug import dump_node
 from .docstrfmt import Manager
 from .exceptions import InvalidRstErrors
@@ -62,12 +64,14 @@ def _format_file(
     mode: Mode,
     docstring_trailing_line: bool,
     format_python_code_blocks: bool,
+    section_adornments: list[tuple[str, bool]] | None,
     raw_output: bool,
     lock: Lock,
 ):
     error_count = 0
     manager = Manager(
-        reporter, mode, docstring_trailing_line, format_python_code_blocks
+        reporter, mode, docstring_trailing_line, format_python_code_blocks,
+        section_adornments
     )
     if file.name == "-":
         raw_output = True
@@ -290,6 +294,25 @@ def _resolve_length(context: click.Context, _: click.Parameter, value: int | Non
     return value or pyproject_line_length
 
 
+def _validate_adornments(
+    context: click.Context, _: click.Parameter, value: str | None
+) -> list[tuple[str, bool]]:
+    if value is None:
+        return value
+
+    if len(value) != len(set(value)):
+        msg = "Section adornments must be unique"
+        raise click.BadParameter(msg)
+
+    if "|" in value:
+        with_overline, without_overline = value.split("|", 1)
+        return list(zip(with_overline, itertools.repeat(True))) + list(
+            zip(without_overline, itertools.repeat(False))
+        )
+
+    return list(zip(value, itertools.repeat(False)))
+
+
 async def _run_formatter(
     check: bool,
     file_type: str,
@@ -297,6 +320,7 @@ async def _run_formatter(
     include_txt: bool,
     docstring_trailing_line: bool,
     format_python_code_blocks: bool,
+    section_adornments: list[tuple[str, bool]] | None,
     mode: Mode,
     line_length: int,
     raw_output: bool,
@@ -324,6 +348,7 @@ async def _run_formatter(
                 mode,
                 docstring_trailing_line,
                 format_python_code_blocks,
+                section_adornments,
                 raw_output,
                 lock,
             )
@@ -651,6 +676,25 @@ class Visitor(CSTTransformer):
     callback=_resolve_length,
 )
 @click.option(
+    "-s",
+    "--section-adornments",
+    type=str,
+    default=None,
+    is_flag=False,
+    flag_value=SECTION_CHARS,
+    help=(
+        f"""Force pre-defined section adornments for part/chapter/section headers. If an
+        optional string is provided, it defines a sequence of adornments to use for each
+        individual section depth. The list must be composed of at least N **distinct**
+        characters for documents with N section depths.  Provide more if unsure.  If the
+        special character `|` (pipe) is used, then it defines sections (left portion)
+        that will have overlines besides underlines only (right portion). If this option
+        is not set, the default behaviour is to preserve existing adornments on your
+        document. An example set of adornments would be `{SECTION_CHARS}`."""
+    ),
+    callback=_validate_adornments,
+)
+@click.option(
     "-p",
     "--pyproject-config",
     "mode",
@@ -710,6 +754,7 @@ def main(
     ignore_cache: bool,
     include_txt: bool,
     line_length: int,
+    section_adornments: list[tuple[str, bool]] | None,
     mode: Mode,
     quiet: bool,
     raw_input: str,
@@ -734,7 +779,8 @@ def main(
     error_count = 0
     if raw_input:
         manager = Manager(
-            reporter, mode, docstring_trailing_line, format_python_code_blocks
+            reporter, mode, docstring_trailing_line, format_python_code_blocks,
+            section_adornments
         )
         file = "<raw_input>"
         check = False
@@ -769,6 +815,7 @@ def main(
                 mode,
                 docstring_trailing_line,
                 format_python_code_blocks,
+                section_adornments,
                 raw_output,
                 None,
             )
@@ -800,6 +847,7 @@ def main(
                     include_txt,
                     docstring_trailing_line,
                     format_python_code_blocks,
+                    section_adornments,
                     mode,
                     line_length,
                     raw_output,

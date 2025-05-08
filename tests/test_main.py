@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import textwrap
 
 import pytest
 
@@ -685,3 +686,226 @@ def test_comment_preserve_single_line(runner):
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output == fixed
+
+
+def test_section_invalid_adornments(runner):
+    file = """
+              ===
+              One
+              ===
+
+              Two
+              ---
+              Some content.
+           """
+
+    file = textwrap.dedent(file).lstrip()
+    args = ["-s", "#*|=-^\"'~+.`_:# ", "-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 2
+    assert "Section adornments must be unique" in result.output
+
+
+def test_section_reformatting(runner):
+    file = """
+              ===
+              One
+              ===
+
+              Two
+              ---
+
+              Three
+              ~~~~~
+
+              Four
+              ++++
+
+              Five
+              ....
+
+              Six
+              '''
+
+              Two again
+              ---------
+
+              Some content.
+           """
+
+    fixed = """
+               =====
+                One
+               =====
+
+               Two
+               ---
+
+               Three
+               ~~~~~
+
+               Four
+               ++++
+
+               Five
+               ....
+
+               Six
+               '''
+
+               Two again
+               ---------
+
+               Some content.
+            """
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    args = ["-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
+def test_section_reformatting_python_adornments(runner):
+    file = """
+              ===
+              One
+              ===
+
+              Two
+              ---
+
+              Three
+              ~~~~~
+
+              Four
+              ++++
+
+              Five
+              ....
+
+              Six
+              '''
+
+              Two again
+              ---------
+
+              Some content.
+           """
+
+    fixed = """
+               #####
+                One
+               #####
+
+               *****
+                Two
+               *****
+
+               Three
+               =====
+
+               Four
+               ----
+
+               Five
+               ^^^^
+
+               Six
+               \"\"\"
+
+               ***********
+                Two again
+               ***********
+
+               Some content.
+            """
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    args = ["-s", "-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
+def test_section_reformatting_custom_adornments(runner):
+    file = """
+              ===
+              One
+              ===
+
+              Two
+              ---
+
+              Three
+              ~~~~~
+
+              Four
+              ++++
+
+              Five
+              ....
+
+              Six
+              '''
+
+              Two again
+              ---------
+
+              Some content.
+           """
+
+    fixed = """
+               One
+               ###
+
+               Two
+               ***
+
+               Three
+               =====
+
+               Four
+               ----
+
+               Five
+               ^^^^
+
+               Six
+               \"\"\"
+
+               Two again
+               *********
+
+               Some content.
+            """
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    args = ["-s", '#*=-^"', "-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
+def test_section_reformatting_insufficient_adornments(runner):
+    file = """
+              ===
+              One
+              ===
+
+              Two
+              ---
+
+              Three
+              ~~~~~
+              Some content.
+           """
+
+    file = textwrap.dedent(file).lstrip()
+    args = ["-s", "=:", "-r", file, "-o"]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 1
+    assert "there are only 2 adornments to pick from" in result.output
