@@ -7,6 +7,8 @@ Unreleased
 **Added**
 
 - Added support for Python 3.13.
+- Added command-line option (-s) to control whether to format section headers, and
+  optionally how.
 
 **Changed**
 
@@ -14,6 +16,9 @@ Unreleased
   be installed alongside other packages more easily.
 - Comment blocks that do not contain new-line characters are now kept on a single output
   line.
+- By default, do not change section adornments defined by the user.
+- Changed default section heading adornments to match the ones described at
+  https://devguide.python.org/documentation/markup/#sections.
 
 **Removed**
 
