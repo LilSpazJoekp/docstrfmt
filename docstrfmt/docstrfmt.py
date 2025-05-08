@@ -376,14 +376,13 @@ class Manager:
         This method will parse the document tree and original text to-be-formatted, and
         will register, at the document tree, the current document configuration
         representing the adornments for parts, chapters and sections on each level of
-        the document.  In particular, it will install an attribute called
+        the document. In particular, it will install an attribute called
         ``adornment-character`` with the character used for underline or overlining the
         section, and ``adornment-overline``, if the section should be overlined or not.
 
-        Parameters
-        ----------
         input_lines
             The lines of input (splitted by newline), that we must format.
+
         document
             The pre-parsed document tree, that will be modified with new section
             attributes as described above.
