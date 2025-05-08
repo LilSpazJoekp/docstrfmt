@@ -293,21 +293,22 @@ def _resolve_length(context: click.Context, _: click.Parameter, value: int | Non
 
 def _validate_adornments(
     context: click.Context, _: click.Parameter, value: str | None
-) -> list[tuple[str, bool]]:
-    if value is None:
-        return value
+) -> list[tuple[str, bool]] | None:
+    actual_value = value or context.params.get("section_adornments", None)
+    if actual_value is None:
+        return actual_value
 
-    if len(value) != len(set(value)):
+    if len(actual_value) != len(set(actual_value)):
         msg = "Section adornments must be unique"
         raise click.BadParameter(msg)
 
-    if "|" in value:
-        with_overline, without_overline = value.split("|", 1)
+    if "|" in actual_value:
+        with_overline, without_overline = actual_value.split("|", 1)
         return list(zip(with_overline, itertools.repeat(True))) + list(
             zip(without_overline, itertools.repeat(False))
         )
 
-    return list(zip(value, itertools.repeat(False)))
+    return list(zip(actual_value, itertools.repeat(False)))
 
 
 async def _run_formatter(
@@ -490,7 +491,7 @@ class Visitor(CSTTransformer):
 
     def leave_ClassDef(  # noqa: N802
         self,
-        original_node: ClassDef,
+        original_node: ClassDef,  # noqa: ARG002
         updated_node: ClassDef,  # noqa: ARG002
     ) -> ClassDef:
         """Remove the class name from the object name stack."""
@@ -499,7 +500,7 @@ class Visitor(CSTTransformer):
 
     def leave_FunctionDef(  # noqa: N802
         self,
-        original_node: FunctionDef,
+        original_node: FunctionDef,  # noqa: ARG002
         updated_node: FunctionDef,  # noqa: ARG002
     ) -> FunctionDef:
         """Remove the function name from the object name stack."""
