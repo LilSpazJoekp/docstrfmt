@@ -23,9 +23,9 @@ import click
 import libcst as cst
 
 if sys.version_info >= (3, 11):
-    import tomllib as toml
+    import tomllib as toml  # pragma: no cover
 else:
-    import toml
+    import toml  # pragma: no cover
 from black import (
     DEFAULT_LINE_LENGTH,
     Mode,
@@ -127,10 +127,10 @@ def _parse_pyproject_config(
     if value:
         try:
             if sys.version_info >= (3, 11):
-                with open(value, "rb") as f:
-                    pyproject_toml = toml.load(f)
+                with open(value, "rb") as f:  # pragma: no cover
+                    pyproject_toml = toml.load(f)  # pragma: no cover
             else:
-                pyproject_toml = toml.load(value)
+                pyproject_toml = toml.load(value)  # pragma: no cover
             config = pyproject_toml.get("tool", {}).get("docstrfmt", {})
             config = {
                 k.replace("--", "").replace("-", "_"): v for k, v in config.items()
