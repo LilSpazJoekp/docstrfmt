@@ -14,6 +14,7 @@ Unreleased
   be installed alongside other packages more easily.
 - Comment blocks that do not contain new-line characters are now kept on a single output
   line.
+- In Python 3.11+, use ``tomllib`` to parse ``pyproject.toml``.
 
 **Removed**
 
