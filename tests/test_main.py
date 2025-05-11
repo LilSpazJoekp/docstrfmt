@@ -3,6 +3,7 @@ import subprocess
 import sys
 
 import pytest
+
 try:
     import tomllib as toml
 except ImportError:
