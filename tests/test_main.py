@@ -3,7 +3,11 @@ import subprocess
 import sys
 
 import pytest
-import toml
+
+try:
+    import tomllib as toml
+except ImportError:
+    import toml
 from black import DEFAULT_LINE_LENGTH
 
 from docstrfmt.main import main
@@ -389,7 +393,11 @@ def test_line_length_resolution__black_docstrfmt_set(runner):
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output.startswith("Reformatted")
-    toml_config = toml.load(args[1])
+    if sys.version_info >= (3, 11):
+        with open(args[1], "rb") as f:
+            toml_config = toml.load(f)
+    else:
+        toml_config = toml.load(args[1])
     result = runner.invoke(
         main, args=args + ["-l", toml_config["tool"]["docstrfmt"]["line-length"]]
     )
@@ -403,7 +411,11 @@ def test_line_length_resolution__black_set(runner):
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output.startswith("Reformatted")
-    toml_config = toml.load(args[1])
+    if sys.version_info >= (3, 11):
+        with open(args[1], "rb") as f:
+            toml_config = toml.load(f)
+    else:
+        toml_config = toml.load(args[1])
     result = runner.invoke(
         main, args=args + ["-l", toml_config["tool"]["black"]["line-length"]]
     )
@@ -428,7 +440,11 @@ def test_line_length_resolution__docstrfmt_set(runner):
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output.startswith("Reformatted")
-    toml_config = toml.load(args[1])
+    if sys.version_info >= (3, 11):
+        with open(args[1], "rb") as f:
+            toml_config = toml.load(f)
+    else:
+        toml_config = toml.load(args[1])
     result = runner.invoke(
         main, args=args + ["-l", toml_config["tool"]["docstrfmt"]["line-length"]]
     )
