@@ -14,7 +14,7 @@ from docstrfmt.server import handler
 
 
 @pytest.fixture
-def client(aiohttp_client):
+async def client(aiohttp_client):
     app = web.Application()
     app.router.add_post("/", handler)
     event_loop = asyncio.get_running_loop()
