@@ -18,7 +18,11 @@ DEFAULT_EXCLUDE = [
     "**/build",
     "**/dist",
 ]
-SECTION_CHARS = "=-~+.'\"`^_*:#"
+# Part/Chapter/Section adornment characters. The special `|` character separated
+# sections without overlines. If that is not present, then we consider all sections to
+# only contain underlines. From:
+# https://devguide.python.org/documentation/markup/#sections
+SECTION_CHARS = "#*|=-^\"'~+.`_:"
 ROLE_ALIASES = {
     "pep": "PEP",
     "pep-reference": "PEP",
