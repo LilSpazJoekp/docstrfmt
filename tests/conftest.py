@@ -1,6 +1,5 @@
 """Prepare py.test."""
 
-import asyncio
 import os
 import shutil
 
@@ -17,8 +16,7 @@ from docstrfmt.server import handler
 async def client(aiohttp_client):
     app = web.Application()
     app.router.add_post("/", handler)
-    event_loop = asyncio.get_running_loop()
-    return event_loop.run_until_complete(aiohttp_client(app))
+    return await aiohttp_client(app)
 
 
 @pytest.fixture
