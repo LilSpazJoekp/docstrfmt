@@ -29,7 +29,7 @@ dependencies = [
   "platformdirs>=4",
   "sphinx>=7",
   "tabulate>=0.9",
-  "toml>=0.10"
+  "toml>=0.10;python_version<'3.11'"
 ]
 dynamic = ["version", "description"]
 keywords = ["black", "docutils", "autoformatter", "formatter", "lint", "restructuredtext", "rst", "sphinx"]

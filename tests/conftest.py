@@ -13,10 +13,10 @@ from docstrfmt.server import handler
 
 
 @pytest.fixture
-def client(event_loop, aiohttp_client):
+async def client(aiohttp_client):
     app = web.Application()
     app.router.add_post("/", handler)
-    return event_loop.run_until_complete(aiohttp_client(app))
+    return await aiohttp_client(app)
 
 
 @pytest.fixture
