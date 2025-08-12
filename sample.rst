@@ -37,6 +37,21 @@ Vestibulum vitae gravida lorem, vel laoreet lorem.
     semper fringilla vel non mauris. In elementum viverra arcu sed commodo. In hac
     habitasse platea dictumst. Integer posuere ullamcorper eros ac gravida.
 
+Footnotes
+"""""""""
+
+A this is a [footnote]_ .
+
+This primer introduces the most common features of reStructuredText, but there are a lot
+more to explore. The user reference is the place to go [1]_ or here [2]_ .
+
+.. [footnote] This is a footnote.
+
+.. [1] If that relative link doesn't work, try the master document:
+    http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html.
+
+.. [2] If that relative link doesn't work, try the master document:
+
 Wrapping
 --------
 

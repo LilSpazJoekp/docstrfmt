@@ -577,6 +577,18 @@ This is text with a ref role :func:`f`. This has py:func:`f`\ s an ``s`` after i
 i an :ref:`example explicit ref <reference_roles>` to this section. This is an
 `anonymous link <http://example.com>`_
 
+Footnotes
+---------
+
+This is a footnote [1]_ . This is another footnote [2]_ . This is a third footnote with
+a textual name [footnote]_ .
+
+.. [1] This is a footnote.
+
+.. [2] This is another footnote.
+
+.. [footnote] This is a third footnote with a textual name.
+
 Functions
 ---------
 
@@ -810,9 +822,9 @@ What Next?
 This primer introduces the most common features of reStructuredText, but there are a lot
 more to explore. The `Quick reStructuredText`_ user reference is a good place to go
 next. For complete details, the `reStructuredText Markup Specification`_ is the place to
-go [1]_ .
+go [3]_ .
 
-.. [1] If that relative link doesn't work, try the master document:
+.. [3] If that relative link doesn't work, try the master document:
     http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html.
 
 .. _docutils project web site: http://docutils.sourceforge.net/

@@ -966,11 +966,15 @@ class Formatters:
         if remaining:
             yield from self._with_spaces(4, remaining)
 
+    citation = footnote
+
     def footnote_reference(
         self, node: docutils.nodes.footnote_reference, context: FormatContext
     ):
         if node.attributes["refname"]:
             yield f"[{node.attributes['refname']}]_"
+
+    citation_reference = footnote_reference
 
     def inline(
         self, node: docutils.nodes.inline, context: FormatContext
@@ -1155,6 +1159,8 @@ class Formatters:
         # Check whether the reference name matches the text and can be made implicit.
         # (Reference names are case-insensitive.)
         if anonymous and ref.lower() == title.lower():
+            # if ref == "footnote":
+
             if not is_single_word:
                 title = f"`{title}`"
             # "x_" is equivalent to "`x <x_>`__"; it's anonymous despite having a single
