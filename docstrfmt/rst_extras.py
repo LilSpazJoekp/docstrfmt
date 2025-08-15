@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from sphinx.domains.std import ProductionList
+
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Iterator
 
@@ -113,6 +115,7 @@ def register() -> None:
     _add_directive("math", body.MathBlock)
     _add_directive("meta", misc.Meta)
     _add_directive("raw", misc.Raw)
+    _add_directive("rubric", body.Rubric, raw=False)
 
     # sphinx directives
     _add_directive("autosummary", autosummary.Autosummary)
@@ -120,10 +123,13 @@ def register() -> None:
     _add_directive("deprecated", changeset.VersionChange, raw=False)
     _add_directive("highlight", code.Highlight)
     _add_directive("literalinclude", code.LiteralInclude)
+    _add_directive("productionlist", ProductionList)
     _add_directive("seealso", SeeAlso, raw=False)
+    _add_directive("sourcecode", code.CodeBlock)
     _add_directive("toctree", other.TocTree)
     _add_directive("versionadded", changeset.VersionChange, raw=False)
     _add_directive("versionchanged", changeset.VersionChange, raw=False)
+    _add_directive("versionremoved", changeset.VersionChange, raw=False)
 
     for d in set(_subclasses(autodoc.Documenter)):
         if d.objtype != "object":
@@ -132,7 +138,7 @@ def register() -> None:
             )
 
     try:
-        import sphinxarg.ext
+        import sphinxarg.ext  # noqa: PLC0415
     except ImportError:
         pass
     else:  # pragma: no cover

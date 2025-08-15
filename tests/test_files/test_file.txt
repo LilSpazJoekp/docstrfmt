@@ -1,6 +1,6 @@
 .. meta::
-   :description: Simple file to test the formatting.
-   :keywords: rSt, formatter, test
+    :description: Simple file to test the formatting.
+    :keywords: rSt, formatter, test
 
 A ReStructuredText Primer
 =========================
@@ -8,6 +8,10 @@ A ReStructuredText Primer
 :Author: Richard Jones
 :Version: $Revision: 5801 $
 :Copyright: This document has been placed in the public domain.
+:tocdepth: 2
+:nocomments:
+:nosearch:
+:orphan:
 
 .. contents::
 
@@ -81,7 +85,7 @@ so asterisks "``*``" etc. are left alone.
 If you find that you want to use one of the "special" characters in text, it will
 generally be OK -- reStructuredText is pretty smart. For example, this lone asterisk *
 is handled just fine, as is the asterisk in this equation: 5*6=30. If you actually want
-text \*surrounded by asterisks* to **not** be italicised, then you need to indicate that
+text \*surrounded by asterisks* to **not** be italicized, then you need to indicate that
 the asterisk is not special. You do this by placing a backslash just before it, like so
 "``\*``" (quickref__), or by enclosing it in double back-quotes (inline literals), like
 this:
@@ -258,6 +262,35 @@ Results in:
     This is preformatted text, and the
     last "::" paragraph is removed
 
+Code blocks can have additional options to add a caption, insert line numbers, emphasize
+specific lines, and more.
+
+.. code-block::
+
+    .. code-block:: python
+        :caption: An example of code-block options
+        :linenos:
+        :emphasize-lines: 2,4,5
+
+        @pytest.fixture
+        def date_input():
+            now = datetime.datetime.now()
+            current_date_string = f"{now.year}-{now.month}-{now.day}"
+            return current_date_string
+
+Results in:
+
+.. code-block:: python
+    :caption: An example of code-block options
+    :linenos:
+    :emphasize-lines: 2,4,5
+
+    @pytest.fixture
+    def date_input():
+        now = datetime.datetime.now()
+        current_date_string = f"{now.year}-{now.month}-{now.day}"
+        return current_date_string
+
 Python code blocks are formatted with Black_ (if it's found on ``PATH``).
 
 .. code-block:: python
@@ -271,6 +304,86 @@ Python code blocks are formatted with Black_ (if it's found on ``PATH``).
 .. code-block:: text
 
     this is just text
+
+You can also control code highlighting. The default mode is to highlight Python code but
+don't give an error if a language is not recognized:
+
+Some Python code:
+
+::
+
+    def main():
+       print("Hello, world!")
+
+Followed by some C code
+
+::
+
+    void main() {
+       printf("Hello, world!");
+    }
+
+----
+
+If we insert the directive:
+
+.. code-block::
+
+    .. highlight:: C
+
+Then C code will be highlighted.
+
+.. highlight:: C
+
+Some Python code:
+
+::
+
+    def main():
+       print("Hello, world!")
+
+Followed by some C code
+
+::
+
+    void main() {
+       printf("Hello, world!");
+    }
+
+----
+
+You can also turn off code highlighting completely by using ``none``:
+
+.. code-block::
+
+    .. highlight:: none
+
+.. highlight:: none
+
+Some Python code:
+
+::
+
+    def main():
+       print("Hello, world!")
+
+Followed by some C code
+
+::
+
+    void main() {
+       printf("Hello, world!");
+    }
+
+----
+
+And then go back to default highlighting (Python with silent failures).
+
+.. code-block::
+
+    .. highlight:: default
+
+.. highlight:: default
 
 .. admonition:: title a b
 
@@ -302,6 +415,25 @@ Python code blocks are formatted with Black_ (if it's found on ``PATH``).
     .. code-block:: python
 
         import image
+
+.. rubric:: Small title
+
+.. centered:: Centered text
+
+.. hlist::
+    :columns: 3
+
+    - Item 1
+    - Item 2
+    - Item 3
+
+.. sectionauthor:: author
+
+.. codeauthor:: author
+
+.. tabularcolumns:: >{\raggedright}\Y{.4}>{\centering}\Y{.1}>{\sphinxcolorblend{!95!red}\centering\noindent\bfseries\color{red}}\Y{.12}>{\raggedright\arraybackslash}\Y{.38}
+
+.. only:: html
 
 Math
 ~~~~
@@ -393,7 +525,7 @@ To indicate the document title in reStructuredText, use a unique adornment style
 beginning of the document. To indicate the document subtitle, use another unique
 adornment style immediately after the document title. For example:
 
-.. code-block::
+::
 
     ================
      Document Title
@@ -460,9 +592,21 @@ Vestibulum vitae gravida lorem, vel laoreet lorem.
 Ref Roles
 ---------
 
-This is text with a ref role :func:`f`. This has :func:`f`\ s an ``s`` after it. This is
-an :ref:`example explicit ref <reference_roles>` to this section. This is an `anonymous
-link <http://example.com>`_
+This is text with a ref role :func:`f`. This has py:func:`f`\ s an ``s`` after it. This
+i an :ref:`example explicit ref <reference_roles>` to this section. This is an
+`anonymous link <http://example.com>`_
+
+Footnotes
+---------
+
+This is a footnote [1]_ . This is another footnote [2]_ . This is a third footnote with
+a textual name [footnote]_ .
+
+.. [1] This is a footnote.
+
+.. [2] This is another footnote.
+
+.. [footnote] This is a third footnote with a textual name.
 
 Functions
 ---------
@@ -475,6 +619,18 @@ Functions
 
     :param args: Docs.
     :type args: List[any]
+
+.. data:: API_ERROR
+
+    Indicates some unknown error.
+
+.. py:data:: X
+
+    x = [
+        "here are some items",
+        "indented and with line breaks",
+        "the way Black does it",
+    ]
 
 Line Blocks
 -----------
@@ -550,9 +706,22 @@ True      True         has note block
       - list item 4
 ===== ================ ==============
 
-===== ============================= =====================================================================================================
+======= ==================
+nested. ===== ===== ======
+        A     B     A or B
+        ===== ===== ======
+        False False False
+        True  False True
+        False True  True
+        True  True  True
+        ===== ===== ======
+second  below table
+row
+======= ==================
+
+===== ============================= ======================================================================================================
 A     B                             A or B
-===== ============================= =====================================================================================================
+===== ============================= ======================================================================================================
 False False                         False
 True  False                         True
 False True                          True
@@ -569,9 +738,9 @@ True      True                      has note block
 True                                .. code-block:: python
 
                                         print(
-                                            "This code block is really long and wont be able to be wrapped in the default 88 characters."
+                                            "This code block is really long and won't be able to be wrapped in the default 88 characters."
                                         )
-===== ============================= =====================================================================================================
+===== ============================= ======================================================================================================
 
 Fields
 ------
@@ -602,6 +771,18 @@ Fields
         note
 
 
+.. thisdirectivedoesnotexit:: arguments but with white space
+    :field1: value1
+    :field2: value2
+    :field3:
+
+    some
+        text
+            that
+                shouldn't change
+
+This is an unknown role :lolno:`dolphin` but it's okay.
+
 Comments
 --------
 
@@ -621,6 +802,34 @@ Comments
     (Trailing spaces are still removed, since that happens early in the
     reST parser.)
 
+Extras
+------
+
+- :any:`any`
+- :command:`command`
+- :dfn:`dfn`
+- :doc:`doc`
+- :envvar:`envvar`
+- :file:`file`
+- :guilabel:`guilabel`
+- :kbd:`kbd`
+- :keyword:`keyword`
+- :mailheader:`mailheader`
+- :makevar:`makevar`
+- :manpage:`manpage`
+- :math:`math`
+- :menuselection:`menuselection`
+- :mimetype:`mimetype`
+- :newsgroup:`newsgroup`
+- :option:`option`
+- :PEP:`pep`
+- :program:`program`
+- :ref:`ref`
+- :regexp:`(r|re)|regexp`
+- :RFC:`rfc`
+- :samp:`samp`
+- :term:`term`
+
 What Next?
 ----------
 
@@ -632,9 +841,9 @@ What Next?
 This primer introduces the most common features of reStructuredText, but there are a lot
 more to explore. The `Quick reStructuredText`_ user reference is a good place to go
 next. For complete details, the `reStructuredText Markup Specification`_ is the place to
-go [1]_ .
+go [3]_ .
 
-.. [1] If that relative link doesn't work, try the master document:
+.. [3] If that relative link doesn't work, try the master document:
     http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html.
 
 .. _docutils project web site: http://docutils.sourceforge.net/

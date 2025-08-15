@@ -28,8 +28,10 @@ def node_eq(node1, node2):
                 print(node2.attributes)
                 return False
 
-    if isinstance(node1, docutils.nodes.literal_block):
-        if "python" in node1["classes"]:
+    if node1.__class__.__name__ == "directive":
+        directive = node1.attributes["directive"]
+        language = directive.arguments[0] if directive.arguments else None
+        if language == "python":
             # Check that either the outputs are equal or both calls to Black fail to parse.
             t1 = t2 = object()
             try:

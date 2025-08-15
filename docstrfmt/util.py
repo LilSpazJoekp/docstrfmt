@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import pickle
-import sys
 import tempfile
 from collections import defaultdict
-from contextlib import nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -16,35 +14,6 @@ from platformdirs import user_cache_path
 
 if TYPE_CHECKING:  # pragma: no cover
     import click
-
-
-def get_code_line(current_file: Path, code: str, strict: bool = False) -> int:
-    """Get the line number of the code in the file."""
-    with (
-        nullcontext(sys.stdin)
-        if current_file.name == "-"
-        else current_file.open(encoding="utf-8")
-    ) as f:
-        source = f.read()
-    lines = source.splitlines()
-    code_lines = code.splitlines()
-    multiple = len([line for line in lines if code_lines[0] in line]) > 1
-    for line_number, line in enumerate(lines, 1):  # noqa: RET503
-        if line.endswith(code_lines[0]) if strict else code_lines[0] in line:
-            if multiple:
-                current_offset = 0
-                for offset, sub_line in enumerate(code_lines):
-                    current_offset = offset
-                    if not (
-                        lines[line_number - 1 + offset].endswith(sub_line)
-                        if strict
-                        else sub_line in lines[line_number - 1 + offset]
-                    ):
-                        break
-                else:
-                    return line_number + current_offset
-            else:
-                return line_number
 
 
 # Modified from docutils.parsers.rst.states.Body
@@ -91,7 +60,7 @@ class FileCache:
 
     def __init__(self, context: click.Context, ignore_cache: bool = False):
         """Initialize the cache."""
-        from . import __version__
+        from . import __version__  # noqa: PLC0415
 
         self.cache_dir = user_cache_path("docstrfmt", version=__version__)
         self.context = context

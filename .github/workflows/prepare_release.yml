@@ -3,7 +3,7 @@ jobs:
     name: Prepare Release v${{ github.event.inputs.version }}
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         ssh-key: ${{ secrets.SSH_DEPLOY_KEY }}
     - uses: actions/setup-python@v5
@@ -46,3 +46,6 @@ on:
       version:
         description: 'The version to prepare for release'
         required: true
+permissions:
+  contents: read
+  pull-requests: write

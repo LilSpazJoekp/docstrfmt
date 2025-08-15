@@ -4,9 +4,14 @@ Change Log
 Unreleased
 ----------
 
+1.11.0 (2025/08/15)
+-------------------
+
 **Added**
 
 - Added support for Python 3.13.
+- Added support for citation role.
+- Added support for doctest blocks.
 
 **Changed**
 
@@ -15,6 +20,12 @@ Unreleased
 - Comment blocks that do not contain new-line characters are now kept on a single output
   line.
 - In Python 3.11+, use ``tomllib`` to parse ``pyproject.toml``.
+
+**Fixed**
+
+- Fixed handling of "Title over/underline too short" warnings.
+- Fixed parsing of config options from ``pyproject.toml``.
+- Fixed peformance issues when executing from a directory with many files.
 
 **Removed**
 
