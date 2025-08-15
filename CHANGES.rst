@@ -22,6 +22,7 @@ Unreleased
 
 - Fixed handling of "Title over/underline too short" warnings.
 - Fixed parsing of config options from ``pyproject.toml``.
+- Fixed peformance issues when executing from a directory with many files.
 
 **Removed**
 

@@ -14,7 +14,7 @@ from copy import copy
 from functools import partial
 from multiprocessing import Lock, freeze_support
 from multiprocessing import Manager as MultiManager
-from os.path import abspath, isdir, join
+from os.path import abspath
 from pathlib import Path
 from textwrap import dedent, indent
 from typing import TYPE_CHECKING, Any
@@ -181,25 +181,23 @@ def _parse_sources(context: click.Context, _: click.Parameter, value: list[str] 
         if source == "-":
             files_to_format.add(source)
         else:
-            for item in glob.iglob(source, recursive=True):
-                path = Path(item)
-                if path.is_dir():
+            for item in map(Path, glob.iglob(source, recursive=True)):
+                if item.is_dir():
                     for file in [
                         found
                         for extension in extensions
                         for found in glob.iglob(
-                            f"{path}/**/*{extension}", recursive=True
+                            f"{item}/**/*{extension}", recursive=True
                         )
                     ]:
                         files_to_format.add(abspath(file))
-                elif path.is_file():
+                else:
                     files_to_format.add(abspath(item))
-    for file in exclude:
-        if isdir(file):
-            file = join(file, "*")  # noqa: PLW2901
-        for f in map(abspath, glob.iglob(file, recursive=True)):
-            if f in files_to_format:
-                files_to_format.remove(f)
+    for file in list(map(Path, files_to_format)):
+        for exclusion in exclude:
+            if file.parent.match(exclusion) or file.match(exclusion):
+                files_to_format.discard(abspath(file))
+                break
     return sorted(files_to_format)
 
 
