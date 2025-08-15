@@ -416,6 +416,25 @@ And then go back to default highlighting (Python with silent failures).
 
         import image
 
+.. rubric:: Small title
+
+.. centered:: Centered text
+
+.. hlist::
+    :columns: 3
+
+    - Item 1
+    - Item 2
+    - Item 3
+
+.. sectionauthor:: author
+
+.. codeauthor:: author
+
+.. tabularcolumns:: >{\raggedright}\Y{.4}>{\centering}\Y{.1}>{\sphinxcolorblend{!95!red}\centering\noindent\bfseries\color{red}}\Y{.12}>{\raggedright\arraybackslash}\Y{.38}
+
+.. only:: html
+
 Math
 ~~~~
 

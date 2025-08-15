@@ -25,43 +25,6 @@ test_line_length = [13, 34, 55, 72, 89, 144]
 NON_NATIVE_NEWLINE = "\r\n" if os.linesep == "\n" else "\n"
 
 
-def determine_prefix_suffix(line, is_f_string, is_first_line):
-    prefix = "f" if is_f_string else ""
-    if '"' in line:
-        prefix += "'"
-        suffix = "'"
-    else:
-        prefix += '"'
-        suffix = '"'
-    if not is_first_line:
-        prefix += " "
-    return prefix, suffix
-
-
-def gen_output_string(file, output):
-    path_replacement = "{os.path.abspath(file)}"
-    result = output.replace(os.path.abspath(file), path_replacement)
-    result = result.replace("\n", "\\n")
-    maximum_length = 80
-    lines = []
-    is_first_line = True
-    line = ""
-    for word in result.split(" "):
-        if (
-            len(line) + len(word) + 1 + (3 if ("{" in word or "{" in line) else 2)
-            > maximum_length
-        ):
-            prefix, suffix = determine_prefix_suffix(line, "{" in line, is_first_line)
-            lines.append(f"{prefix}{line.rstrip(' ')}{suffix}")
-            line = ""
-            if is_first_line:
-                is_first_line = False
-        line += f"{word} "
-    prefix, suffix = determine_prefix_suffix(line, "{" in line, is_first_line)
-    lines.append(f"{prefix}{line.rstrip(' ')}{suffix}")
-    return "\n".join(lines)
-
-
 @pytest.mark.parametrize(
     "file", ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"]
 )
@@ -210,7 +173,7 @@ def test_include_txt(runner):
     )
 
 
-def test_invalid_blank_return_py(runner):
+def test_invalid_empty_return_py(runner):
     file = "tests/test_files/error_files/py_file_error_empty_returns.py"
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
@@ -222,7 +185,7 @@ def test_invalid_blank_return_py(runner):
     )
 
 
-def test_invalid_code_block_py(runner):
+def test_invalid_bad_codeblock_py(runner):
     file = "tests/test_files/error_files/py_file_error_bad_codeblock.py"
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
@@ -245,7 +208,31 @@ def test_invalid_code_block_py(runner):
         )
 
 
-def test_invalid_code_block_rst(runner):
+def test_invalid_doctest_parse_error_py(runner):
+    file = "tests/test_files/error_files/py_file_error_doctest_parse_error.py"
+    result = runner.invoke(main, args=[file])
+    assert result.exit_code == 1
+    assert result.output == (
+        f'InvalidRstError: ERROR: File "{os.path.abspath(file)}", line 8:\n'
+        "Invalid doctest block: line 1 of the doctest for <string> has an invalid option: '+INVALID'\n"
+        f"Failed to format '{os.path.abspath(file)}'\n"
+        "1 file was checked.\nDone, but 1 error occurred ❌💥❌\n"
+    )
+
+
+def test_invalid_empty_doctest_block_py(runner):
+    file = "tests/test_files/error_files/py_file_error_empty_doctest_block.py"
+    result = runner.invoke(main, args=[file])
+    assert result.exit_code == 1
+    assert result.output == (
+        f'InvalidRstError: ERROR: File "{os.path.abspath(file)}", line 8:\n'
+        "Empty doctest block.\n"
+        f"Failed to format '{os.path.abspath(file)}'\n"
+        "1 file was checked.\nDone, but 1 error occurred ❌💥❌\n"
+    )
+
+
+def test_invalid_syntax_rst(runner):
     file = "tests/test_files/error_files/test_invalid_syntax.rst"
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
@@ -351,8 +338,8 @@ def test_invalid_sphinx_metadata_rst(runner):
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
     assert result.output == (
-        f'InvalidRstError: ERROR: File "{os.path.abspath(file)}":\nNon-empty Sphinx'
-        " `:nocomments\n\ninvalid:` metadata field. Please remove field body or omit"
+        f'InvalidRstError: ERROR: File "{os.path.abspath(file)}", line 2:\nNon-empty Sphinx'
+        " `:nocomments:` metadata field. Please remove field body or omit"
         f" completely.\nFailed to format '{os.path.abspath(file)}'\n1 file was"
         " checked.\nDone, but 1 error occurred ❌💥❌\n"
     )

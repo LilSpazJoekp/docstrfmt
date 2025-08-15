@@ -8,6 +8,7 @@ Unreleased
 
 - Added support for Python 3.13.
 - Added support for citation role.
+- Added support for doctest blocks.
 
 **Changed**
 

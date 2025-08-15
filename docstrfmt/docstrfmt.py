@@ -9,6 +9,7 @@ from collections import namedtuple
 from collections.abc import Iterable, Iterator
 from copy import copy
 from dataclasses import dataclass
+from doctest import DocTestParser
 from math import floor
 from typing import (
     TYPE_CHECKING,
@@ -33,7 +34,7 @@ from . import rst_extras
 from .const import SECTION_CHARS
 from .exceptions import InvalidRstError, InvalidRstErrors
 from .rst_extras import _add_directive, generic_role
-from .util import get_code_line, make_enumerator
+from .util import make_enumerator
 
 if TYPE_CHECKING:  # pragma: no cover
     from pathlib import Path
@@ -197,8 +198,8 @@ class CodeFormatters:
                 compile(self.code, "<code-block>", mode="exec")
             except SyntaxError as syntax_error:
                 self.context.manager.error_count += 1
-                document_line = get_code_line(
-                    self.context.current_file, self.code, True
+                document_line = self.context.manager.get_code_line(
+                    self.code, strict=True
                 ) - len(self.code.splitlines())
                 if self.context.manager.reporter:
                     self.context.manager.reporter.error(
@@ -229,7 +230,9 @@ class Manager:
         self.settings.tab_width = 8
         self.formatters = Formatters(self)
         self.current_file = None
+        self.original_text = ""
         self.docstring_trailing_line = docstring_trailing_line
+        self._in_docstring = False  # for resolving line numbers in code blocks
 
     def _patch_unknown_directives(self, text: str) -> None:
         doc = new_document(str(self.current_file), self.settings)
@@ -306,6 +309,7 @@ class Manager:
     def format_node(
         self, width: int, node: docutils.nodes.Node, is_docstring: bool = False
     ) -> str:
+        self._in_docstring = is_docstring
         formatted_node = "\n".join(
             self.perform_format(
                 node,
@@ -326,13 +330,14 @@ class Manager:
         """Parse a string of reStructuredText."""
         self.current_file = file_name
         self.current_offset = line_offset
+        self.original_text = text
         self._patch_unknown_directives(text)
         doc = new_document(str(self.current_file), self.settings)
         parser = rst.Parser()
-        parser.parse(text, doc)
         doc.reporter = IgnoreMessagesReporter(
             "", self.settings.report_level, self.settings.halt_level
         )
+        parser.parse(text, doc)
         self._pre_process(doc, line_offset, len(text.splitlines()))
         return doc
 
@@ -346,6 +351,31 @@ class Manager:
             msg = f'Unknown node type {type(node).__name__} at File "{context.current_file}", line {node.line}'
             raise ValueError(msg) from None
         return func(node, context)
+
+    def get_code_line(self, code: str, strict: bool = False) -> int:
+        """Get the line number of the code in the file."""
+        lines = self.original_text.splitlines()
+        code_lines = code.splitlines()
+        multiple = len([line for line in lines if code_lines[0] in line]) > 1
+        code_offset = self.current_offset - (1 if self._in_docstring else 0)
+        for line_number, line in enumerate(lines, 1):  # noqa: RET503
+            if line.endswith(code_lines[0]) if strict else code_lines[0] in line:
+                if multiple:
+                    current_offset = 0
+                    for offset, sub_line in enumerate(code_lines):
+                        current_offset = offset
+                        if not (
+                            lines[line_number - 1 + offset].endswith(sub_line)
+                            if strict
+                            else sub_line in lines[line_number - 1 + offset]
+                        ):
+                            break
+                    else:
+                        return line_number + current_offset + code_offset
+                else:
+                    return line_number + code_offset
+        msg = f"Code not found in {self.current_file}:\n{code}"  # pragma: no cover
+        raise ValueError(msg)  # pragma: no cover
 
 
 def pairwise(items: Iterable[T]) -> Iterator[tuple[T, T]]:
@@ -659,10 +689,56 @@ class Formatters:
                     4, self.manager.perform_format(child, context.indent(4))
                 )
 
+    def doctest_block(
+        self, node: docutils.nodes.doctest_block, context: FormatContext
+    ) -> line_iterator:
+        """Format a doctest block."""
+        code = node.children[0].astext()
+        parser = DocTestParser()
+        try:
+            parsed = parser.get_examples(code)
+        except ValueError as e:
+            raise InvalidRstError(
+                context.current_file,
+                "ERROR",
+                self.manager.get_code_line(code, strict=True),
+                f"Invalid doctest block: {e}",
+            ) from None
+        doctest_blocks = []
+        current_block = ""
+        while parsed:
+            example = parsed.pop(0)
+            if example.want:
+                current_block += example.source.strip()
+                formatted = CodeFormatters(current_block, context).python()
+                doctest_blocks.append((formatted, example.want.strip()))
+                current_block = ""
+            else:  # pragma: no cover
+                current_block += example.source.strip() + "\n"
+        if current_block:
+            # If there's any remaining code, format it as well.
+            formatted = CodeFormatters(current_block, context).python()
+            doctest_blocks.append((formatted, ""))
+        if not doctest_blocks:
+            raise InvalidRstError(
+                context.current_file,
+                "ERROR",
+                self.manager.get_code_line(code[0], strict=True),
+                "Empty doctest block.",
+            )
+        for formatted, want in doctest_blocks:
+            for line in formatted.splitlines():
+                if line.startswith(" "):
+                    yield f"... {line}"
+                elif line:
+                    yield f">>> {line}"
+            if want:
+                yield from want.splitlines()
+
     def directive(self, node: Directive, context: FormatContext) -> line_iterator:
         directive = node.attributes["directive"]
 
-        is_code_block = directive.name in ["code", "code-block"]
+        is_code_block = directive.name in ["code", "code-block", "sourcecode"]
 
         yield " ".join(
             [
@@ -738,10 +814,8 @@ class Formatters:
                 raise InvalidRstError(
                     context.current_file,
                     "ERROR",
-                    get_code_line(
-                        context.current_file, f":{node.astext().strip()}:", strict=True
-                    ),
-                    f"Non-empty Sphinx `:{node.astext().strip()}:` metadata"
+                    self.manager.get_code_line(field_name),
+                    f"Non-empty Sphinx `{field_name}` metadata"
                     " field. Please remove field body or omit completely.",
                 )
         except StopIteration:
@@ -751,9 +825,7 @@ class Formatters:
             raise InvalidRstError(
                 context.current_file,
                 "ERROR",
-                get_code_line(
-                    context.current_file, f":{node.astext().strip()}:", strict=True
-                ),
+                self.manager.get_code_line(f":{node.astext().strip()}:", strict=True),
                 f"Empty `:{node.astext().strip()}:` field. Please add a field body or"
                 " omit completely.",
             ) from None
@@ -852,7 +924,7 @@ class Formatters:
                     raise InvalidRstError(
                         context.current_file,
                         "ERROR",
-                        get_code_line(context.current_file, field_type),
+                        self.manager.get_code_line(field_type),
                         "Multi-line type hints are not supported.",
                     )
                 if field_kind == "type":
@@ -868,7 +940,7 @@ class Formatters:
                     raise InvalidRstError(
                         context.current_file,
                         "ERROR",
-                        get_code_line(context.current_file, child.astext()),
+                        self.manager.get_code_line(child.astext()),
                         "Multiple `:return:` fields are not allowed. Please"
                         " combine them into one.",
                     )
@@ -885,7 +957,7 @@ class Formatters:
                     raise InvalidRstError(
                         context.current_file,
                         "ERROR",
-                        get_code_line(context.current_file, field.astext()),
+                        self.manager.get_code_line(field.astext()),
                         "Type hint is specified both in the field body and in the"
                         f" `:{type_field_name}:` field. Please remove one of them.",
                     )
