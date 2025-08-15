@@ -105,6 +105,23 @@ class ExampleClass:
 
         :raises ValueError: This raises a ValueError.
 
+        With a doctest block:
+
+        >>> import math
+        >>> math.sqrt(4)
+        2.0
+        >>> math.sqrt(9)
+        3.0
+
+        >>> for i in range(5):
+        ...     print(i)
+        0
+        1
+        2
+        3
+        4
+        >>> import this
+
         """
         my_position, im_active = 1, True
         match my_position, im_active:

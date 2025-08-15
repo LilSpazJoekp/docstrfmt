@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover
+    from pathlib import Path
+
 
 class DocstrfmtError(Exception):
     """Base exception class for docstrfmt."""
@@ -18,7 +23,7 @@ class InvalidRstError(ValueError):
             f' "{self.file}"{f", line {self.line}" if self.line else ""}:\n{self.message}'
         )
 
-    def __init__(self, file: str, level: str, line: int, message: str):
+    def __init__(self, file: Path, level: str, line: int, message: str):
         """Initialize an invalid RST error."""
         self.file = file
         self.level = level

@@ -14,7 +14,7 @@ from copy import copy
 from functools import partial
 from multiprocessing import Lock, freeze_support
 from multiprocessing import Manager as MultiManager
-from os.path import abspath, isdir, join
+from os.path import abspath
 from pathlib import Path
 from textwrap import dedent, indent
 from typing import TYPE_CHECKING, Any
@@ -146,10 +146,13 @@ def _parse_pyproject_config(
                 if config_value is not None and not isinstance(config_value, list):
                     raise click.BadOptionUsage(key, f"Config key {key} must be a list")
             params = {}
+            if context.default_map is not None:  # pragma: no cover
+                params.update(context.default_map)
             if context.params is not None:
                 params.update(context.params)
             params.update(config)
             context.params = params
+            context.default_map = params
 
         black_config = parse_pyproject_toml(value)
         black_config.pop("exclude", None)
@@ -178,25 +181,23 @@ def _parse_sources(context: click.Context, _: click.Parameter, value: list[str] 
         if source == "-":
             files_to_format.add(source)
         else:
-            for item in glob.iglob(source, recursive=True):
-                path = Path(item)
-                if path.is_dir():
+            for item in map(Path, glob.iglob(source, recursive=True)):
+                if item.is_dir():
                     for file in [
                         found
                         for extension in extensions
                         for found in glob.iglob(
-                            f"{path}/**/*{extension}", recursive=True
+                            f"{item}/**/*{extension}", recursive=True
                         )
                     ]:
                         files_to_format.add(abspath(file))
-                elif path.is_file():
+                else:
                     files_to_format.add(abspath(item))
-    for file in exclude:
-        if isdir(file):
-            file = join(file, "*")  # noqa: PLW2901
-        for f in map(abspath, glob.iglob(file, recursive=True)):
-            if f in files_to_format:
-                files_to_format.remove(f)
+    for file in list(map(Path, files_to_format)):
+        for exclusion in exclude:
+            if file.parent.match(exclusion) or file.match(exclusion):
+                files_to_format.discard(abspath(file))
+                break
     return sorted(files_to_format)
 
 
