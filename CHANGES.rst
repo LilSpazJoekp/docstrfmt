@@ -18,6 +18,10 @@ Unreleased
   line.
 - In Python 3.11+, use ``tomllib`` to parse ``pyproject.toml``.
 
+**Fixed**
+
+- Fixed handling of "Title over/underline too short" warnings.
+
 **Removed**
 
 - Removed support for Python 3.8.

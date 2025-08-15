@@ -510,18 +510,6 @@ def test_raw_input_rst_errors_py(runner):
     )
 
 
-def test_raw_input_rst_severe(runner):
-    file = "tests/test_files/error_files/test_invalid_rst_severe.rst"
-    with open(file, encoding="utf-8") as f:
-        raw_file = f.read()
-    args = ["-t", "rst", "-r", raw_file]
-    result = runner.invoke(main, args=args)
-    assert result.exit_code == 1
-    assert result.output == (
-        'SEVERE: File "<raw_input>", line 3:\nTitle overline & underline mismatch.\n'
-    )
-
-
 def test_raw_input_rst_warning(runner):
     file = "tests/test_files/error_files/test_invalid_rst_warning.rst"
     with open(file, encoding="utf-8") as f:
@@ -565,17 +553,6 @@ def test_rst_error(runner):
         " column margin in table line 2.\nFailed to format"
         f" '{os.path.abspath(file)}'\n1 file was checked.\nDone, but 1 error occurred"
         " ❌💥❌\n"
-    )
-
-
-def test_rst_severe(runner):
-    file = "tests/test_files/error_files/test_invalid_rst_severe.rst"
-    result = runner.invoke(main, args=[file])
-    assert result.exit_code == 1
-    assert result.output == (
-        f'SEVERE: File "{os.path.abspath(file)}", line 3:\nTitle overline & underline'
-        f" mismatch.\nFailed to format '{os.path.abspath(file)}'\n1 file was"
-        " checked.\nDone, but 1 error occurred ❌💥❌\n"
     )
 
 

@@ -237,10 +237,12 @@ class Manager:
     def _patch_unknown_directives(self, text: str) -> None:
         doc = new_document(str(self.current_file), self.settings)
         parser = rst.Parser()
-        parser.parse(text, doc)
         doc.reporter = IgnoreMessagesReporter(
-            "", self.settings.report_level, self.settings.halt_level
+            "",
+            docutils.utils.Reporter.SEVERE_LEVEL,
+            docutils.utils.Reporter.SEVERE_LEVEL,
         )
+        parser.parse(text, doc)
         doc.transformer.add_transform(UnknownNodeTransformer)
         doc.transformer.apply_transforms()
 
@@ -261,6 +263,8 @@ class Manager:
             for child in node.children
             if isinstance(child, docutils.nodes.system_message)
             and child.attributes["type"] != "INFO"
+            and child.children[0].astext()
+            not in IgnoreMessagesReporter.ignored_messages
         ]
         if errors:
             self.error_count += len(errors)
