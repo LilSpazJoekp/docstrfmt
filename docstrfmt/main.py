@@ -146,10 +146,13 @@ def _parse_pyproject_config(
                 if config_value is not None and not isinstance(config_value, list):
                     raise click.BadOptionUsage(key, f"Config key {key} must be a list")
             params = {}
+            if context.default_map is not None:  # pragma: no cover
+                params.update(context.default_map)
             if context.params is not None:
                 params.update(context.params)
             params.update(config)
             context.params = params
+            context.default_map = params
 
         black_config = parse_pyproject_toml(value)
         black_config.pop("exclude", None)
