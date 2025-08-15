@@ -4,6 +4,9 @@ Change Log
 Unreleased
 ----------
 
+1.11.0 (2025/08/15)
+-------------------
+
 **Added**
 
 - Added support for Python 3.13.
