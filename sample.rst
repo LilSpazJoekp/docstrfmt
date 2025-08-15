@@ -65,16 +65,14 @@ vitae gravida lorem, vel laoreet lorem.
 Indentation
 -----------
 
-All indentation is done three spaces at a time. This may look a bit odd for bulleted
+All indentation is done four spaces at a time. This may look a bit odd for bulleted
 lists in isolation, but it makes everything consistent.
 
 .. note::
 
     - Thing 1
-
-      1. Thing 2
-      2. Thing 3
-
+          1. Thing 2
+          2. Thing 3
     - term
           definition
 
