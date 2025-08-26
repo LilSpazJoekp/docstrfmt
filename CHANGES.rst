@@ -4,6 +4,9 @@ Change Log
 Unreleased
 ----------
 
+1.11.1 (2025/08/26)
+-------------------
+
 **Fixed**
 
 - Fixed an issue where footnotes were getting malformed when using auto-numbering.
