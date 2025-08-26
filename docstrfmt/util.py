@@ -8,8 +8,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import roman
 from docutils.parsers.rst.states import ParserError
-from docutils.utils import roman
 from platformdirs import user_cache_path
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -17,7 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 # Modified from docutils.parsers.rst.states.Body
-def make_enumerator(ordinal: int, sequence: str, fmt: tuple[str, str]) -> str:
+def make_enumerator(ordinal: int, sequence: str, fmt: tuple[str, str]) -> str | None:
     """Construct and return the next enumerated list item marker, and an auto-enumerator ("#" instead of the regular enumerator).
 
     Return ``None`` for invalid (out of range) ordinals.

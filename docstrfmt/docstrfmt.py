@@ -1037,7 +1037,13 @@ class Formatters:
             context.wrap_first_at(len(prefix) - 4).indent(4),
             node.line,
         )
-        yield " ".join([prefix, next(children)])
+        footnote_name = (
+            [f"[#{''.join(node.attributes['names'])}]"]
+            if node.attributes.get("auto", False)
+            else []
+        )
+        child = next(children)
+        yield " ".join([prefix, *footnote_name, child])
         remaining = list(children)
         if remaining:
             yield from self._with_spaces(4, remaining)
@@ -1047,8 +1053,8 @@ class Formatters:
     def footnote_reference(
         self, node: docutils.nodes.footnote_reference, context: FormatContext
     ):
-        if node.attributes["refname"]:
-            yield f"[{node.attributes['refname']}]_"
+        footnote_name = "#" if node.attributes.get("auto", False) else ""
+        yield inline_markup(f"[{footnote_name}{node.attributes.get('refname', '')}]_")
 
     citation_reference = footnote_reference
 

@@ -4,6 +4,11 @@ Change Log
 Unreleased
 ----------
 
+**Fixed**
+
+- Fixed an issue where footnotes were getting malformed when using auto-numbering.
+- Switch to package ``roman`` for roman numeral parsing.
+
 1.11.0 (2025/08/15)
 -------------------
 
