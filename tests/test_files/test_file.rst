@@ -599,8 +599,12 @@ i an :ref:`example explicit ref <reference_roles>` to this section. This is an
 Footnotes
 ---------
 
-This is a footnote [1]_ . This is another footnote [2]_ . This is a third footnote with
-a textual name [footnote]_ .
+This is a footnote [1]_. This is another footnote [2]_. This is a third footnote with a
+textual name [footnote]_.
+
+This is an auto footnote [#]_.
+
+.. [#] Check out some stuff here. https://example.com/docs
 
 .. [1] This is a footnote.
 
@@ -841,7 +845,7 @@ What Next?
 This primer introduces the most common features of reStructuredText, but there are a lot
 more to explore. The `Quick reStructuredText`_ user reference is a good place to go
 next. For complete details, the `reStructuredText Markup Specification`_ is the place to
-go [3]_ .
+go [3]_.
 
 .. [3] If that relative link doesn't work, try the master document:
     http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html.
