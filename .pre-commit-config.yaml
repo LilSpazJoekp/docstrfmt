@@ -18,13 +18,13 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/pappasam/toml-sort
-    rev: v0.24.2
+    rev: v0.24.3
     hooks:
       - id: toml-sort-fix
         files: ^(.*\.toml)$
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.11
+    rev: v0.13.3
     hooks:
       - id: ruff
         args: [ --exit-non-zero-on-fix, --fix ]
@@ -33,4 +33,4 @@ repos:
   - repo: https://github.com/psf/black
     hooks:
       - id: black
-    rev: 25.1.0
+    rev: 25.9.0
