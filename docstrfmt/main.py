@@ -62,11 +62,14 @@ def _format_file(
     line_length: int,
     mode: Mode,
     docstring_trailing_line: bool,
+    format_python_code_blocks: bool,
     raw_output: bool,
     lock: Lock,
 ):
     error_count = 0
-    manager = Manager(reporter, mode, docstring_trailing_line)
+    manager = Manager(
+        reporter, mode, docstring_trailing_line, format_python_code_blocks
+    )
     if file.name == "-":
         raw_output = True
     reporter.print(f"Checking {file}", 2)
@@ -203,7 +206,7 @@ def _parse_sources(context: click.Context, _: click.Parameter, value: list[str] 
 
 def _process_python(
     check: bool,
-    file: Path,
+    file: Path | str,
     input_string: str,
     line_length: int,
     manager: Manager,
@@ -211,7 +214,9 @@ def _process_python(
     lock: Lock | None = None,
     newline: str | None = None,
 ):
-    filename = Path(file).name
+    if isinstance(file, str):
+        file = Path(file)
+    filename = file.name
     object_name = filename.split(".")[0]
     visitor = Visitor(file, input_string, line_length, manager, object_name)
     module = cst.parse_module(input_string)
@@ -288,6 +293,7 @@ async def _run_formatter(
     files: list[str],
     include_txt: bool,
     docstring_trailing_line: bool,
+    format_python_code_blocks: bool,
     mode: Mode,
     line_length: int,
     raw_output: bool,
@@ -314,6 +320,7 @@ async def _run_formatter(
                 line_length,
                 mode,
                 docstring_trailing_line,
+                format_python_code_blocks,
                 raw_output,
                 lock,
             )
@@ -608,6 +615,12 @@ class Visitor(CSTTransformer):
     show_default=True,
 )
 @click.option(
+    "--format-python-code-blocks/--no-format-python-code-blocks",
+    " /-N",
+    default=True,
+    help="Whether format Python code blocks.",
+)
+@click.option(
     "-i",
     "--ignore-cache",
     is_flag=True,
@@ -686,6 +699,7 @@ def main(  # noqa: PLR0912,PLR0915
     exclude: list[str],  # noqa: ARG001
     extend_exclude: list[str],  # noqa: ARG001
     file_type: str,
+    format_python_code_blocks: bool,
     ignore_cache: bool,
     include_txt: bool,
     line_length: int,
@@ -712,7 +726,9 @@ def main(  # noqa: PLR0912,PLR0915
             line_length = DEFAULT_LINE_LENGTH
     error_count = 0
     if raw_input:
-        manager = Manager(reporter, mode, docstring_trailing_line)
+        manager = Manager(
+            reporter, mode, docstring_trailing_line, format_python_code_blocks
+        )
         file = "<raw_input>"
         check = False
         try:
@@ -745,6 +761,7 @@ def main(  # noqa: PLR0912,PLR0915
                 line_length,
                 mode,
                 docstring_trailing_line,
+                format_python_code_blocks,
                 raw_output,
                 None,
             )
@@ -775,6 +792,7 @@ def main(  # noqa: PLR0912,PLR0915
                     files,
                     include_txt,
                     docstring_trailing_line,
+                    format_python_code_blocks,
                     mode,
                     line_length,
                     raw_output,

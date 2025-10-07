@@ -189,6 +189,8 @@ class CodeFormatters:
     context: FormatContext
 
     def python(self) -> str:
+        if not self.context.manager.format_python_code_blocks:
+            return self.code
         try:
             self.code = black.format_str(
                 self.code, mode=self.context.black_config
@@ -216,6 +218,7 @@ class Manager:
         reporter: Reporter,
         black_config: Mode = None,
         docstring_trailing_line: bool = True,
+        format_python_code_blocks: bool = True,
     ):
         rst_extras.register()
         self.black_config = black_config
@@ -232,6 +235,7 @@ class Manager:
         self.current_file = None
         self.original_text = ""
         self.docstring_trailing_line = docstring_trailing_line
+        self.format_python_code_blocks = format_python_code_blocks
         self._in_docstring = False  # for resolving line numbers in code blocks
 
     def _patch_unknown_directives(self, text: str) -> None:

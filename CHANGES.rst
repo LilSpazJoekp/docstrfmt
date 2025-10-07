@@ -4,6 +4,11 @@ Change Log
 Unreleased
 ----------
 
+**Added**
+
+- Added ability to skip formatting Python code blocks with the
+  ``--format-python-code-blocks/--no-format-python-code-blocks`` or ``-N`` flag.
+
 1.11.1 (2025/08/26)
 -------------------
 
