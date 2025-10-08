@@ -4,6 +4,16 @@ Change Log
 Unreleased
 ----------
 
+**Added**
+
+- Added ability to skip formatting Python code blocks with the
+  ``--format-python-code-blocks/--no-format-python-code-blocks`` or ``-N`` flag.
+- Fixed line length resolution order. The order is now:
+  1. Command line argument
+  2. ``pyproject.toml`` setting
+  3. Black config setting
+  4. Default of 88
+
 1.11.1 (2025/08/26)
 -------------------
 
@@ -33,7 +43,7 @@ Unreleased
 
 - Fixed handling of "Title over/underline too short" warnings.
 - Fixed parsing of config options from ``pyproject.toml``.
-- Fixed peformance issues when executing from a directory with many files.
+- Fixed performance issues when executing from a directory with many files.
 
 **Removed**
 

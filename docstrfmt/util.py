@@ -69,12 +69,15 @@ class FileCache:
 
     def _get_cache_filename(self):
         docstring_trailing_line = str(self.context.params["docstring_trailing_line"])
+        format_python_code_blocks = str(
+            self.context.params["format_python_code_blocks"]
+        )
         line_length = str(self.context.params["line_length"])
         mode = self.context.params["mode"].get_cache_key()
         include_txt = str(self.context.params["include_txt"])
         return (
             self.cache_dir
-            / f"cache.{f'{docstring_trailing_line}_{line_length}_{mode}_{include_txt}'}.pickle"
+            / f"cache.{f'{docstring_trailing_line}_{format_python_code_blocks}_{include_txt}_{line_length}_{mode}'}.pickle"
         )
 
     def _read_cache(self):

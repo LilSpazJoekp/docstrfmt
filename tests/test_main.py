@@ -403,6 +403,7 @@ def test_line_length_resolution__black_set(runner):
             toml_config = toml.load(f)
     else:
         toml_config = toml.load(args[1])
+    # should not reformat again
     result = runner.invoke(
         main, args=args + ["-l", toml_config["tool"]["black"]["line-length"]]
     )
@@ -669,6 +670,14 @@ def test_newline_preserved(runner, tmp_path, file, newline):
     with open(test_file_path, encoding="utf-8") as output_file:
         output_file.read()
         assert output_file.newlines == newline
+
+
+def test_no_format_python_code_blocks(runner):
+    file = ".. code-block:: python\n\n" "    def example_function():\n"
+    args = ["-t", "rst", "-l", 80, "-r", file, "--no-format-python-code-blocks"]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == file
 
 
 @pytest.mark.parametrize("file", test_files)
