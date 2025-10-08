@@ -403,6 +403,7 @@ def test_line_length_resolution__black_set(runner):
             toml_config = toml.load(f)
     else:
         toml_config = toml.load(args[1])
+    # should not reformat again
     result = runner.invoke(
         main, args=args + ["-l", toml_config["tool"]["black"]["line-length"]]
     )

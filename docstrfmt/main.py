@@ -284,7 +284,8 @@ def _process_rst(
 
 
 def _resolve_length(context: click.Context, _: click.Parameter, value: int | None):
-    return value or context.params.get("line_length", None)
+    pyproject_line_length = context.params.pop("line_length", None)
+    return value or pyproject_line_length
 
 
 async def _run_formatter(
@@ -599,20 +600,20 @@ class Visitor(CSTTransformer):
 @click.option(
     "-x",
     "--extend-exclude",
-    type=str,
-    multiple=True,
     help=(
         "Path(s) to directories/files to exclude in addition to the default excludes in"
         " formatting. Supports glob patterns."
     ),
+    multiple=True,
+    type=str,
 )
 @click.option(
     "-t",
     "--file-type",
-    type=click.Choice(["py", "rst"], case_sensitive=False),
     default="rst",
     help="Specify the raw input file type. Can only be used with --raw-input or stdin.",
     show_default=True,
+    type=click.Choice(["py", "rst"], case_sensitive=False),
 )
 @click.option(
     "--format-python-code-blocks/--no-format-python-code-blocks",
@@ -623,14 +624,14 @@ class Visitor(CSTTransformer):
 @click.option(
     "-i",
     "--ignore-cache",
-    is_flag=True,
     help="Ignore the cache. Useful for testing.",
+    is_flag=True,
 )
 @click.option(
     "-T",
     "--include-txt",
-    is_flag=True,
     help="Interpret *.txt files as reStructuredText and format them.",
+    is_flag=True,
 )
 @click.option(
     "-l",
@@ -662,20 +663,20 @@ class Visitor(CSTTransformer):
 @click.option(
     "-q",
     "--quiet",
-    is_flag=True,
     help=(
         "Don't emit non-error messages to stderr. Errors are still emitted; silence"
         " those with 2>/dev/null. Overrides --verbose."
     ),
+    is_flag=True,
 )
 @click.option(
     "-r",
     "--raw-input",
-    type=str,
     help=(
         "Format the text passed in as a string. Formatted text will be output to"
         " stdout."
     ),
+    type=str,
 )
 @click.option(
     "-o", "--raw-output", is_flag=True, help="Output the formatted text to stdout."
