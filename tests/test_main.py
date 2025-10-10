@@ -656,7 +656,7 @@ def test_newline_preserved(runner, tmp_path, file, newline):
 
 
 def test_no_format_python_code_blocks(runner):
-    file = ".. code-block:: python\n\n" "    def example_function():\n"
+    file = ".. code-block:: python\n\n    def example_function():\n"
     args = ["-t", "rst", "-l", 80, "-r", file, "--no-format-python-code-blocks"]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
@@ -768,63 +768,81 @@ def test_section_reformatting(runner):
 
 
 def test_section_reformatting_python_adornments(runner):
-    file = """
-              ===
-              One
-              ===
+    file = '''
+    """This is an example python file."""
 
-              Two
-              ---
 
-              Three
-              ~~~~~
+    class ExampleClass:
+        """This is a class docstring example.
 
-              Four
-              ++++
+        ===
+        One
+        ===
 
-              Five
-              ....
+        Two
+        ---
 
-              Six
-              '''
+        Three
+        ~~~~~
 
-              Two again
-              ---------
+        Four
+        ++++
 
-              Some content.
-           """
+        Five
+        ....
 
-    fixed = """
-               #####
-                One
-               #####
+        Six
+        \'''
 
-               *****
-                Two
-               *****
+        Two again
+        ---------
 
-               Three
-               =====
+        Some content.
 
-               Four
-               ----
+        """
 
-               Five
-               ^^^^
+    '''
 
-               Six
-               \"\"\"
+    fixed = '''
+    """This is an example python file."""
 
-               ***********
-                Two again
-               ***********
 
-               Some content.
-            """
+    class ExampleClass:
+        """This is a class docstring example.
+
+        #####
+         One
+        #####
+
+        *****
+         Two
+        *****
+
+        Three
+        =====
+
+        Four
+        ----
+
+        Five
+        ^^^^
+
+        Six
+        """
+
+        ***********
+         Two again
+        ***********
+
+        Some content.
+
+        """
+
+    '''
 
     file = textwrap.dedent(file).lstrip()
     fixed = textwrap.dedent(fixed).lstrip()
-    args = ["-s", "-r", file]
+    args = ["-t", "py", "-or", file]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output == fixed

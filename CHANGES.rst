@@ -8,9 +8,14 @@ Unreleased
 
 - Added support for Python 3.14.
 - Added ability to skip formatting Python code blocks with the
-  ``--format-python-code-blocks/--no-format-python-code-blocks`` or ``-N`` flag.
+  ``--format-python-code-blocks/--no-format-python-code-blocks`` or ``-N`` command-line
+  argument.
 - Added command-line option (-s) to control whether to format section headers, and
   optionally how.
+- Added command-line argument ``--preserve-adornments`` or ``-pA`` to preserve
+  user-defined section adornments.
+- Added command-line option ``--section-adornments`` or ``-s`` to control section header
+  adornments.
 
 **Fixed**
 
