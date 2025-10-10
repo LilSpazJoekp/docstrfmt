@@ -7,14 +7,17 @@ Unreleased
 **Added**
 
 - Added ability to skip formatting Python code blocks with the
-  ``--format-python-code-blocks/--no-format-python-code-blocks`` or ``-N`` flag.
+  ``--format-python-code-blocks/--no-format-python-code-blocks`` or ``-N`` command-line
+  argument.
 - Fixed line length resolution order. The order is now:
   1. Command line argument
   2. ``pyproject.toml`` setting
   3. Black config setting
   4. Default of 88
-- Added command-line option (-s) to control whether to format section headers, and
-  optionally how.
+- Added command-line argument ``--preserve-adornments`` or ``-sA`` to preserve
+  user-defined section adornments.
+- Added command-line option ``--section-adornments`` or ``-s`` to control section header
+  adornments.
 
 **Fixed**
 

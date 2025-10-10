@@ -610,7 +610,7 @@ class Visitor(CSTTransformer):
     is_flag=True,
     help=(
         "Check files and returns a non-zero code if files are not formatted correctly."
-        " Useful for linting. Ignored if raw-input, raw-output, stdin is used."
+        " Useful for linting. Ignored if --raw-input, --raw-output, or stdin is used."
     ),
 )
 @click.option(
@@ -677,23 +677,10 @@ class Visitor(CSTTransformer):
     callback=_resolve_length,
 )
 @click.option(
-    "-s",
-    "--section-adornments",
-    type=str,
-    default=None,
-    is_flag=False,
-    flag_value=SECTION_CHARS,
-    help=(
-        f"""Force pre-defined section adornments for part/chapter/section headers. If an
-        optional string is provided, it defines a sequence of adornments to use for each
-        individual section depth. The list must be composed of at least N **distinct**
-        characters for documents with N section depths.  Provide more if unsure.  If the
-        special character `|` (pipe) is used, then it defines sections (left portion)
-        that will have overlines besides underlines only (right portion). If this option
-        is not set, the default behaviour is to preserve existing adornments on your
-        document. An example set of adornments would be `{SECTION_CHARS}`."""
-    ),
-    callback=_validate_adornments,
+    "-pA",
+    "--preserve-adornments",
+    help="Preserve existing section adornments.",
+    is_flag=True,
 )
 @click.option(
     "-p",
@@ -730,7 +717,25 @@ class Visitor(CSTTransformer):
     type=str,
 )
 @click.option(
-    "-o", "--raw-output", is_flag=True, help="Output the formatted text to stdout."
+    "-o",
+    "--raw-output",
+    help="Output the formatted text to stdout.",
+    is_flag=True,
+)
+@click.option(
+    "-s",
+    "--section-adornments",
+    type=str,
+    default=SECTION_CHARS,
+    help=(
+        "Define adornments for part/chapter/section headers. It defines a sequence of"
+        " adornments to use for each individual section depth. The list must be"
+        " composed of at least N **distinct** characters for documents with N section"
+        " depths. Provide more if unsure. If the special character `|` (pipe) is"
+        " used, then it defines sections (left portion) that will have overlines"
+        " besides underlines only (right portion). Overrides --preserve-adornments."
+    ),
+    callback=_validate_adornments,
 )
 @click.option(
     "-v",
@@ -755,11 +760,12 @@ def main(  # noqa: PLR0912,PLR0915
     ignore_cache: bool,
     include_txt: bool,
     line_length: int,
-    section_adornments: list[tuple[str, bool]] | None,
+    preserve_adornments: bool,
     mode: Mode,
     quiet: bool,
     raw_input: str,
     raw_output: bool,
+    section_adornments: list[tuple[str, bool]],
     verbose: int,
     files: list[str],
 ) -> None:
@@ -778,6 +784,10 @@ def main(  # noqa: PLR0912,PLR0915
         else:
             line_length = DEFAULT_LINE_LENGTH
     error_count = 0
+
+    if preserve_adornments:
+        section_adornments = None
+
     if raw_input:
         manager = Manager(
             reporter,
