@@ -70,8 +70,11 @@ def _format_file(
 ):
     error_count = 0
     manager = Manager(
-        reporter, mode, docstring_trailing_line, format_python_code_blocks,
-        section_adornments
+        reporter,
+        mode,
+        docstring_trailing_line,
+        format_python_code_blocks,
+        section_adornments,
     )
     if file.name == "-":
         raw_output = True
@@ -780,8 +783,11 @@ def main(
     error_count = 0
     if raw_input:
         manager = Manager(
-            reporter, mode, docstring_trailing_line, format_python_code_blocks,
-            section_adornments
+            reporter,
+            mode,
+            docstring_trailing_line,
+            format_python_code_blocks,
+            section_adornments,
         )
         file = "<raw_input>"
         check = False
