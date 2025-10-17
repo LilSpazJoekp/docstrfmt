@@ -200,7 +200,10 @@ def _parse_sources(context: click.Context, _: click.Parameter, value: list[str] 
             if file.parent.match(exclusion) or file.match(exclusion):
                 files_to_format.discard(abspath(file))
                 break
-    return sorted(files_to_format)
+    sorted_files = sorted(files_to_format)
+    if context.params.get("files", []):
+        context.params["files"] = sorted_files
+    return sorted_files
 
 
 def _process_python(
