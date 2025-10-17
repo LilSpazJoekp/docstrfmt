@@ -8,11 +8,15 @@ Unreleased
 
 - Added ability to skip formatting Python code blocks with the
   ``--format-python-code-blocks/--no-format-python-code-blocks`` or ``-N`` flag.
+
+**Fixed**
+
 - Fixed line length resolution order. The order is now:
   1. Command line argument
   2. ``pyproject.toml`` setting
   3. Black config setting
   4. Default of 88
+- Image and Unicode substitution definitions were not being formatted correctly.
 
 1.11.1 (2025/08/26)
 -------------------

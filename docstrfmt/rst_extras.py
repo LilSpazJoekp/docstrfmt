@@ -108,6 +108,7 @@ def register() -> None:
     _add_directive("figure", images.Figure, raw=False)
     _add_directive("image", images.Image)
     _add_directive("include", misc.Include)
+    _add_directive("unicode", misc.Unicode)
     _add_directive("list-table", tables.ListTable, raw=False)
     _add_directive("csv-table", tables.CSVTable, raw=False)
     _add_directive("rst-table", tables.RSTTable, raw=False)
@@ -162,15 +163,15 @@ class ReferenceRole(sphinx.util.docutils.ReferenceRole):
         return [node], []
 
 
-class directive(docutils.nodes.Element):  # noqa: N801
+class directive(docutils.nodes.Element, docutils.nodes.Inline):
     """A directive that doesn't do anything."""
 
 
-class ref_role(docutils.nodes.Element):  # noqa: N801
+class ref_role(docutils.nodes.Element):
     """A role that doesn't do anything."""
 
 
-class role(docutils.nodes.Element):  # noqa: N801
+class role(docutils.nodes.Element):
     """A role that doesn't do anything."""
 
 

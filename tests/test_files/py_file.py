@@ -37,7 +37,7 @@ class ExampleClass:
         self.test = "value"
         """Test attr docstring
 
-        .. thisdirectivedoesnotexit:: arguments but with white space
+        .. thisdirectivedoesnotexist:: arguments but with white space
             :field1: value1
             :field2: value2
             :field3:

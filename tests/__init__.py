@@ -5,7 +5,7 @@ import docutils.nodes
 
 
 def iter_descendants(node):
-    for c in node.children:
+    for c in node.children:  # pragma: no cover
         yield c
         yield from iter_descendants(c)
 

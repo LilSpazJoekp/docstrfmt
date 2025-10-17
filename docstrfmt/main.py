@@ -37,8 +37,7 @@ from click import Context
 from libcst import CSTTransformer, Expr
 from libcst.metadata import ParentNodeProvider, PositionProvider
 
-from . import __version__
-from .const import DEFAULT_EXCLUDE
+from . import DEFAULT_EXCLUDE, __version__
 from .debug import dump_node
 from .docstrfmt import Manager
 from .exceptions import InvalidRstErrors
@@ -356,7 +355,7 @@ async def _run_formatter(
                 ) and errors == 0:
                     files_to_cache.append(file)
     if cancelled:  # pragma: no cover
-        await asyncio.gather(*cancelled, loop=loop, return_exceptions=True)
+        await asyncio.gather(*cancelled, return_exceptions=True)
     if files_to_cache:
         cache.write_cache(files_to_cache)
     return misformatted_files, error_count
@@ -464,21 +463,25 @@ class Visitor(CSTTransformer):
             self.get_metadata(ParentNodeProvider, node), Expr
         )
 
-    def leave_ClassDef(  # noqa: N802
-        self, original_node: ClassDef, updated_node: ClassDef  # noqa: ARG002
+    def leave_ClassDef(
+        self,
+        original_node: ClassDef,
+        updated_node: ClassDef,
     ) -> ClassDef:
         """Remove the class name from the object name stack."""
         self._object_names.pop(-1)
         return updated_node
 
-    def leave_FunctionDef(  # noqa: N802
-        self, original_node: FunctionDef, updated_node: FunctionDef  # noqa: ARG002
+    def leave_FunctionDef(
+        self,
+        original_node: FunctionDef,
+        updated_node: FunctionDef,
     ) -> FunctionDef:
         """Remove the function name from the object name stack."""
         self._object_names.pop(-1)
         return updated_node
 
-    def leave_SimpleString(  # noqa: N802
+    def leave_SimpleString(
         self, original_node: SimpleString, updated_node: SimpleString
     ) -> SimpleString:
         """Format the docstring."""
@@ -513,7 +516,7 @@ class Visitor(CSTTransformer):
             self.error_count += self.manager.error_count
             self.manager.error_count = 0
             object_display_name = (
-                f'{self._object_type} {".".join(self._object_names)!r}'
+                f"{self._object_type} {'.'.join(self._object_names)!r}"
             )
             single_line = len(output.splitlines()) == 1
             original_strip = original_node.evaluated_value.rstrip(" ")
@@ -547,25 +550,25 @@ class Visitor(CSTTransformer):
                 self._object_type = old_object_type
         return updated_node
 
-    def visit_AssignTarget_target(self, node: AssignTarget) -> None:  # noqa: N802
+    def visit_AssignTarget_target(self, node: AssignTarget) -> None:
         """Set the last assign node."""
         self._last_assign = node
 
-    def visit_ClassDef(self, node: ClassDef) -> bool | None:  # noqa: N802
+    def visit_ClassDef(self, node: ClassDef) -> bool | None:
         """Set the object type to class."""
         self._object_names.append(node.name.value)
         self._object_type = "class"
         self._last_assign = None
         return True
 
-    def visit_FunctionDef(self, node: FunctionDef) -> bool | None:  # noqa: N802
+    def visit_FunctionDef(self, node: FunctionDef) -> bool | None:
         """Set the object type to function."""
         self._object_names.append(node.name.value)
         self._object_type = "function"
         self._last_assign = None
         return True
 
-    def visit_Module(self, node: Module) -> bool | None:  # noqa: ARG002,N802
+    def visit_Module(self, node: Module) -> bool | None:
         """Set the object type to module."""
         self._object_type = "module"
         return True
@@ -693,12 +696,12 @@ class Visitor(CSTTransformer):
 @click.version_option(version=__version__)
 @click.argument("files", nargs=-1, type=str, callback=_parse_sources)
 @click.pass_context
-def main(  # noqa: PLR0912,PLR0915
+def main(
     context: Context,
     check: bool,
     docstring_trailing_line: bool,
-    exclude: list[str],  # noqa: ARG001
-    extend_exclude: list[str],  # noqa: ARG001
+    exclude: list[str],
+    extend_exclude: list[str],
     file_type: str,
     format_python_code_blocks: bool,
     ignore_cache: bool,
