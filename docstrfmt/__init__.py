@@ -1,6 +1,7 @@
 """docstrfmt: A formatter for Sphinx flavored reStructuredText."""
 
-from . import debug, docstrfmt, rst_extras, util  # noqa: F401
-from .docstrfmt import Manager  # noqa: F401
+from . import debug, docstrfmt, rst_extras, util
+from .const import DEFAULT_EXCLUDE, DEFAULT_LINE_LENGTH
+from .docstrfmt import Manager
 
 __version__ = "1.11.2.dev0"

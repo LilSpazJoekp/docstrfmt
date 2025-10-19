@@ -576,16 +576,33 @@ See the full `image directive documentation`__ for more info.
 Substitution
 ------------
 
-Duis vel nulla ac risus semper fringilla vel non mauris. In elementum viverra arcu sed
-commodo. In hac habitasse platea dictumst. Integer posuere ullamcorper eros ac gravida.
-Nam non ligula ipsum. Nam accumsan |subs|__ ex, nec |ultrices| est vestibulum__ in.
-Vestibulum vitae gravida lorem, vel laoreet lorem.
+.. |logo| image:: logo.png
+    :alt: Alt text
+    :width: 300
+    :height: 200
+    :scale: 50
+    :align: middle
+
+this is a |logo|.
+
+Copyright |copy| 2003, |BogusMegaCorp (TM)| |---| all rights reserved.
+
+.. |copy| unicode:: 0xA9 .. copyright sign
+
+.. |BogusMegaCorp (TM)| unicode:: BogusMegaCorp U+2122
+
+.. with trademark sign
+
+.. |---| unicode:: U+02014 .. em dash
+    :trim:
 
 .. |subs| replace:: ``SUBS``
 
 .. |ultrices| replace:: Really long text that needs wrapped. Duis vel nulla ac risus
     semper fringilla vel non mauris. In elementum viverra arcu sed commodo. In hac
     habitasse platea dictumst. Integer posuere ullamcorper eros ac gravida.
+
+Duis :func:`elementum`\ s ac |subs| ex, nec |ultrices| est.
 
 .. _reference_roles:
 

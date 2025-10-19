@@ -54,7 +54,8 @@ class FileCache:
     """A class to manage the cache of files."""
 
     @staticmethod
-    def _get_file_info(file):  # noqa: ANN001,ANN205
+    def _get_file_info(file: Path) -> tuple[float, int]:
+        """Get the file info."""
         file_info = file.stat()
         return file_info.st_mtime, file_info.st_size
 
@@ -67,7 +68,8 @@ class FileCache:
         self.cache = self._read_cache()
         self.ignore_cache = ignore_cache
 
-    def _get_cache_filename(self):
+    def _get_cache_filename(self) -> Path:
+        """Get the cache filename."""
         docstring_trailing_line = str(self.context.params["docstring_trailing_line"])
         format_python_code_blocks = str(
             self.context.params["format_python_code_blocks"]
@@ -80,7 +82,7 @@ class FileCache:
             / f"cache.{f'{docstring_trailing_line}_{format_python_code_blocks}_{include_txt}_{line_length}_{mode}'}.pickle"
         )
 
-    def _read_cache(self):
+    def _read_cache(self) -> dict[Path, tuple[float, int]]:
         """Read the cache file."""
         cache_file = self._get_cache_filename()
         if not cache_file.exists():
@@ -88,7 +90,11 @@ class FileCache:
         with cache_file.open("rb") as f:
             try:
                 return pickle.load(f)  # noqa: S301
-            except (pickle.UnpicklingError, ValueError):  # pragma: no cover
+            except (
+                pickle.UnpicklingError,
+                ValueError,
+                ModuleNotFoundError,
+            ):  # pragma: no cover
                 return {}
 
     def gen_todo_list(self, files: list[str]) -> tuple[set[Path], set[Path]]:
@@ -122,7 +128,7 @@ class FileCache:
 class LineResolver:
     """A class to resolve the line number of a code block in a file."""
 
-    def __init__(self, file: Path, source: str):
+    def __init__(self, file: Path, source: str) -> None:
         """Initialize the class."""
         self.file = file
         self.source = source
@@ -157,6 +163,6 @@ class plural:  # noqa: N801
             return f"{v:,} {plural_form}"
         return f"{v:,} {singular_form}"
 
-    def __init__(self, value: int):
+    def __init__(self, value: int) -> None:
         """Initialize the class with a number."""
         self.value: int = value

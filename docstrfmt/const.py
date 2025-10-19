@@ -27,3 +27,4 @@ ROLE_ALIASES = {
     "subscript": "sub",
     "superscript": "sup",
 }
+DEFAULT_LINE_LENGTH = 88

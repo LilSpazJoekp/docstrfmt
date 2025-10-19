@@ -15,7 +15,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     TypeVar,
-    Union,
 )
 
 import black
@@ -24,7 +23,6 @@ from black import Mode
 from blib2to3.pgen2.tokenize import TokenError
 from docutils import nodes
 from docutils.frontend import OptionParser
-from docutils.nodes import pending, tgroup
 from docutils.parsers import rst
 from docutils.parsers.rst import Directive, roles
 from docutils.transforms import Transform
@@ -37,11 +35,14 @@ from .rst_extras import _add_directive, generic_role
 from .util import make_enumerator
 
 if TYPE_CHECKING:  # pragma: no cover
+    import logging
     from pathlib import Path
 
 T = TypeVar("T")
 
 directive_first_line_attribute = re.compile(r"^\.\. (\w+):: +\S+\n")
+valid_reference_id = re.compile(r"^[-_.:+a-zA-Z0-9]+$")
+invalid_reference_id = re.compile("[-_.:+][-_.:+]")
 
 unknown_handlers = [
     (
@@ -81,7 +82,8 @@ class IgnoreMessagesReporter(Reporter):
 
     def system_message(
         self, level: int, message: str, *children: Any, **kwargs: Any
-    ) -> docutils.nodes.system_message:  # pragma: no cover
+    ) -> nodes.system_message:  # pragma: no cover
+        """Create a system message, possibly ignoring it."""
         orig_level = self.halt_level
         if message in self.ignored_messages:
             self.halt_level = Reporter.SEVERE_LEVEL + 1
@@ -97,7 +99,7 @@ class UnknownNodeTransformer(Transform):
 
     def apply(self, **_: Any):
         """Apply the transform."""
-        for node in self.document.findall(docutils.nodes.system_message):
+        for node in self.document.findall(nodes.system_message):
             message = node.children[0].children[0].astext()
             for regex, handler in unknown_handlers:
                 match = regex.match(message)
@@ -106,12 +108,15 @@ class UnknownNodeTransformer(Transform):
                     break
 
 
-class inline_markup:  # noqa: N801
+class inline_markup:
+    """An inline markup block."""
+
     def __init__(self, text: str) -> None:
+        """Initialize the inline markup block."""
         self.text = text
 
 
-inline_item = Union[str, inline_markup]
+inline_item = str | inline_markup
 inline_iterator = Iterator[inline_item]
 line_iterator = Iterator[str]
 
@@ -122,6 +127,8 @@ word_info = namedtuple(  # noqa: PYI024
 
 
 class FormatContext:
+    """Context for formatting."""
+
     def __init__(
         self,
         width: int,
@@ -130,6 +137,7 @@ class FormatContext:
         black_config: Mode = None,
         **kwargs: Any,
     ):
+        """Initialize the format context."""
         self.width = width
         self.current_file = current_file
         self.manager = manager
@@ -147,48 +155,62 @@ class FormatContext:
             setattr(self, key, value)
 
     def _replace(self, **kwargs: Any) -> FormatContext:
+        """Return a copy of this context with some values replaced."""
         current_context = copy(vars(self))
         for key, value in current_context.items():
             kwargs.setdefault(key, value)
         return self.__class__(**kwargs)
 
     def in_line_block(self) -> FormatContext:
+        """Return a context for being in a line block."""
         return self._replace(line_block_depth=self.line_block_depth + 1)
 
     def in_section(self) -> FormatContext:
+        """Return a context for being in a section."""
         return self._replace(section_depth=self.section_depth + 1)
 
     def indent(self, spaces: int) -> FormatContext:
+        """Return a context indented by the given number of spaces."""
         return self._replace(width=max(1, self.width - spaces))
 
     def sub_indent(self, subsequent_indent: int) -> FormatContext:
+        """Return a context with the given subsequent indent."""
         return self._replace(subsequent_indent=subsequent_indent)
 
     def with_bullet(self, bullet: str) -> FormatContext:
+        """Return a context with the given bullet."""
         return self._replace(bullet=bullet)
 
     def with_column_widths(self, widths: list[int]) -> FormatContext:
+        """Return a context with the given column widths."""
         return self._replace(column_widths=widths)
 
     def with_ordinal(self, current_ordinal: int) -> FormatContext:
+        """Return a context with the given current ordinal."""
         return self._replace(current_ordinal=current_ordinal)
 
     def with_ordinal_format(self, ordinal_format: str) -> FormatContext:
+        """Return a context with the given ordinal format."""
         return self._replace(ordinal_format=ordinal_format)
 
     def with_width(self, width: int) -> FormatContext:
+        """Return a context with the given width."""
         return self._replace(width=width)
 
     def wrap_first_at(self, width: int) -> FormatContext:
+        """Return a context that wraps the first line at the given width."""
         return self._replace(first_line_len=width)
 
 
 @dataclass
 class CodeFormatters:
+    """Formatters for code blocks."""
+
     code: str
     context: FormatContext
 
     def python(self) -> str:
+        """Format Python code."""
         if not self.context.manager.format_python_code_blocks:
             return self.code
         try:
@@ -207,19 +229,22 @@ class CodeFormatters:
                     self.context.manager.reporter.error(
                         f"SyntaxError: {syntax_error.msg}:\n\nFile"
                         f' "{self.context.current_file}", line'
-                        f' {document_line + syntax_error.lineno}:\n{syntax_error.text}\n{" " * (syntax_error.offset - 1)}^'
+                        f" {document_line + syntax_error.lineno}:\n{syntax_error.text}\n{' ' * (syntax_error.offset - 1)}^"
                     )
         return self.code
 
 
 class Manager:
+    """Manager for formatting reStructuredText."""
+
     def __init__(
         self,
-        reporter: Reporter,
-        black_config: Mode = None,
+        reporter: Reporter | logging.Logger,
+        black_config: Mode | None = None,
         docstring_trailing_line: bool = True,
         format_python_code_blocks: bool = True,
     ):
+        """Initialize the manager."""
         rst_extras.register()
         self.black_config = black_config
         self.current_offset = 0
@@ -239,6 +264,7 @@ class Manager:
         self._in_docstring = False  # for resolving line numbers in code blocks
 
     def _patch_unknown_directives(self, text: str) -> None:
+        """Patch unknown directives and roles into the parser."""
         doc = new_document(str(self.current_file), self.settings)
         parser = rst.Parser()
         doc.reporter = IgnoreMessagesReporter(
@@ -251,7 +277,10 @@ class Manager:
         doc.transformer.apply_transforms()
 
     def _pre_process(
-        self, node: docutils.nodes.Node, line_offset: int, block_length: int
+        self,
+        node: nodes.Node,
+        line_offset: int,
+        block_length: int,
     ) -> None:
         """Preprocess nodes.
 
@@ -265,7 +294,7 @@ class Manager:
         errors = [
             child
             for child in node.children
-            if isinstance(child, docutils.nodes.system_message)
+            if isinstance(child, nodes.system_message)
             and child.attributes["type"] != "INFO"
             and child.children[0].astext()
             not in IgnoreMessagesReporter.ignored_messages
@@ -287,19 +316,19 @@ class Manager:
         node.children = [
             child
             for child in node.children
-            if not isinstance(child, docutils.nodes.system_message)
+            if not isinstance(child, nodes.system_message)
         ]
 
         # Match references to targets, which helps later with distinguishing whether they're anonymous.
         for reference, target in pairwise(node.children):
-            if isinstance(reference, docutils.nodes.reference) and isinstance(
-                target, docutils.nodes.target
+            if isinstance(reference, nodes.reference) and isinstance(
+                target, nodes.target
             ):
                 reference.attributes["target"] = target
         start = None
         for i, child in enumerate(itertools.chain(node.children, [None])):
             in_run = start is not None
-            is_target = isinstance(child, docutils.nodes.target)
+            is_target = isinstance(child, nodes.target)
             if in_run and not is_target:
                 # Anonymous targets have a value of `[]` for "names", which will sort to the top. Also,
                 # it's important here that `sorted` is stable, or anonymous targets could break.
@@ -315,8 +344,12 @@ class Manager:
             self._pre_process(child, line_offset, block_length)
 
     def format_node(
-        self, width: int, node: docutils.nodes.Node, is_docstring: bool = False
+        self,
+        width: int,
+        node: nodes.Node,
+        is_docstring: bool = False,
     ) -> str:
+        """Format a node."""
         self._in_docstring = is_docstring
         formatted_node = "\n".join(
             self.perform_format(
@@ -331,34 +364,6 @@ class Manager:
             )
         )
         return f"{formatted_node}\n"
-
-    def parse_string(
-        self, file_name: Path | str, text: str, line_offset: int = 0
-    ) -> docutils.nodes.document:
-        """Parse a string of reStructuredText."""
-        self.current_file = file_name
-        self.current_offset = line_offset
-        self.original_text = text
-        self._patch_unknown_directives(text)
-        doc = new_document(str(self.current_file), self.settings)
-        parser = rst.Parser()
-        doc.reporter = IgnoreMessagesReporter(
-            "", self.settings.report_level, self.settings.halt_level
-        )
-        parser.parse(text, doc)
-        self._pre_process(doc, line_offset, len(text.splitlines()))
-        return doc
-
-    def perform_format(
-        self, node: docutils.nodes.Node, context: FormatContext
-    ) -> Iterator[str]:
-        """Format a node."""
-        try:
-            func = getattr(self.formatters, type(node).__name__)
-        except AttributeError:  # pragma: no cover
-            msg = f'Unknown node type {type(node).__name__} at File "{context.current_file}", line {node.line}'
-            raise ValueError(msg) from None
-        return func(node, context)
 
     def get_code_line(self, code: str, strict: bool = False) -> int:
         """Get the line number of the code in the file."""
@@ -385,19 +390,56 @@ class Manager:
         msg = f"Code not found in {self.current_file}:\n{code}"  # pragma: no cover
         raise ValueError(msg)  # pragma: no cover
 
+    def parse_string(
+        self,
+        file_name: Path | str,
+        text: str,
+        line_offset: int = 0,
+    ) -> nodes.document:
+        """Parse a string of reStructuredText."""
+        self.current_file = file_name
+        self.current_offset = line_offset
+        self.original_text = text
+        self._patch_unknown_directives(text)
+        doc = new_document(str(self.current_file), self.settings)
+        parser = rst.Parser()
+        doc.reporter = IgnoreMessagesReporter(
+            "", self.settings.report_level, self.settings.halt_level
+        )
+        parser.parse(text, doc)
+        self._pre_process(doc, line_offset, len(text.splitlines()))
+        return doc
+
+    def perform_format(
+        self,
+        node: nodes.Node,
+        context: FormatContext,
+    ) -> Iterator[str]:
+        """Format a node."""
+        try:
+            func = getattr(self.formatters, type(node).__name__)
+        except AttributeError:  # pragma: no cover
+            msg = f'Unknown node type {type(node).__name__} at File "{context.current_file}", line {node.line}'
+            raise ValueError(msg) from None
+        return func(node, context)
+
 
 def pairwise(items: Iterable[T]) -> Iterator[tuple[T, T]]:
+    """Return pairs of adjacent items from the iterable."""
     a, b = itertools.tee(items)
     next(b, None)
-    return zip(a, b)
+    return zip(a, b, strict=False)
 
 
 class Formatters:
+    """Formatters for reStructuredText nodes."""
 
     @staticmethod
     def _chain_with_line_separator(
-        separator: T, items: Iterable[Iterable[T]]
+        separator: T,
+        items: Iterable[Iterable[T]],
     ) -> Iterator[T]:
+        """Chain items with a separator between them."""
         first = True
         for item in items:
             if not first:
@@ -407,6 +449,7 @@ class Formatters:
 
     @staticmethod
     def _divide_evenly(width: int, column_count: int) -> list[int]:
+        """Divide width evenly among column_count columns."""
         evenly = [floor(width / column_count)] * column_count
         for i in range(width % column_count):
             evenly[-1 - i] += 1
@@ -414,7 +457,10 @@ class Formatters:
 
     @staticmethod
     def _enum_first(items: Iterable[T]) -> Iterator[tuple[bool, T]]:
-        return zip(itertools.chain([True], itertools.repeat(False)), items)
+        """Yield items with a boolean indicating if it's the first item."""
+        return zip(
+            itertools.chain([True], itertools.repeat(False)), items, strict=False
+        )
 
     @staticmethod
     def _wrap_text(
@@ -423,6 +469,7 @@ class Formatters:
         context: FormatContext,
         current_line: int,
     ) -> Iterator[str]:
+        """Wrap text to the given width."""
         if width is not None and width <= 0:
             msg = f'Invalid starting width {context.starting_width} in File "{context.current_file}", line {current_line}'
             raise ValueError(msg)
@@ -510,15 +557,20 @@ class Formatters:
         if words:
             yield " ".join(words)
 
-    def Text(self, node: docutils.nodes.Text, _) -> inline_iterator:
+    def Text(self, node: nodes.Text, _) -> inline_iterator:
+        """Format a text node."""
         yield unescape(node, restore_backslashes=True).replace(r"\ ", "")
 
     def __init__(self, manager: Manager):
+        """Initialize the formatters."""
         self.manager = manager
 
     def _format_children(
-        self, node: docutils.nodes.Node, context: FormatContext
+        self,
+        node: nodes.Node,
+        context: FormatContext,
     ) -> Iterator[Iterator[str]]:
+        """Format the children of a node."""
         return (
             (
                 self.manager.perform_format(child, context)
@@ -531,10 +583,11 @@ class Formatters:
     def _generate_table_matrix(
         self,
         context: FormatContext,
-        rows: list[docutils.nodes.Row],
+        rows: list[nodes.Row],
         width: int,
         widths: list[int] = None,
     ):
+        """Generate a table matrix."""
         if widths:
             return [
                 [
@@ -569,7 +622,8 @@ class Formatters:
             for row in rows
         ]
 
-    def _list(self, node: docutils.nodes.Node, context: FormatContext) -> line_iterator:
+    def _list(self, node: nodes.Node, context: FormatContext) -> line_iterator:
+        """Format a list node."""
         sub_children = []
         for child_index, child in enumerate(node.children, 1):
             sub_children.append(
@@ -584,6 +638,7 @@ class Formatters:
         yield from chain(sub_children)
 
     def _prepend_if_any(self, prefix: T, items: Iterator[T]) -> Iterator[T]:
+        """Prepend a prefix if there are any items."""
         try:
             item = next(items)
         except StopIteration:
@@ -593,8 +648,11 @@ class Formatters:
         yield from items
 
     def _sub_admonition(
-        self, node: docutils.nodes.Node, context: FormatContext
+        self,
+        node: nodes.Node,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a sub-admonition node."""
         yield f".. {node.tagname}::"
         yield ""
         yield from self._with_spaces(
@@ -617,15 +675,19 @@ class Formatters:
     warning = _sub_admonition
 
     def _with_spaces(self, space_count: int, lines: Iterable[str]) -> Iterator[str]:
+        """Yield lines with the given number of leading spaces."""
         spaces = " " * space_count
         for line in lines:
             yield spaces + line if line else line
 
     def admonition(
-        self, node: nodes.admonition, context: FormatContext
+        self,
+        node: nodes.admonition,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format an admonition node."""
         title = node.children[0]
-        assert isinstance(title, docutils.nodes.title)
+        assert isinstance(title, nodes.title)
         yield (
             ".. admonition::"
             f" {''.join(self._wrap_text(None, chain(self._format_children(title, context)), context, node.line))}"
@@ -644,8 +706,11 @@ class Formatters:
         )
 
     def block_quote(
-        self, node: docutils.nodes.block_quote, context: FormatContext
+        self,
+        node: nodes.block_quote,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a block quote node."""
         yield from self._with_spaces(
             4,
             self._chain_with_line_separator(
@@ -654,13 +719,19 @@ class Formatters:
         )
 
     def bullet_list(
-        self, node: docutils.nodes.bullet_list, context: FormatContext
+        self,
+        node: nodes.bullet_list,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a bullet list node."""
         yield from self._list(node, context.with_bullet("-"))
 
     def comment(
-        self, node: docutils.nodes.comment, context: FormatContext
+        self,
+        node: nodes.comment,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a comment node."""
         if len(node.children) == 1:
             text = "\n".join(chain(self._format_children(node, context)))
             if "\n" not in text:
@@ -673,32 +744,86 @@ class Formatters:
             yield from self._with_spaces(4, text.splitlines())
 
     def definition(
-        self, node: docutils.nodes.definition, context: FormatContext
+        self,
+        node: nodes.definition,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a definition node."""
         yield from self._chain_with_line_separator(
             "", self._format_children(node, context)
         )
 
     def definition_list(
-        self, node: docutils.nodes.definition_list, context: FormatContext
+        self,
+        node: nodes.definition_list,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a definition list node."""
         yield from self._chain_with_line_separator(
             "", self._format_children(node, context)
         )
 
     def definition_list_item(
-        self, node: docutils.nodes.definition_list_item, context: FormatContext
+        self,
+        node: nodes.definition_list_item,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a definition list item node."""
         for child in node.children:
-            if isinstance(child, docutils.nodes.term):
+            if isinstance(child, nodes.term):
                 yield from self.manager.perform_format(child, context)
-            elif isinstance(child, docutils.nodes.definition):
+            elif isinstance(child, nodes.definition):
                 yield from self._with_spaces(
                     4, self.manager.perform_format(child, context.indent(4))
                 )
 
+    def directive(self, node: Directive, context: FormatContext) -> line_iterator:
+        """Format a directive node."""
+        attributes = node.attributes
+        directive = attributes["directive"]
+        is_code_block = directive.name in ["code", "code-block", "sourcecode"]
+        in_substitution = isinstance(node.parent, nodes.substitution_definition)
+        parts = [
+            f".. {'code-block' if is_code_block else directive.name}::",
+            *directive.arguments,
+        ]
+        if in_substitution:
+            del parts[0]  # No need for the leading .. or the image:: part
+
+        yield " ".join(parts)
+        # Just rely on the order being stable, hopefully.
+        leading_space = "" if in_substitution else " " * 4
+        for k, v in directive.options.items():
+            yield f"{leading_space}:{k}:" if v is None else f"{leading_space}:{k}: {v}"
+
+        if is_code_block:
+            language = directive.arguments[0] if directive.arguments else None
+            text = "\n".join(directive.content.data)
+            try:
+                func = getattr(CodeFormatters(text, context), language)
+                text = func()
+            except (AttributeError, TypeError):
+                pass
+            yield ""
+            yield from self._with_spaces(4, text.splitlines())
+        elif directive.raw:
+            yield from self._prepend_if_any("", self._with_spaces(4, directive.content))
+        else:
+            sub_doc = self.manager.parse_string(
+                context.current_file,
+                "\n".join(directive.content),
+                self.manager.current_offset + directive.content_offset,
+            )
+            if sub_doc.children:
+                yield ""
+                yield from self._with_spaces(
+                    4, self.manager.perform_format(sub_doc, context.indent(4))
+                )
+
     def doctest_block(
-        self, node: docutils.nodes.doctest_block, context: FormatContext
+        self,
+        node: nodes.doctest_block,
+        context: FormatContext,
     ) -> line_iterator:
         """Format a doctest block."""
         code = node.children[0].astext()
@@ -743,63 +868,33 @@ class Formatters:
             if want:
                 yield from want.splitlines()
 
-    def directive(self, node: Directive, context: FormatContext) -> line_iterator:
-        directive = node.attributes["directive"]
-
-        is_code_block = directive.name in ["code", "code-block", "sourcecode"]
-
-        yield " ".join(
-            [
-                f".. {'code-block' if is_code_block else directive.name}::",
-                *directive.arguments,
-            ]
-        )
-        # Just rely on the order being stable, hopefully.
-        for k, v in directive.options.items():
-            yield f"    :{k}:" if v is None else f"    :{k}: {v}"
-
-        if is_code_block:
-            language = directive.arguments[0] if directive.arguments else None
-            text = "\n".join(directive.content.data)
-            try:
-                func = getattr(CodeFormatters(text, context), language)
-                text = func()
-            except (AttributeError, TypeError):
-                pass
-            yield ""
-            yield from self._with_spaces(4, text.splitlines())
-        elif directive.raw:
-            yield from self._prepend_if_any("", self._with_spaces(4, directive.content))
-        else:
-            sub_doc = self.manager.parse_string(
-                context.current_file,
-                "\n".join(directive.content),
-                self.manager.current_offset + directive.content_offset,
-            )
-            if sub_doc.children:
-                yield ""
-                yield from self._with_spaces(
-                    4, self.manager.perform_format(sub_doc, context.indent(4))
-                )
-
     def document(
-        self, node: docutils.nodes.document, context: FormatContext
+        self,
+        node: nodes.document,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a document node."""
         yield from self._chain_with_line_separator(
             "", self._format_children(node, context)
         )
 
     def emphasis(
-        self, node: docutils.nodes.emphasis, context: FormatContext
+        self,
+        node: nodes.emphasis,
+        context: FormatContext,
     ) -> inline_iterator:
+        """Format an emphasis node."""
         joined = "".join(chain(self._format_children(node, context))).replace(
             "*", "\\*"
         )
         yield inline_markup(f"*{joined}*")
 
     def enumerated_list(
-        self, node: docutils.nodes.enumerated_list, context: FormatContext
+        self,
+        node: nodes.enumerated_list,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format an enumerated list node."""
         yield from self._list(
             node,
             context.with_ordinal(node.attributes.get("start", 1)).with_ordinal_format(
@@ -809,8 +904,11 @@ class Formatters:
         context.current_ordinal = 0
 
     def field(
-        self, node: docutils.nodes.field, context: FormatContext
+        self,
+        node: nodes.field,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a field node."""
         children = chain(self._format_children(node, context))
         field_name = next(children)
         is_empty_sphinx_metadata_field = field_name.startswith(
@@ -859,8 +957,11 @@ class Formatters:
         yield from self._with_spaces(4, children)
 
     def field_body(
-        self, node: docutils.nodes.field_body, context: FormatContext
+        self,
+        node: nodes.field_body,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a field body node."""
         yield from self._chain_with_line_separator(
             "",
             self._format_children(
@@ -872,8 +973,11 @@ class Formatters:
         )
 
     def field_list(
-        self, node: docutils.nodes.field_list, context: FormatContext
+        self,
+        node: nodes.field_list,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a field list node."""
         param_fields = []
         param_types = {}
         var_fields = []
@@ -921,9 +1025,7 @@ class Formatters:
                 to_join = [new_field_kind, *field_typing]
                 if field_name:
                     to_join.append(field_name)
-                child.children[0].replace_self(
-                    docutils.nodes.field_name("", " ".join(to_join))
-                )
+                child.children[0].replace_self(nodes.field_name("", " ".join(to_join)))
                 field_kind = new_field_kind
             child.children[0].setdefault("name", field_name)
             if field_kind in ["type", "vartype"]:
@@ -973,7 +1075,7 @@ class Formatters:
                     field_typing = types.get(field_name, [])
                     if field_typing:
                         field.children[0].replace_self(
-                            docutils.nodes.field_name(
+                            nodes.field_name(
                                 "", f"{field_type} {field_typing} {field_name}"
                             )
                         )
@@ -1014,8 +1116,11 @@ class Formatters:
         )
 
     def field_name(
-        self, node: docutils.nodes.field_name, context: FormatContext
+        self,
+        node: nodes.field_name,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a field name node."""
         text = " ".join(chain(self._format_children(node, context)))
         body = ":"
         field_kinds = [
@@ -1033,7 +1138,8 @@ class Formatters:
         body += ":"
         yield body
 
-    def footnote(self, node: docutils.nodes.footnote_reference, context: FormatContext):
+    def footnote(self, node: nodes.footnote_reference, context: FormatContext):
+        """Format a footnote node."""
         prefix = ".."
         children = self._wrap_text(
             (context.width - 4 if context.width is not None else None),
@@ -1055,22 +1161,30 @@ class Formatters:
     citation = footnote
 
     def footnote_reference(
-        self, node: docutils.nodes.footnote_reference, context: FormatContext
+        self,
+        node: nodes.footnote_reference,
+        context: FormatContext,
     ):
+        """Format a footnote reference node."""
         footnote_name = "#" if node.attributes.get("auto", False) else ""
         yield inline_markup(f"[{footnote_name}{node.attributes.get('refname', '')}]_")
 
     citation_reference = footnote_reference
 
     def inline(
-        self, node: docutils.nodes.inline, context: FormatContext
+        self,
+        node: nodes.inline,
+        context: FormatContext,
     ) -> inline_iterator:
+        """Format an inline node."""
         yield from chain(self._format_children(node, context))  # pragma: no cover
 
-    def label(self, node: docutils.nodes.footnote_reference, context: FormatContext):
+    def label(self, node: nodes.footnote_reference, context: FormatContext):
+        """Format a label node."""
         yield f"[{' '.join(chain(self._format_children(node, context)))}]"
 
-    def line(self, node: docutils.nodes.line, context: FormatContext) -> line_iterator:
+    def line(self, node: nodes.line, context: FormatContext) -> line_iterator:
+        """Format a line node."""
         if not node.children:
             yield "|"
             return
@@ -1090,13 +1204,19 @@ class Formatters:
             yield (prefix1 if first else prefix2) + line
 
     def line_block(
-        self, node: docutils.nodes.line_block, context: FormatContext
+        self,
+        node: nodes.line_block,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a line block node."""
         yield from chain(self._format_children(node, context.in_line_block()))
 
     def list_item(
-        self, node: docutils.nodes.list_item, context: FormatContext
+        self,
+        node: nodes.list_item,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a list item node."""
         if not node.children:  # pragma: no cover
             yield "-"  # no idea why this isn't covered anymore
             return
@@ -1116,15 +1236,21 @@ class Formatters:
             yield ((bullet if first else spaces) if child else "") + child
 
     def literal(
-        self, node: docutils.nodes.literal, context: FormatContext
+        self,
+        node: nodes.literal,
+        context: FormatContext,
     ) -> inline_iterator:
+        """Format a literal node."""
         yield inline_markup(
             f"``{''.join(chain(self._format_children(node, context)))}``"
         )
 
     def literal_block(
-        self, node: docutils.nodes.literal_block, context: FormatContext
+        self,
+        node: nodes.literal_block,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a literal block node."""
         if len(node.attributes["classes"]) > 1 and node.attributes["classes"][0] in [
             "code",
             "code-block",
@@ -1148,8 +1274,11 @@ class Formatters:
         )
 
     def paragraph(
-        self, node: docutils.nodes.paragraph, context: FormatContext
+        self,
+        node: nodes.paragraph,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a paragraph node."""
         wrap_text_context = context.sub_indent(context.subsequent_indent)
         if context.is_docstring:
             context.is_docstring = False
@@ -1167,19 +1296,28 @@ class Formatters:
         )
 
     def pending(
-        self, node: pending, context: FormatContext
+        self,
+        node: pending,
+        context: FormatContext,
     ) -> inline_iterator:  # pragma: no cover
+        """Format a pending node."""
         msg = f'Unknown node found at File "{context.current_file}", line {node.line}'
         raise NotImplementedError(msg)
 
     def problematic(
-        self, node: docutils.nodes.paragraph, context: FormatContext
+        self,
+        node: nodes.paragraph,
+        context: FormatContext,
     ) -> line_iterator:  # pragma: no cover
+        """Format a problematic node."""
         yield from chain(self._format_children(node, context))
 
     def ref_role(
-        self, node: docutils.nodes.Node, context: FormatContext
+        self,
+        node: nodes.Node,
+        context: FormatContext,
     ) -> inline_iterator:  # pragma: no cover I don't think this is able to be covered
+        """Format a ref_role node."""
         attributes = node.attributes
         target = attributes["target"]
         if attributes["has_explicit_title"]:
@@ -1191,8 +1329,11 @@ class Formatters:
         yield inline_markup(f":{attributes['name']}:`{text}`")
 
     def reference(
-        self, node: docutils.nodes.reference, context: FormatContext
+        self,
+        node: nodes.reference,
+        context: FormatContext,
     ) -> inline_iterator:
+        """Format a reference node."""
         title = " ".join(
             self._wrap_text(
                 None, chain(self._format_children(node, context)), context, node.line
@@ -1200,15 +1341,14 @@ class Formatters:
         )
 
         def anonymous_suffix(is_anonymous: bool) -> str:
+            """Return the appropriate suffix for anonymous references."""
             return "__" if is_anonymous else "_"
 
         attributes = node.attributes
         children = node.children
 
         # Handle references that are also substitution references.
-        if len(children) == 1 and isinstance(
-            children[0], docutils.nodes.substitution_reference
-        ):
+        if len(children) == 1 and isinstance(children[0], nodes.substitution_reference):
             anonymous = bool(attributes.get("anonymous"))
             yield inline_markup(title + anonymous_suffix(anonymous))
             return
@@ -1228,9 +1368,9 @@ class Formatters:
         # adjacent) internal hyphens, underscores, periods, colons and plus signs",
         # according to
         # https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#reference-names.
-        is_single_word = re.match("^[-_.:+a-zA-Z0-9]+$", title) and not re.search(
-            "[-_.:+][-_.:+]", title
-        )
+        is_single_word = valid_reference_id.match(
+            title
+        ) and not invalid_reference_id.search(title)
 
         # "x__" is one of the few cases to trigger an explicit "anonymous" attribute
         # (the other being the similar "|x|__", which is already handled above).
@@ -1245,8 +1385,6 @@ class Formatters:
         # Check whether the reference name matches the text and can be made implicit.
         # (Reference names are case-insensitive.)
         if anonymous and ref.lower() == title.lower():
-            # if ref == "footnote":
-
             if not is_single_word:
                 title = f"`{title}`"
             # "x_" is equivalent to "`x <x_>`__"; it's anonymous despite having a single
@@ -1256,78 +1394,106 @@ class Formatters:
             yield inline_markup(f"`{title} <{ref}_>`{anonymous_suffix(anonymous)}")
 
     def role(
-        self, node: docutils.nodes.Node, context: FormatContext
+        self,
+        node: nodes.Node,
+        context: FormatContext,
     ) -> inline_iterator:
+        """Format a role node."""
         yield inline_markup(f":{node.attributes['role']}:`{node.attributes['text']}`")
 
-    def row(self, node: docutils.nodes.row, context: FormatContext) -> line_iterator:
+    def row(self, node: nodes.row, context: FormatContext) -> line_iterator:
+        """Format a table row node."""
         all_lines = [
             self._chain_with_line_separator(
                 "", self._format_children(entry, context.with_width(width))
             )
-            for entry, width in zip(node.children, context.column_widths)
+            for entry, width in zip(node.children, context.column_widths, strict=False)
         ]
         for line_group in itertools.zip_longest(*all_lines):
             yield " ".join(
                 (line or "").ljust(width)
-                for line, width in zip(line_group, context.column_widths)
+                for line, width in zip(line_group, context.column_widths, strict=False)
             )
 
     def section(
-        self, node: docutils.nodes.section, context: FormatContext
+        self,
+        node: nodes.section,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a section node."""
         yield from self._chain_with_line_separator(
             "", self._format_children(node, context.in_section())
         )
 
     def strong(
-        self, node: docutils.nodes.strong, context: FormatContext
+        self,
+        node: nodes.strong,
+        context: FormatContext,
     ) -> inline_iterator:
+        """Format a strong node."""
         joined = "".join(chain(self._format_children(node, context))).replace(
             "*", "\\*"
         )
         yield inline_markup(f"**{joined}**")
 
     def substitution_definition(
-        self, node: docutils.nodes.substitution_reference, context: FormatContext
-    ) -> inline_iterator:
+        self,
+        node: nodes.substitution_definition,
+        context: FormatContext,
+    ) -> line_iterator:
+        """Format a substitution definition node."""
         elements = node.rawsource.split("|")
         target = elements[1]
         directive = elements[2].strip().split("::")[0]
         prefix = f".. |{target}| {directive}::"
-        children = self._wrap_text(
-            (context.width - 4 if context.width is not None else None),
-            chain(self._format_children(node, context.indent(4))),
-            context.wrap_first_at(len(prefix) - 4).indent(4),
-            node.line,
-        )
-        yield " ".join([prefix, next(children)])
+        if node.children and node.children[0].tagname == "directive":
+            body = node.children[0]
+            _directive = body.attributes["directive"]
+            if _directive.options.get("alt") == node.attributes["names"][0]:
+                del _directive.options["alt"]
+        if directive in ["image", "unicode"]:
+            children = chain(self._format_children(node, context.indent(4)))
+        else:  # for date and replace
+            children = self._wrap_text(
+                (context.width - 4 if context.width is not None else None),
+                chain(self._format_children(node, context.indent(4))),
+                context.wrap_first_at(len(prefix) - 4).indent(4),
+                node.line,
+            )
+        next_child = next(children)
+        yield f"{prefix} {next_child}"
         remaining = list(children)
         if remaining:
             yield from self._with_spaces(4, remaining)
 
     def substitution_reference(
-        self, node: docutils.nodes.substitution_reference, context: FormatContext
+        self,
+        node: nodes.substitution_reference,
+        context: FormatContext,
     ) -> inline_iterator:
+        """Format a substitution reference node."""
         child = chain(self._format_children(node, context))
         yield inline_markup(f"|{''.join(child)}|")
 
     def table(
-        self, node: docutils.nodes.table, context: FormatContext
+        self,
+        node: nodes.table,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a table node."""
         rows = []
         rows_to_check = []
-        for row in node.findall(docutils.nodes.row):
+        for row in node.findall(nodes.row):
             rows_to_check.append(row)
 
         for row in rows_to_check:
-            for table in list(row.findall(docutils.nodes.table)):
-                for sub_row in table.findall(docutils.nodes.row):
+            for table in list(row.findall(nodes.table)):
+                for sub_row in table.findall(nodes.row):
                     if sub_row in rows_to_check:
                         rows_to_check.remove(sub_row)
         for row in rows_to_check:
             current_row = []
-            for column in row.findall(docutils.nodes.entry):
+            for column in row.findall(nodes.entry):
                 if column.attributes.get("morerows", False) or column.attributes.get(
                     "morecols", False
                 ):
@@ -1338,8 +1504,8 @@ class Formatters:
                     )
                     raise NotImplementedError(msg)
                 current_row.append(column)
-            for table in list(row.findall(docutils.nodes.table)):
-                for entry in table.findall(docutils.nodes.entry):
+            for table in list(row.findall(nodes.table)):
+                for entry in table.findall(nodes.entry):
                     if entry in current_row:
                         current_row.remove(entry)
             rows.append(current_row)
@@ -1347,7 +1513,7 @@ class Formatters:
         column_count = len(rows[0])
         total_width = context.width - column_count + 1
 
-        nested_column_count = len(list(node.findall(tgroup)))
+        nested_column_count = len(list(node.findall(nodes.tgroup)))
         table_matrix_min = self._generate_table_matrix(
             context, rows, (nested_column_count * 2) - 1
         )
@@ -1411,11 +1577,12 @@ class Formatters:
         ]
 
     def target(
-        self, node: docutils.nodes.target, context: FormatContext
+        self,
+        node: nodes.target,
+        context: FormatContext,
     ) -> line_iterator:
-        # if not isinstance(node.parent, (docutils.nodes.document, docutils.nodes.section)):
-        #     return
-        if not node.rawsource.startswith(".. _"):
+        """Format a target node."""
+        if not isinstance(node.parent, (nodes.document, nodes.section)):
             return
         try:
             body = f" {node.attributes['refuri']}"
@@ -1430,13 +1597,17 @@ class Formatters:
         yield f".. _{name}:{body}"
 
     def tbody(
-        self, node: docutils.nodes.tbody, context: FormatContext
+        self,
+        node: nodes.tbody,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a table body node."""
         yield from chain(self._format_children(node, context))
 
     thead = tbody
 
-    def term(self, node: docutils.nodes.term, context: FormatContext) -> line_iterator:
+    def term(self, node: nodes.term, context: FormatContext) -> line_iterator:
+        """Format a term node."""
         yield " ".join(
             self._wrap_text(
                 None, chain(self._format_children(node, context)), context, node.line
@@ -1444,23 +1615,29 @@ class Formatters:
         )
 
     def tgroup(
-        self, node: docutils.nodes.tgroup, context: FormatContext
+        self,
+        node: nodes.tgroup,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a table group node."""
         sep = " ".join("=" * width for width in context.column_widths)
         yield sep
         for child in node.children:
-            if isinstance(child, docutils.nodes.colspec):
+            if isinstance(child, nodes.colspec):
                 continue
-            if isinstance(child, docutils.nodes.thead):
+            if isinstance(child, nodes.thead):
                 yield from self.manager.perform_format(child, context)
                 yield " ".join("=" * width for width in context.column_widths)
-            if isinstance(child, docutils.nodes.tbody):
+            if isinstance(child, nodes.tbody):
                 yield from self.manager.perform_format(child, context)
                 yield sep
 
     def title(
-        self, node: docutils.nodes.title, context: FormatContext
+        self,
+        node: nodes.title,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a title node."""
         text = " ".join(
             self._wrap_text(
                 None, chain(self._format_children(node, context)), context, node.line
@@ -1471,11 +1648,17 @@ class Formatters:
         yield char * len(text)
 
     def title_reference(
-        self, node: docutils.nodes.title_reference, context: FormatContext
+        self,
+        node: nodes.title_reference,
+        context: FormatContext,
     ) -> inline_iterator:
+        """Format a title reference node."""
         yield inline_markup(f"`{''.join(chain(self._format_children(node, context)))}`")
 
     def transition(
-        self, node: docutils.nodes.transition, context: FormatContext
+        self,
+        node: nodes.transition,
+        context: FormatContext,
     ) -> line_iterator:
+        """Format a transition node."""
         yield "----"

@@ -4,11 +4,12 @@ import logging
 import time
 
 import click
-import docutils
 from aiohttp import web
-from black import DEFAULT_LINE_LENGTH
+from docutils import utils
 
-from . import Manager, rst_extras
+from . import DEFAULT_LINE_LENGTH, Manager, rst_extras
+
+log = logging.getLogger(__name__)
 
 
 async def handler(request: web.Request) -> web.Response:
@@ -17,14 +18,14 @@ async def handler(request: web.Request) -> web.Response:
     body = await request.text()
 
     start_time = time.perf_counter()
-    manager = Manager(logging, None)
+    manager = Manager(log, None)
     try:
         try:
             text = manager.format_node(
                 width, manager.parse_string("<server_input>", body)
             )
             resp = web.Response(text=text)
-        except docutils.utils.SystemMessage as error:  # pragma: no cover
+        except utils.SystemMessage as error:  # pragma: no cover
             raise ParseError(str(error)) from None
     except ParseError as error:  # pragma: no cover
         logging.warning(f"Failed to parse input: {error}")
