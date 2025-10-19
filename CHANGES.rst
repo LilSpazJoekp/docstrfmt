@@ -19,6 +19,10 @@ Unreleased
 - Image and Unicode substitution definitions were not being formatted correctly.
 - Files specified in pyproject are now parsed correctly.
 
+**Removed**
+
+- Removed support for Python 3.9.
+
 1.11.1 (2025/08/26)
 -------------------
 

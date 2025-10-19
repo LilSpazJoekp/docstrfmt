@@ -189,23 +189,13 @@ def test_invalid_bad_codeblock_py(runner):
     file = "tests/test_files/error_files/py_file_error_bad_codeblock.py"
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
-    if sys.version_info >= (3, 10, 0):
-        assert result.output == (
-            "SyntaxError: unterminated string literal (detected at line 2):\n\nFile"
-            f' "{os.path.abspath(file)}", line 43:\nx = ["this is not valid code]\n    '
-            " ^\nSyntaxError: unterminated string literal (detected at line 2):\n\nFile"
-            f' "{os.path.abspath(file)}", line 53:\nx = ["this is not valid code]\n    '
-            " ^\n1 file was checked.\nDone, but 2 errors occurred ❌💥❌\n"
-        )
-    else:
-        assert result.output == (
-            f"SyntaxError: EOL while scanning string literal:\n\nFile"
-            f' "{os.path.abspath(file)}", line 43:\nx = ["this is not valid code]\n\n'
-            "                             ^\nSyntaxError: EOL while scanning string"
-            f' literal:\n\nFile "{os.path.abspath(file)}", line 53:\nx = ["this is not'
-            " valid code]\n\n                             ^\n1 file was checked.\nDone,"
-            " but 2 errors occurred ❌💥❌\n"
-        )
+    assert result.output == (
+        "SyntaxError: unterminated string literal (detected at line 2):\n\nFile"
+        f' "{os.path.abspath(file)}", line 43:\nx = ["this is not valid code]\n    '
+        " ^\nSyntaxError: unterminated string literal (detected at line 2):\n\nFile"
+        f' "{os.path.abspath(file)}", line 53:\nx = ["this is not valid code]\n    '
+        " ^\n1 file was checked.\nDone, but 2 errors occurred ❌💥❌\n"
+    )
 
 
 def test_invalid_doctest_parse_error_py(runner):
@@ -236,19 +226,11 @@ def test_invalid_syntax_rst(runner):
     file = "tests/test_files/error_files/test_invalid_syntax.rst"
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
-    if sys.version_info >= (3, 10, 0):
-        assert result.output == (
-            "SyntaxError: unterminated string literal (detected at line 1):\n\nFile"
-            f' "{os.path.abspath(file)}", line 3:\nx = ["this is not valid code]\n    '
-            " ^\n1 file was checked.\nDone, but 1 error occurred ❌💥❌\n"
-        )
-    else:
-        assert result.output == (
-            "SyntaxError: EOL while scanning string literal:\n\nFile"
-            f' "{os.path.abspath(file)}", line 3:\nx = ["this is not valid code]\n\n'
-            "                             ^\n1 file was checked.\nDone, but 1 error"
-            " occurred ❌💥❌\n"
-        )
+    assert result.output == (
+        "SyntaxError: unterminated string literal (detected at line 1):\n\nFile"
+        f' "{os.path.abspath(file)}", line 3:\nx = ["this is not valid code]\n    '
+        " ^\n1 file was checked.\nDone, but 1 error occurred ❌💥❌\n"
+    )
 
 
 def test_invalid_duplicate_docstring_py(runner):
