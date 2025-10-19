@@ -300,9 +300,7 @@ def _resolve_length(context: click.Context, _: click.Parameter, value: int | Non
 def _validate_adornments(
     context: click.Context, _: click.Parameter, value: str | None
 ) -> list[tuple[str, bool]] | None:
-    actual_value = value or context.params.get("section_adornments", None)
-    if actual_value is None:
-        return actual_value
+    actual_value = value or context.params["section_adornments"]
 
     if len(actual_value) != len(set(actual_value)):
         msg = "Section adornments must be unique"
