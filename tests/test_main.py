@@ -518,7 +518,10 @@ def test_raw_output(runner, file):
         assert result.output.startswith(
             ".. meta::\n"
             "    :description: Simple file to test the formatting.\n"
-            "    :keywords: rSt, formatter, test\n\nA ReStructuredText Primer"
+            "    :keywords: rSt, formatter, test\n"
+            "\n"
+            "###########################\n"
+            " A ReStructuredText Primer"
         )
     elif file.endswith("py"):
         assert result.output.startswith('"""This is an example python file"""')
@@ -708,6 +711,71 @@ def test_section_invalid_adornments(runner):
 
 def test_section_reformatting(runner):
     file = """
+              ###
+              One
+              ###
+
+              ***
+              Two
+              ***
+
+              Three
+              =====
+
+              Four
+              ----
+
+              Five
+              ^^^^
+
+              Six
+              \"""
+
+              *********
+              Two again
+              *********
+
+              Some content.
+           """
+
+    fixed = """
+              #####
+               One
+              #####
+
+              *****
+               Two
+              *****
+
+              Three
+              =====
+
+              Four
+              ----
+
+              Five
+              ^^^^
+
+              Six
+              \"""
+
+              ***********
+               Two again
+              ***********
+
+              Some content.
+            """
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    args = ["-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
+def test_section_reformatting_preserve_adornments(runner):
+    file = """
               ===
               One
               ===
@@ -734,40 +802,123 @@ def test_section_reformatting(runner):
            """
 
     fixed = """
-               =====
-                One
-               =====
+              =====
+               One
+              =====
 
-               Two
-               ---
+              Two
+              ---
 
-               Three
-               ~~~~~
+              Three
+              ~~~~~
 
-               Four
-               ++++
+              Four
+              ++++
 
-               Five
-               ....
+              Five
+              ....
 
-               Six
-               '''
+              Six
+              '''
 
-               Two again
-               ---------
+              Two again
+              ---------
 
-               Some content.
+              Some content.
             """
 
     file = textwrap.dedent(file).lstrip()
     fixed = textwrap.dedent(fixed).lstrip()
-    args = ["-r", file]
+    args = ["-pA", "-r", file]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output == fixed
 
 
 def test_section_reformatting_python_adornments(runner):
+    file = '''
+    """This is an example python file."""
+
+
+    class ExampleClass:
+        """This is a class docstring example.
+
+        ###
+        One
+        ###
+
+        ***
+        Two
+        ***
+
+        Three
+        =====
+
+        Four
+        ----
+
+        Five
+        ^^^^
+
+        Six
+        \"""
+
+        *********
+        Two again
+        *********
+
+        Some content.
+
+        """
+
+    '''
+
+    fixed = '''
+    """This is an example python file."""
+
+
+    class ExampleClass:
+        """This is a class docstring example.
+
+        #####
+         One
+        #####
+
+        *****
+         Two
+        *****
+
+        Three
+        =====
+
+        Four
+        ----
+
+        Five
+        ^^^^
+
+        Six
+        \"""
+
+        ***********
+         Two again
+        ***********
+
+        Some content.
+
+        """
+
+    '''
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    args = ["-t", "py", "-or", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
+def test_section_reformatting_python_preserve_adornments(runner):
     file = '''
     """This is an example python file."""
 
@@ -810,29 +961,27 @@ def test_section_reformatting_python_adornments(runner):
     class ExampleClass:
         """This is a class docstring example.
 
-        #####
+        =====
          One
-        #####
-
-        *****
-         Two
-        *****
-
-        Three
         =====
 
+        Two
+        ---
+
+        Three
+        ~~~~~
+
         Four
-        ----
+        ++++
 
         Five
-        ^^^^
+        ....
 
         Six
-        """
+        \'''
 
-        ***********
-         Two again
-        ***********
+        Two again
+        ---------
 
         Some content.
 
@@ -842,7 +991,7 @@ def test_section_reformatting_python_adornments(runner):
 
     file = textwrap.dedent(file).lstrip()
     fixed = textwrap.dedent(fixed).lstrip()
-    args = ["-t", "py", "-or", file]
+    args = ["-pA", "-t", "py", "-or", file]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output == fixed
@@ -976,7 +1125,7 @@ def test_section_reformatting_numpydoc(runner):
 
     file = textwrap.dedent(file).lstrip()
     fixed = textwrap.dedent(fixed).lstrip()
-    args = ["-t", "py", "-r", file]
+    args = ["-pA", "-t", "py", "-r", file]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output == fixed
