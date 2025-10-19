@@ -730,6 +730,7 @@ class Visitor(CSTTransformer):
     "--section-adornments",
     type=str,
     default=SECTION_CHARS,
+    show_default=True,
     help=(
         "Define adornments for part/chapter/section headers. It defines a sequence of"
         " adornments to use for each individual section depth. The list must be"
