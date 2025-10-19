@@ -778,7 +778,7 @@ def main(
     else:
         # This code is heavily based on that of psf/black
         # see here for license: https://github.com/psf/black/blob/master/LICENSE
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
         worker_count = os.cpu_count()
         if sys.platform == "win32":  # pragma: no cover
             # Work around https://bugs.python.org/issue26903

@@ -90,7 +90,11 @@ class FileCache:
         with cache_file.open("rb") as f:
             try:
                 return pickle.load(f)  # noqa: S301
-            except (pickle.UnpicklingError, ValueError):  # pragma: no cover
+            except (
+                pickle.UnpicklingError,
+                ValueError,
+                ModuleNotFoundError,
+            ):  # pragma: no cover
                 return {}
 
     def gen_todo_list(self, files: list[str]) -> tuple[set[Path], set[Path]]:

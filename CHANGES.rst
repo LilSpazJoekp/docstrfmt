@@ -6,6 +6,7 @@ Unreleased
 
 **Added**
 
+- Added support for Python 3.14.
 - Added ability to skip formatting Python code blocks with the
   ``--format-python-code-blocks/--no-format-python-code-blocks`` or ``-N`` flag.
 
