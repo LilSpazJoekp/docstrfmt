@@ -22,7 +22,7 @@ def add_unreleased_to_changelog():
         return False
 
     with open("CHANGES.rst", "w") as fp:
-        fp.write(f"{new_header}{content[len(CHANGELOG_HEADER):]}")
+        fp.write(f"{new_header}{content[len(CHANGELOG_HEADER) :]}")
     return True
 
 
@@ -81,7 +81,7 @@ def update_changelog(version):
     version_header = f"{version_line}{'-' * len(version_line[:-1])}\n\n"
 
     with open("CHANGES.rst", "w") as fp:
-        fp.write(f"{CHANGELOG_HEADER}{version_header}{content[len(expected_header):]}")
+        fp.write(f"{CHANGELOG_HEADER}{version_header}{content[len(expected_header) :]}")
     return True
 
 

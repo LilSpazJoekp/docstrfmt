@@ -206,6 +206,12 @@ With pre-commit
             language_version: python3
             types_or: [python, rst, txt] # only needed if you want to include txt files.
 
+Contributing
+------------
+
+See `CONTRIBUTING.rst <CONTRIBUTING.rst>`_ for detailed information about setting up a
+development environment and contributing to the project.
+
 .. _black: https://github.com/psf/black
 
 .. _black's default line length: https://black.readthedocs.io/en/stable/the_black_code_style/current_style.html#line-length

@@ -7,7 +7,7 @@ import pytest
 try:
     import tomllib as toml
 except ImportError:  # pragma: no cover
-    import toml
+    import tomli as toml
 from black import DEFAULT_LINE_LENGTH
 
 from docstrfmt.main import main
@@ -77,7 +77,7 @@ def test_code_to_codeblock(runner, block_type, expected_block_type):
 def test_docstring_trailing_line(runner, flag):
     file = "tests/test_files/py_file.py"
     args = [
-        f'--{"" if flag else "no-"}docstring-trailing-line',
+        f"--{'' if flag else 'no-'}docstring-trailing-line",
         file,
     ]
     result = runner.invoke(main, args=args)
@@ -362,11 +362,8 @@ def test_line_length_resolution__black_docstrfmt_set(runner):
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output.startswith("Reformatted")
-    if sys.version_info >= (3, 11):
-        with open(args[1], "rb") as f:
-            toml_config = toml.load(f)
-    else:  # pragma: no cover
-        toml_config = toml.load(args[1])
+    with open(args[1], "rb") as f:
+        toml_config = toml.load(f)
     result = runner.invoke(
         main, args=args + ["-l", toml_config["tool"]["docstrfmt"]["line-length"]]
     )
@@ -380,11 +377,8 @@ def test_line_length_resolution__black_set(runner):
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output.startswith("Reformatted")
-    if sys.version_info >= (3, 11):
-        with open(args[1], "rb") as f:
-            toml_config = toml.load(f)
-    else:  # pragma: no cover
-        toml_config = toml.load(args[1])
+    with open(args[1], "rb") as f:
+        toml_config = toml.load(f)
     # should not reformat again
     result = runner.invoke(
         main, args=args + ["-l", toml_config["tool"]["black"]["line-length"]]
@@ -410,11 +404,8 @@ def test_line_length_resolution__docstrfmt_set(runner):
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output.startswith("Reformatted")
-    if sys.version_info >= (3, 11):
-        with open(args[1], "rb") as f:
-            toml_config = toml.load(f)
-    else:  # pragma: no cover
-        toml_config = toml.load(args[1])
+    with open(args[1], "rb") as f:
+        toml_config = toml.load(f)
     result = runner.invoke(
         main, args=args + ["-l", toml_config["tool"]["docstrfmt"]["line-length"]]
     )
@@ -655,7 +646,7 @@ def test_newline_preserved(runner, tmp_path, file, newline):
 
 
 def test_no_format_python_code_blocks(runner):
-    file = ".. code-block:: python\n\n" "    def example_function():\n"
+    file = ".. code-block:: python\n\n    def example_function():\n"
     args = ["-t", "rst", "-l", 80, "-r", file, "--no-format-python-code-blocks"]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
