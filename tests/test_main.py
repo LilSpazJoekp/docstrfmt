@@ -1,3 +1,4 @@
+import ast
 import os
 import subprocess
 import sys
@@ -33,8 +34,9 @@ def test_call(file):
     args = ["-c", "-l", "80", file]
     result = subprocess.run(
         [sys.executable, "-m", "docstrfmt", *args],
+        check=False,
         capture_output=True,
-        universal_newlines=True,
+        text=True,
     )
     assert result.returncode == 1
     assert result.stderr == (
@@ -78,7 +80,7 @@ def test_code_to_codeblock(runner, block_type, expected_block_type):
 def test_docstring_trailing_line(runner, flag):
     file = "tests/test_files/py_file.py"
     args = [
-        f'--{"" if flag else "no-"}docstring-trailing-line',
+        f"--{'' if flag else 'no-'}docstring-trailing-line",
         file,
     ]
     result = runner.invoke(main, args=args)
@@ -861,7 +863,7 @@ def test_section_reformatting_python_adornments(runner):
         ^^^^
 
         Six
-        \\"""
+        \\"\\"\\"
 
         *********
         Two again
@@ -898,7 +900,7 @@ def test_section_reformatting_python_adornments(runner):
         ^^^^
 
         Six
-        """
+        \\"\\"\\"
 
         ***********
          Two again
@@ -912,6 +914,7 @@ def test_section_reformatting_python_adornments(runner):
 
     file = textwrap.dedent(file).lstrip()
     fixed = textwrap.dedent(fixed).lstrip()
+    ast.parse(fixed)  # check if expectation is valid Python code
     args = ["-t", "py", "-or", file]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
@@ -991,6 +994,7 @@ def test_section_reformatting_python_preserve_adornments(runner):
 
     file = textwrap.dedent(file).lstrip()
     fixed = textwrap.dedent(fixed).lstrip()
+    ast.parse(fixed)  # check if expectation is valid Python code
     args = ["-pA", "-t", "py", "-or", file]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
@@ -1079,9 +1083,9 @@ def test_section_reformatting_insufficient_adornments(runner):
 
 
 def test_section_reformatting_numpydoc(runner):
-    file = """
+    file = '''
               def function(param1: str, param2: int) -> None:
-                  \"\"\"This is a docstring for a python function.
+                  """This is a docstring for a python function.
 
                   This is the summary.
 
@@ -1095,13 +1099,13 @@ def test_section_reformatting_numpydoc(runner):
                   Returns
                   -------
                      Absolutely nothing.
-                  \"\"\"
+                  """
                   pass
-           """
+           '''
 
-    fixed = """
+    fixed = '''
                def function(param1: str, param2: int) -> None:
-                   \"\"\"This is a docstring for a python function.
+                   """This is a docstring for a python function.
 
                    This is the summary.
 
@@ -1119,13 +1123,44 @@ def test_section_reformatting_numpydoc(runner):
 
                        Absolutely nothing.
 
-                   \"\"\"
+                   """
                    pass
-           """
+           '''
 
     file = textwrap.dedent(file).lstrip()
     fixed = textwrap.dedent(fixed).lstrip()
+    ast.parse(fixed)  # check if expectation is valid Python code
     args = ["-pA", "-t", "py", "-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
+def test_docstring_reformatting_with_quotes(runner):
+    file = """
+              def fun():
+                  \"""Example class docstring example.
+
+                  Very Long Header
+                  ################
+
+                  \"""
+           """
+
+    fixed = '''
+               def fun():
+                   """Example class docstring example.
+
+                   Very Long Header
+                   \\"\\"\\"\\"\\"\\"\\"\\"\\"\\"\\"\\"\\"\\"\\"\\"
+
+                   """
+            '''
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    ast.parse(fixed)  # check if expectation is valid Python code
+    args = ["-s", '"', "-t", "py", "-r", file]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output == fixed
