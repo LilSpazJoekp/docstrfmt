@@ -511,7 +511,22 @@ class Visitor(CSTTransformer):
         self._object_names.pop(-1)
         return updated_node
 
-    def leave_SimpleString(
+    def _escape_quoting(self, node: SimpleString) -> SimpleString:
+        """Escapes quotes in a docstring when necessary."""
+        # handles quoting escaping once
+        for quoting in ('"""', '"', "'''", "'"):
+            if node.value.startswith(quoting) and node.value.endswith(quoting):
+                inner_value = node.value[len(quoting) : -len(quoting)]
+                if quoting in inner_value:
+                    node = node.with_changes(
+                        value=quoting
+                        + inner_value.replace(quoting[0], "\\" + quoting[0])
+                        + quoting
+                    )
+                break
+        return node
+
+    def leave_SimpleString(  # noqa: N802
         self, original_node: SimpleString, updated_node: SimpleString
     ) -> SimpleString:
         """Format the docstring."""
@@ -578,20 +593,7 @@ class Visitor(CSTTransformer):
                 self._last_assign = None
                 self._object_names.pop(-1)
                 self._object_type = old_object_type
-            # handles quoting escaping once
-            for quoting in ('"""', '"', "'''", "'"):
-                inner_value = updated_node.value[len(quoting) : -len(quoting)]
-                if updated_node.value.startswith(
-                    quoting
-                ) and updated_node.value.endswith(quoting):
-                    if quoting in inner_value:
-                        updated_node = updated_node.with_changes(
-                            value=quoting
-                            + inner_value.replace(quoting[0], "\\" + quoting[0])
-                            + quoting
-                        )
-                    break
-        return updated_node
+        return self._escape_quoting(updated_node)
 
     def visit_AssignTarget_target(self, node: AssignTarget) -> None:
         """Set the last assign node."""
