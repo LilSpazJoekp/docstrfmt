@@ -578,6 +578,19 @@ class Visitor(CSTTransformer):
                 self._last_assign = None
                 self._object_names.pop(-1)
                 self._object_type = old_object_type
+            # handles quoting escaping once
+            for quoting in ('"""', '"', "'''", "'"):
+                inner_value = updated_node.value[len(quoting) : -len(quoting)]
+                if updated_node.value.startswith(
+                    quoting
+                ) and updated_node.value.endswith(quoting):
+                    if quoting in inner_value:
+                        updated_node = updated_node.with_changes(
+                            value=quoting
+                            + inner_value.replace(quoting[0], "\\" + quoting[0])
+                            + quoting
+                        )
+                    break
         return updated_node
 
     def visit_AssignTarget_target(self, node: AssignTarget) -> None:
