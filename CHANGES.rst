@@ -15,6 +15,11 @@ Unreleased
 - Added command-line argument ``--preserve-adornments`` or ``-pA`` to preserve
   user-defined section adornments.
 
+**Changed**
+
+- Changed default section heading adornments to match the ones described at
+  https://devguide.python.org/documentation/markup/#sections.
+
 **Fixed**
 
 - Fixed line length resolution order. The order is now:
@@ -24,8 +29,6 @@ Unreleased
   4. Default of 88
 - Image and Unicode substitution definitions were not being formatted correctly.
 - Files specified in pyproject are now parsed correctly.
-- Changed default section heading adornments to match the ones described at
-  https://devguide.python.org/documentation/markup/#sections.
 
 **Removed**
 
