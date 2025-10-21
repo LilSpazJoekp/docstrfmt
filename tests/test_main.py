@@ -900,7 +900,7 @@ def test_section_reformatting_python_adornments(runner):
         ^^^^
 
         Six
-        \\"""
+        \\"\\"\\"
 
         ***********
          Two again
