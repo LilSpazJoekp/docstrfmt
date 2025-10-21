@@ -10,12 +10,10 @@ Unreleased
 - Added ability to skip formatting Python code blocks with the
   ``--format-python-code-blocks/--no-format-python-code-blocks`` or ``-N`` command-line
   argument.
-- Added command-line option (-s) to control whether to format section headers, and
-  optionally how.
-- Added command-line argument ``--preserve-adornments`` or ``-pA`` to preserve
-  user-defined section adornments.
 - Added command-line option ``--section-adornments`` or ``-s`` to control section header
   adornments.
+- Added command-line argument ``--preserve-adornments`` or ``-pA`` to preserve
+  user-defined section adornments.
 
 **Fixed**
 
@@ -26,7 +24,6 @@ Unreleased
   4. Default of 88
 - Image and Unicode substitution definitions were not being formatted correctly.
 - Files specified in pyproject are now parsed correctly.
-- By default, do not change section adornments defined by the user.
 - Changed default section heading adornments to match the ones described at
   https://devguide.python.org/documentation/markup/#sections.
 
