@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import glob
+import itertools
 import logging
 import os
 import signal
@@ -38,6 +39,7 @@ from libcst import CSTTransformer, Expr
 from libcst.metadata import ParentNodeProvider, PositionProvider
 
 from . import DEFAULT_EXCLUDE, __version__
+from .const import SECTION_CHARS
 from .debug import dump_node
 from .docstrfmt import Manager
 from .exceptions import InvalidRstErrors
@@ -62,12 +64,17 @@ def _format_file(
     mode: Mode,
     docstring_trailing_line: bool,
     format_python_code_blocks: bool,
+    section_adornments: list[tuple[str, bool]] | None,
     raw_output: bool,
     lock: Lock,
 ):
     error_count = 0
     manager = Manager(
-        reporter, mode, docstring_trailing_line, format_python_code_blocks
+        reporter,
+        mode,
+        docstring_trailing_line,
+        format_python_code_blocks,
+        section_adornments,
     )
     if file.name == "-":
         raw_output = True
@@ -290,6 +297,24 @@ def _resolve_length(context: click.Context, _: click.Parameter, value: int | Non
     return value or pyproject_line_length
 
 
+def _validate_adornments(
+    context: click.Context, _: click.Parameter, value: str | None
+) -> list[tuple[str, bool]] | None:
+    actual_value = value or context.params["section_adornments"]
+
+    if len(actual_value) != len(set(actual_value)):
+        msg = "Section adornments must be unique"
+        raise click.BadParameter(msg)
+
+    if "|" in actual_value:
+        with_overline, without_overline = actual_value.split("|", 1)
+        return list(zip(with_overline, itertools.repeat(True))) + list(
+            zip(without_overline, itertools.repeat(False))
+        )
+
+    return list(zip(actual_value, itertools.repeat(False)))
+
+
 async def _run_formatter(
     check: bool,
     file_type: str,
@@ -297,6 +322,7 @@ async def _run_formatter(
     include_txt: bool,
     docstring_trailing_line: bool,
     format_python_code_blocks: bool,
+    section_adornments: list[tuple[str, bool]] | None,
     mode: Mode,
     line_length: int,
     raw_output: bool,
@@ -324,6 +350,7 @@ async def _run_formatter(
                 mode,
                 docstring_trailing_line,
                 format_python_code_blocks,
+                section_adornments,
                 raw_output,
                 lock,
             )
@@ -484,7 +511,25 @@ class Visitor(CSTTransformer):
         self._object_names.pop(-1)
         return updated_node
 
-    def leave_SimpleString(
+    def _escape_quoting(self, node: SimpleString) -> SimpleString:
+        """Escapes quotes in a docstring when necessary."""
+        # handles quoting escaping once
+        for quote in ('"', "'"):
+            quoting = quote * 3
+            if node.value.startswith(quoting) and node.value.endswith(quoting):
+                inner_value = node.value[len(quoting) : -len(quoting)]
+                if quoting in inner_value:
+                    node = node.with_changes(
+                        value=quoting
+                        + inner_value.replace(quoting, f"\\{quoting}").replace(
+                            quoting + quote, f"{quoting}\\{quote}"
+                        )
+                        + quoting
+                    )
+                break
+        return node
+
+    def leave_SimpleString(  # noqa: N802
         self, original_node: SimpleString, updated_node: SimpleString
     ) -> SimpleString:
         """Format the docstring."""
@@ -551,7 +596,7 @@ class Visitor(CSTTransformer):
                 self._last_assign = None
                 self._object_names.pop(-1)
                 self._object_type = old_object_type
-        return updated_node
+        return self._escape_quoting(updated_node)
 
     def visit_AssignTarget_target(self, node: AssignTarget) -> None:
         """Set the last assign node."""
@@ -584,7 +629,7 @@ class Visitor(CSTTransformer):
     is_flag=True,
     help=(
         "Check files and returns a non-zero code if files are not formatted correctly."
-        " Useful for linting. Ignored if raw-input, raw-output, stdin is used."
+        " Useful for linting. Ignored if --raw-input, --raw-output, or stdin is used."
     ),
 )
 @click.option(
@@ -651,6 +696,12 @@ class Visitor(CSTTransformer):
     callback=_resolve_length,
 )
 @click.option(
+    "-pA",
+    "--preserve-adornments",
+    help="Preserve existing section adornments.",
+    is_flag=True,
+)
+@click.option(
     "-p",
     "--pyproject-config",
     "mode",
@@ -685,7 +736,26 @@ class Visitor(CSTTransformer):
     type=str,
 )
 @click.option(
-    "-o", "--raw-output", is_flag=True, help="Output the formatted text to stdout."
+    "-o",
+    "--raw-output",
+    help="Output the formatted text to stdout.",
+    is_flag=True,
+)
+@click.option(
+    "-s",
+    "--section-adornments",
+    type=str,
+    default=SECTION_CHARS,
+    show_default=True,
+    help=(
+        "Define adornments for part/chapter/section headers. It defines a sequence of"
+        " adornments to use for each individual section depth. The list must be"
+        " composed of at least N **distinct** characters for documents with N section"
+        " depths. Provide more if unsure. If the special character `|` (pipe) is"
+        " used, then it defines sections (left portion) that will have overlines"
+        " besides underlines only (right portion). Overrides --preserve-adornments."
+    ),
+    callback=_validate_adornments,
 )
 @click.option(
     "-v",
@@ -710,10 +780,12 @@ def main(
     ignore_cache: bool,
     include_txt: bool,
     line_length: int,
+    preserve_adornments: bool,
     mode: Mode,
     quiet: bool,
     raw_input: str,
     raw_output: bool,
+    section_adornments: list[tuple[str, bool]],
     verbose: int,
     files: list[str],
 ) -> None:
@@ -732,9 +804,17 @@ def main(
         else:
             line_length = DEFAULT_LINE_LENGTH
     error_count = 0
+
+    if preserve_adornments:
+        section_adornments = None
+
     if raw_input:
         manager = Manager(
-            reporter, mode, docstring_trailing_line, format_python_code_blocks
+            reporter,
+            mode,
+            docstring_trailing_line,
+            format_python_code_blocks,
+            section_adornments,
         )
         file = "<raw_input>"
         check = False
@@ -769,6 +849,7 @@ def main(
                 mode,
                 docstring_trailing_line,
                 format_python_code_blocks,
+                section_adornments,
                 raw_output,
                 None,
             )
@@ -800,6 +881,7 @@ def main(
                     include_txt,
                     docstring_trailing_line,
                     format_python_code_blocks,
+                    section_adornments,
                     mode,
                     line_length,
                     raw_output,

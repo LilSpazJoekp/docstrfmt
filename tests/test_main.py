@@ -1,6 +1,8 @@
+import ast
 import os
 import subprocess
 import sys
+import textwrap
 
 import pytest
 
@@ -32,8 +34,9 @@ def test_call(file):
     args = ["-c", "-l", "80", file]
     result = subprocess.run(
         [sys.executable, "-m", "docstrfmt", *args],
+        check=False,
         capture_output=True,
-        universal_newlines=True,
+        text=True,
     )
     assert result.returncode == 1
     assert result.stderr == (
@@ -77,7 +80,7 @@ def test_code_to_codeblock(runner, block_type, expected_block_type):
 def test_docstring_trailing_line(runner, flag):
     file = "tests/test_files/py_file.py"
     args = [
-        f'--{"" if flag else "no-"}docstring-trailing-line',
+        f"--{'' if flag else 'no-'}docstring-trailing-line",
         file,
     ]
     result = runner.invoke(main, args=args)
@@ -517,7 +520,10 @@ def test_raw_output(runner, file):
         assert result.output.startswith(
             ".. meta::\n"
             "    :description: Simple file to test the formatting.\n"
-            "    :keywords: rSt, formatter, test\n\nA ReStructuredText Primer"
+            "    :keywords: rSt, formatter, test\n"
+            "\n"
+            "###########################\n"
+            " A ReStructuredText Primer"
         )
     elif file.endswith("py"):
         assert result.output.startswith('"""This is an example python file"""')
@@ -655,7 +661,7 @@ def test_newline_preserved(runner, tmp_path, file, newline):
 
 
 def test_no_format_python_code_blocks(runner):
-    file = ".. code-block:: python\n\n" "    def example_function():\n"
+    file = ".. code-block:: python\n\n    def example_function():\n"
     args = ["-t", "rst", "-l", 80, "-r", file, "--no-format-python-code-blocks"]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
@@ -682,6 +688,487 @@ def test_comment_preserve_single_line(runner):
     file = "..  A comment in a single line is not placed on the next one.\n"
     fixed = ".. A comment in a single line is not placed on the next one.\n"
     args = ["-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
+def test_section_invalid_adornments(runner):
+    file = """
+              ===
+              One
+              ===
+
+              Two
+              ---
+              Some content.
+           """
+
+    file = textwrap.dedent(file).lstrip()
+    args = ["-s", "#*|=-^\"'~+.`_:# ", "-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 2
+    assert "Section adornments must be unique" in result.output
+
+
+def test_section_reformatting(runner):
+    file = """
+              ###
+              One
+              ###
+
+              ***
+              Two
+              ***
+
+              Three
+              =====
+
+              Four
+              ----
+
+              Five
+              ^^^^
+
+              Six
+              \"""
+
+              *********
+              Two again
+              *********
+
+              Some content.
+           """
+
+    fixed = """
+              #####
+               One
+              #####
+
+              *****
+               Two
+              *****
+
+              Three
+              =====
+
+              Four
+              ----
+
+              Five
+              ^^^^
+
+              Six
+              \"""
+
+              ***********
+               Two again
+              ***********
+
+              Some content.
+            """
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    args = ["-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
+def test_section_reformatting_preserve_adornments(runner):
+    file = """
+              ===
+              One
+              ===
+
+              Two
+              ---
+
+              Three
+              ~~~~~
+
+              Four
+              ++++
+
+              Five
+              ....
+
+              Six
+              '''
+
+              Two again
+              ---------
+
+              Some content.
+           """
+
+    fixed = """
+              =====
+               One
+              =====
+
+              Two
+              ---
+
+              Three
+              ~~~~~
+
+              Four
+              ++++
+
+              Five
+              ....
+
+              Six
+              '''
+
+              Two again
+              ---------
+
+              Some content.
+            """
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    args = ["-pA", "-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
+def test_section_reformatting_python_adornments(runner):
+    file = '''
+    """This is an example python file."""
+
+
+    class ExampleClass:
+        """This is a class docstring example.
+
+        ###
+        One
+        ###
+
+        ***
+        Two
+        ***
+
+        Three
+        =====
+
+        Four
+        ----
+
+        Five
+        ^^^^
+
+        Six
+        \\"""
+
+        *********
+        Two again
+        *********
+
+        Some content.
+
+        """
+
+    '''
+
+    fixed = '''
+    """This is an example python file."""
+
+
+    class ExampleClass:
+        """This is a class docstring example.
+
+        #####
+         One
+        #####
+
+        *****
+         Two
+        *****
+
+        Three
+        =====
+
+        Four
+        ----
+
+        Five
+        ^^^^
+
+        Six
+        \\"""
+
+        ***********
+         Two again
+        ***********
+
+        Some content.
+
+        """
+
+    '''
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    ast.parse(fixed)  # check if expectation is valid Python code
+    args = ["-t", "py", "-or", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
+def test_section_reformatting_python_preserve_adornments(runner):
+    file = '''
+    """This is an example python file."""
+
+
+    class ExampleClass:
+        """This is a class docstring example.
+
+        ===
+        One
+        ===
+
+        Two
+        ---
+
+        Three
+        ~~~~~
+
+        Four
+        ++++
+
+        Five
+        ....
+
+        Six
+        \'''
+
+        Two again
+        ---------
+
+        Some content.
+
+        """
+
+    '''
+
+    fixed = '''
+    """This is an example python file."""
+
+
+    class ExampleClass:
+        """This is a class docstring example.
+
+        =====
+         One
+        =====
+
+        Two
+        ---
+
+        Three
+        ~~~~~
+
+        Four
+        ++++
+
+        Five
+        ....
+
+        Six
+        \'''
+
+        Two again
+        ---------
+
+        Some content.
+
+        """
+
+    '''
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    ast.parse(fixed)  # check if expectation is valid Python code
+    args = ["-pA", "-t", "py", "-or", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
+def test_section_reformatting_custom_adornments(runner):
+    file = """
+              ===
+              One
+              ===
+
+              Two
+              ---
+
+              Three
+              ~~~~~
+
+              Four
+              ++++
+
+              Five
+              ....
+
+              Six
+              '''
+
+              Two again
+              ---------
+
+              Some content.
+           """
+
+    fixed = """
+               One
+               ###
+
+               Two
+               ***
+
+               Three
+               =====
+
+               Four
+               ----
+
+               Five
+               ^^^^
+
+               Six
+               \"""
+
+               Two again
+               *********
+
+               Some content.
+            """
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    args = ["-s", '#*=-^"', "-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
+def test_section_reformatting_insufficient_adornments(runner):
+    file = """
+              ===
+              One
+              ===
+
+              Two
+              ---
+
+              Three
+              ~~~~~
+              Some content.
+           """
+
+    file = textwrap.dedent(file).lstrip()
+    args = ["-s", "=:", "-r", file, "-o"]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 1
+    assert "there are only 2 adornments to pick from" in result.output
+
+
+def test_section_reformatting_numpydoc(runner):
+    file = '''
+              def function(param1: str, param2: int) -> None:
+                  """This is a docstring for a python function.
+
+                  This is the summary.
+
+                  Parameters
+                  ----------
+                  param1
+                     Description for param1.
+                  param2
+                     Description for param2.
+
+                  Returns
+                  -------
+                     Absolutely nothing.
+                  """
+                  pass
+           '''
+
+    fixed = '''
+               def function(param1: str, param2: int) -> None:
+                   """This is a docstring for a python function.
+
+                   This is the summary.
+
+                   Parameters
+                   ----------
+
+                   param1
+                       Description for param1.
+
+                   param2
+                       Description for param2.
+
+                   Returns
+                   -------
+
+                       Absolutely nothing.
+
+                   """
+                   pass
+           '''
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    ast.parse(fixed)  # check if expectation is valid Python code
+    args = ["-pA", "-t", "py", "-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
+def test_docstring_reformatting_with_quotes(runner):
+    file = '''
+              def fun():
+                  """Example class docstring example.
+
+                  Very Long Header
+                  ################
+
+                  "This has a single quoted string in it"
+
+                  This is an already escaped triple quote: \\"""
+
+                  """
+           '''
+
+    fixed = '''
+               def fun():
+                   """Example class docstring example.
+
+                   Very Long Header
+                   \\"""\\"""\\"""\\"""\\"""\\"
+
+                   "This has a single quoted string in it"
+
+                   This is an already escaped triple quote: \\"""
+
+                   """
+            '''
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    ast.parse(fixed)  # check if expectation is valid Python code
+    args = ["-s", '"', "-t", "py", "-r", file]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output == fixed
