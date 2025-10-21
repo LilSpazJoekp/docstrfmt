@@ -369,7 +369,7 @@ class Manager:
         return f"{formatted_node}\n"
 
     def _register_adornments(
-        self, input_lines: list[str], document: docutils.nodes.document
+        self, input_lines: list[str], document: nodes.document
     ) -> None:
         """Register adornments from source text on all individual sections.
 
