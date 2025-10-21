@@ -4,7 +4,6 @@
 import argparse
 import sys
 from subprocess import CalledProcessError, check_call
-from tempfile import TemporaryDirectory
 
 
 def do_process(args, shell=False):
@@ -65,7 +64,7 @@ def main():
         "-n",
         "--unstatic",
         action="store_true",
-        help="Do not run static tests (black/flake8/pydocstyle/sphinx-build)",
+        help="Do not run static tests (linting, formatting, etc.)",
         default=False,
     )
     parser.add_argument(
