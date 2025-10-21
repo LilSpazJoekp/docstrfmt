@@ -1045,7 +1045,7 @@ def test_section_reformatting_custom_adornments(runner):
                ^^^^
 
                Six
-               \"\"\"
+               \"""
 
                Two again
                *********
