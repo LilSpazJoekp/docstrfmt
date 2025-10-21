@@ -12,7 +12,7 @@ import roman
 from docutils.parsers.rst.states import ParserError
 from platformdirs import user_cache_path
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     import click
 
 
@@ -20,7 +20,11 @@ if TYPE_CHECKING:  # pragma: no cover
 def make_enumerator(ordinal: int, sequence: str, fmt: tuple[str, str]) -> str | None:
     """Construct and return the next enumerated list item marker, and an auto-enumerator ("#" instead of the regular enumerator).
 
-    Return ``None`` for invalid (out of range) ordinals.
+    :param ordinal: The ordinal number.
+    :param sequence: The sequence type (arabic, alpha, roman, etc.).
+    :param fmt: Format tuple for the enumerator.
+
+    :returns: The formatted enumerator string or None for invalid ordinals.
 
     """
     if sequence == "#":  # pragma: no cover
@@ -55,12 +59,23 @@ class FileCache:
 
     @staticmethod
     def _get_file_info(file: Path) -> tuple[float, int]:
-        """Get the file info."""
+        """Get the file info.
+
+        :param file: Path to the file.
+
+        :returns: Tuple of (modification time, file size).
+
+        """
         file_info = file.stat()
         return file_info.st_mtime, file_info.st_size
 
     def __init__(self, context: click.Context, ignore_cache: bool = False):
-        """Initialize the cache."""
+        """Initialize the cache.
+
+        :param context: Click context containing command parameters.
+        :param ignore_cache: Whether to ignore the cache.
+
+        """
         from . import __version__  # noqa: PLC0415
 
         self.cache_dir = user_cache_path("docstrfmt", version=__version__)
@@ -69,7 +84,11 @@ class FileCache:
         self.ignore_cache = ignore_cache
 
     def _get_cache_filename(self) -> Path:
-        """Get the cache filename."""
+        """Get the cache filename.
+
+        :returns: Path to the cache file.
+
+        """
         docstring_trailing_line = str(self.context.params["docstring_trailing_line"])
         format_python_code_blocks = str(
             self.context.params["format_python_code_blocks"]
@@ -83,7 +102,12 @@ class FileCache:
         )
 
     def _read_cache(self) -> dict[str, tuple[float, int]]:
-        """Read the cache file."""
+        """Read the cache file.
+
+        :returns: Dictionary mapping file paths to (modification time, file size)
+            tuples.
+
+        """
         cache_file = self._get_cache_filename()
         if not cache_file.exists():
             return {}
@@ -98,7 +122,13 @@ class FileCache:
                 return {}
 
     def gen_todo_list(self, files: list[str]) -> tuple[set[Path], set[Path]]:
-        """Generate the list of files to process."""
+        """Generate the list of files to process.
+
+        :param files: List of file paths to check.
+
+        :returns: Tuple of (files to process, files already done).
+
+        """
         todo, done = set(), set()
         for file in (Path(f).resolve() for f in files):
             if (
@@ -111,7 +141,11 @@ class FileCache:
         return todo, done
 
     def write_cache(self, files: list[Path]) -> None:
-        """Update the cache file."""
+        """Update the cache file.
+
+        :param files: List of file paths to cache.
+
+        """
         cache_file = self._get_cache_filename()
         try:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -132,14 +166,27 @@ class LineResolver:
     """A class to resolve the line number of a code block in a file."""
 
     def __init__(self, file: Path, source: str) -> None:
-        """Initialize the class."""
+        """Initialize the class.
+
+        :param file: Path to the file.
+        :param source: Source code content.
+
+        """
         self.file = file
         self.source = source
         self._results = defaultdict(list)
         self._searches = set()
 
     def offset(self, code: str) -> int:
-        """Get the line number of the code in the file."""
+        """Get the line number of the code in the file.
+
+        :param code: Code string to find.
+
+        :returns: Line number of the code in the file.
+
+        :raises ValueError: If the code is not found in the file.
+
+        """
         if code not in self._searches:
             if code not in self.source:  # pragma: no cover should be impossible
                 msg = f"Code not found in {self.file}"
@@ -158,7 +205,13 @@ class plural:  # noqa: N801
     """A class to format a number with a singular or plural form."""
 
     def __format__(self, format_spec: str) -> str:
-        """Format the number with a singular or plural form."""
+        """Format the number with a singular or plural form.
+
+        :param format_spec: Format specification string.
+
+        :returns: Formatted string with singular or plural form.
+
+        """
         v = self.value
         singular_form, _, plural_form = format_spec.partition("|")
         plural_form = plural_form or f"{singular_form}s"
@@ -167,5 +220,9 @@ class plural:  # noqa: N801
         return f"{v:,} {singular_form}"
 
     def __init__(self, value: int) -> None:
-        """Initialize the class with a number."""
+        """Initialize the class with a number.
+
+        :param value: The numeric value.
+
+        """
         self.value: int = value

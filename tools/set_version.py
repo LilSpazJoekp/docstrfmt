@@ -10,6 +10,11 @@ UNRELEASED_HEADER = "Unreleased\n----------\n\n"
 
 
 def add_unreleased_to_changelog():
+    """Add unreleased section to changelog.
+
+    :returns: ``True`` if successful, ``False`` otherwise.
+
+    """
     with open("CHANGES.rst") as fp:
         content = fp.read()
 
@@ -27,10 +32,22 @@ def add_unreleased_to_changelog():
 
 
 def handle_unreleased():
+    """Handle unreleased version updates.
+
+    :returns: A boolean indicating success.
+
+    """
     return add_unreleased_to_changelog() and increment_development_version()
 
 
 def handle_version(version):
+    """Handle version updates.
+
+    :param version: Version string to set.
+
+    :returns: A boolean indicating success.
+
+    """
     version = valid_version(version)
     if not version:
         return False
@@ -38,6 +55,11 @@ def handle_version(version):
 
 
 def increment_development_version():
+    """Increment development version number.
+
+    :returns: A boolean indicating success.
+
+    """
     with open("docstrfmt/__init__.py") as fp:
         version = re.search('__version__ = "([^"]+)"', fp.read()).group(1)
 
@@ -59,6 +81,7 @@ def increment_development_version():
 
 
 def main():
+    """Main entry point for version setting script."""
     if len(sys.argv) != 2:
         sys.stderr.write(f"Usage: {sys.argv[0]} VERSION\n")
         return 1
@@ -68,6 +91,13 @@ def main():
 
 
 def update_changelog(version):
+    """Update changelog with new version.
+
+    :param version: Version string to add.
+
+    :returns: A boolean indicating success.
+
+    """
     with open("CHANGES.rst") as fp:
         content = fp.read()
 
@@ -86,6 +116,13 @@ def update_changelog(version):
 
 
 def update_package(version):
+    """Update package version in __init__.py.
+
+    :param version: Version string to set.
+
+    :returns: A boolean indicating success.
+
+    """
     with open("docstrfmt/__init__.py") as fp:
         content = fp.read()
 
@@ -102,6 +139,13 @@ def update_package(version):
 
 
 def valid_version(version):
+    """Validate version string.
+
+    :param version: Version string to validate.
+
+    :returns: Parsed version object if valid, None otherwise.
+
+    """
     parsed_version = packaging.version.parse(version)
     if parsed_version.local or parsed_version.is_postrelease or parsed_version.epoch:
         sys.stderr.write("epoch, local postrelease version parts are not supported")
