@@ -514,14 +514,17 @@ class Visitor(CSTTransformer):
     def _escape_quoting(self, node: SimpleString) -> SimpleString:
         """Escapes quotes in a docstring when necessary."""
         # handles quoting escaping once
-        for quoting in ('"', "'"):
+        for quote in ('"', "'"):
+            quoting = quote * 3
             if node.value.startswith(quoting) and node.value.endswith(quoting):
-                inner_value = node.value[3:-3]
+                inner_value = node.value[len(quoting) : -len(quoting)]
                 if quoting in inner_value:
                     node = node.with_changes(
-                        value=3 * quoting
-                        + inner_value.replace(quoting, "\\" + quoting)
-                        + 3 * quoting
+                        value=quoting
+                        + inner_value.replace(quoting, f"\\{quoting}").replace(
+                            quoting + quote, f"{quoting}\\{quote}"
+                        )
+                        + quoting
                     )
                 break
         return node

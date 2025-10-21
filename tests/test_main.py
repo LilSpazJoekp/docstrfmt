@@ -900,7 +900,7 @@ def test_section_reformatting_python_adornments(runner):
         ^^^^
 
         Six
-        \\"\\"\\"
+        \\"""
 
         ***********
          Two again
@@ -1137,22 +1137,30 @@ def test_section_reformatting_numpydoc(runner):
 
 
 def test_docstring_reformatting_with_quotes(runner):
-    file = """
+    file = '''
               def fun():
-                  \"""Example class docstring example.
+                  """Example class docstring example.
 
                   Very Long Header
                   ################
 
-                  \"""
-           """
+                  "This has a single quoted string in it"
+
+                  This is an already escaped triple quote: \\"""
+
+                  """
+           '''
 
     fixed = '''
                def fun():
                    """Example class docstring example.
 
                    Very Long Header
-                   \\"\\"\\"\\"\\"\\"\\"\\"\\"\\"\\"\\"\\"\\"\\"\\"
+                   \\"""\\"""\\"""\\"""\\"""\\"
+
+                   "This has a single quoted string in it"
+
+                   This is an already escaped triple quote: \\"""
 
                    """
             '''
