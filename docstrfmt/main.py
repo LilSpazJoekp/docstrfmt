@@ -519,9 +519,9 @@ class Visitor(CSTTransformer):
                 inner_value = node.value[3:-3]
                 if quoting in inner_value:
                     node = node.with_changes(
-                        value=3*quoting
+                        value=3 * quoting
                         + inner_value.replace(quoting, "\\" + quoting)
-                        + 3*quoting
+                        + 3 * quoting
                     )
                 break
         return node
