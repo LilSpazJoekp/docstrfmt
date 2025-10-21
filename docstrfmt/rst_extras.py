@@ -10,9 +10,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, TypeVar
 
+from docutils import nodes, utils
 from sphinx.domains.std import ProductionList
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     from collections.abc import Iterator
 
 import docutils
@@ -31,7 +32,7 @@ from sphinx.domains import c, changeset, cpp, python  # noqa: F401
 from sphinx.ext import autodoc, autosummary
 from sphinx.roles import generic_docroles, specific_docroles
 
-from .const import ROLE_ALIASES
+from . import ROLE_ALIASES
 
 T = TypeVar("T")
 
@@ -43,7 +44,14 @@ def _add_directive(
     raw: bool = True,
     is_injected: bool = False,
 ) -> None:
-    """Add a directive to the parser."""
+    """Add a directive to the parser.
+
+    :param name: Name of the directive to add.
+    :param cls: Directive class to register.
+    :param raw: Whether the directive is raw.
+    :param is_injected: Whether the directive is injected.
+
+    """
     # We create a new class inheriting from the given directive class to automatically pick up the
     # argument counts and most of the other attributes that define how the directive is parsed, so
     # parsing can happen as normal. The things we change are:
@@ -67,9 +75,19 @@ def _add_directive(
 
 
 def generic_role(r: str, rawtext: str, text: str, *_: Any, **__: Any) -> Any:
-    """Provide a generic role that doesn't do anything."""
+    """Provide a generic role that doesn't do anything.
+
+    :param r: Role name.
+    :param rawtext: Raw text of the role.
+    :param text: Text content of the role.
+    :param _: Unused positional arguments.
+    :param __: Unused keyword arguments.
+
+    :returns: List containing the role node and empty list.
+
+    """
     r = ROLE_ALIASES.get(r.lower(), r)
-    text = docutils.utils.unescape(text, restore_backslashes=True)
+    text = utils.unescape(text, restore_backslashes=True)
     return [role(rawtext, text=text, role=r)], []
 
 
@@ -152,7 +170,11 @@ class ReferenceRole(sphinx.util.docutils.ReferenceRole):
     def run(
         self,
     ) -> tuple[list[docutils.nodes.Node], list[docutils.nodes.system_message]]:
-        """Run the role."""
+        """Run the role.
+
+        :returns: Tuple containing list of nodes and empty list of system messages.
+
+        """
         node = ref_role(
             self.rawtext,
             name=self.name,
@@ -163,19 +185,26 @@ class ReferenceRole(sphinx.util.docutils.ReferenceRole):
         return [node], []
 
 
-class directive(docutils.nodes.Element, docutils.nodes.Inline):
+class directive(nodes.Element, nodes.Inline):
     """A directive that doesn't do anything."""
 
 
-class ref_role(docutils.nodes.Element):
+class ref_role(nodes.Element):
     """A role that doesn't do anything."""
 
 
-class role(docutils.nodes.Element):
+class role(nodes.Element):
     """A role that doesn't do anything."""
 
 
 def _subclasses(cls: type[T]) -> Iterator[type[T]]:
+    """Get all subclasses of a class recursively.
+
+    :param cls: The class to get subclasses for.
+
+    :returns: Iterator of all subclasses.
+
+    """
     for subclass in cls.__subclasses__():
         yield subclass
         yield from _subclasses(subclass)

@@ -44,6 +44,7 @@ classifiers = [
 dependencies = [
   "black>=24",
   "click>=8",
+  "coverage>=7.11.0",
   "docutils>=0.21",
   "docutils-stubs==0.0.22",
   "libcst>=1",
@@ -78,6 +79,19 @@ docstrfmtd = "docstrfmt.server:main [d]"
 [tool.black]
 extend_exclude = '/(\.venv.*)/'
 line-length = 88
+
+[tool.coverage]
+exclude_lines = [
+  "if __name__ == .__main__.:",
+  "pragma: no cover",
+  "def __repr__",
+  "def __str__",
+  "raise NotImplementedError",
+  "raise NotImplemented",
+  "except ImportError",
+  "except ModuleNotFoundError",
+  "if TYPE_CHECKING:"
+]
 
 [tool.docstrfmt]
 extend_exclude = ["tests/test_files/error_files/*"]

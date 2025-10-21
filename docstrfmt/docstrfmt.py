@@ -19,7 +19,6 @@ from typing import (
 
 import black
 import docutils
-import docutils.nodes
 from black import Mode
 from blib2to3.pgen2.tokenize import TokenError
 from docutils import nodes
@@ -34,7 +33,7 @@ from .exceptions import InvalidRstError, InvalidRstErrors
 from .rst_extras import _add_directive, generic_role
 from .util import make_enumerator
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     import logging
     from pathlib import Path
 
@@ -83,7 +82,16 @@ class IgnoreMessagesReporter(Reporter):
     def system_message(
         self, level: int, message: str, *children: Any, **kwargs: Any
     ) -> nodes.system_message:  # pragma: no cover
-        """Create a system message, possibly ignoring it."""
+        """Create a system message, possibly ignoring it.
+
+        :param level: Message level.
+        :param message: Message text.
+        :param children: Child nodes.
+        :param kwargs: Additional keyword arguments.
+
+        :returns: System message node.
+
+        """
         orig_level = self.halt_level
         if message in self.ignored_messages:
             self.halt_level = Reporter.SEVERE_LEVEL + 1
@@ -98,7 +106,11 @@ class UnknownNodeTransformer(Transform):
     default_priority = 0
 
     def apply(self, **_: Any):
-        """Apply the transform."""
+        """Apply the transform.
+
+        :param _: Unused keyword arguments.
+
+        """
         for node in self.document.findall(nodes.system_message):
             message = node.children[0].children[0].astext()
             for regex, handler in unknown_handlers:
@@ -112,7 +124,11 @@ class inline_markup:
     """An inline markup block."""
 
     def __init__(self, text: str) -> None:
-        """Initialize the inline markup block."""
+        """Initialize the inline markup block.
+
+        :param text: The text content of the markup.
+
+        """
         self.text = text
 
 
@@ -137,7 +153,15 @@ class FormatContext:
         black_config: Mode = None,
         **kwargs: Any,
     ):
-        """Initialize the format context."""
+        """Initialize the format context.
+
+        :param width: Maximum line width.
+        :param current_file: Path to the current file.
+        :param manager: Manager instance.
+        :param black_config: Black formatting configuration.
+        :param kwargs: Additional keyword arguments.
+
+        """
         self.width = width
         self.current_file = current_file
         self.manager = manager
@@ -156,50 +180,112 @@ class FormatContext:
             setattr(self, key, value)
 
     def _replace(self, **kwargs: Any) -> FormatContext:
-        """Return a copy of this context with some values replaced."""
+        """Return a copy of this context with some values replaced.
+
+        :param kwargs: Keyword arguments to replace in the context.
+
+        :returns: New FormatContext with replaced values.
+
+        """
         current_context = copy(vars(self))
         for key, value in current_context.items():
             kwargs.setdefault(key, value)
         return self.__class__(**kwargs)
 
     def in_line_block(self) -> FormatContext:
-        """Return a context for being in a line block."""
+        """Return a context for being in a line block.
+
+        :returns: New FormatContext with incremented line block depth.
+
+        """
         return self._replace(line_block_depth=self.line_block_depth + 1)
 
     def in_section(self) -> FormatContext:
-        """Return a context for being in a section."""
+        """Return a context for being in a section.
+
+        :returns: New FormatContext with incremented section depth.
+
+        """
         return self._replace(section_depth=self.section_depth + 1)
 
     def indent(self, spaces: int) -> FormatContext:
-        """Return a context indented by the given number of spaces."""
+        """Return a context indented by the given number of spaces.
+
+        :param spaces: Number of spaces to indent.
+
+        :returns: New FormatContext with adjusted width.
+
+        """
         return self._replace(width=max(1, self.width - spaces))
 
     def sub_indent(self, subsequent_indent: int) -> FormatContext:
-        """Return a context with the given subsequent indent."""
+        """Return a context with the given subsequent indent.
+
+        :param subsequent_indent: Number of spaces for subsequent indent.
+
+        :returns: New FormatContext with adjusted subsequent indent.
+
+        """
         return self._replace(subsequent_indent=subsequent_indent)
 
     def with_bullet(self, bullet: str) -> FormatContext:
-        """Return a context with the given bullet."""
+        """Return a context with the given bullet.
+
+        :param bullet: Bullet character to use.
+
+        :returns: New FormatContext with the specified bullet.
+
+        """
         return self._replace(bullet=bullet)
 
     def with_column_widths(self, widths: list[int]) -> FormatContext:
-        """Return a context with the given column widths."""
+        """Return a context with the given column widths.
+
+        :param widths: List of column widths.
+
+        :returns: New FormatContext with the specified column widths.
+
+        """
         return self._replace(column_widths=widths)
 
     def with_ordinal(self, current_ordinal: int) -> FormatContext:
-        """Return a context with the given current ordinal."""
+        """Return a context with the given current ordinal.
+
+        :param current_ordinal: Current ordinal number.
+
+        :returns: New FormatContext with the specified ordinal.
+
+        """
         return self._replace(current_ordinal=current_ordinal)
 
     def with_ordinal_format(self, ordinal_format: str) -> FormatContext:
-        """Return a context with the given ordinal format."""
+        """Return a context with the given ordinal format.
+
+        :param ordinal_format: Format for ordinal numbers.
+
+        :returns: New FormatContext with the specified ordinal format.
+
+        """
         return self._replace(ordinal_format=ordinal_format)
 
     def with_width(self, width: int) -> FormatContext:
-        """Return a context with the given width."""
+        """Return a context with the given width.
+
+        :param width: Width for the context.
+
+        :returns: New FormatContext with the specified width.
+
+        """
         return self._replace(width=width)
 
     def wrap_first_at(self, width: int) -> FormatContext:
-        """Return a context that wraps the first line at the given width."""
+        """Return a context that wraps the first line at the given width.
+
+        :param width: Width for the first line.
+
+        :returns: New FormatContext with the specified first line width.
+
+        """
         return self._replace(first_line_len=width)
 
 
@@ -211,7 +297,11 @@ class CodeFormatters:
     context: FormatContext
 
     def python(self) -> str:
-        """Format Python code."""
+        """Format Python code.
+
+        :returns: Formatted Python code.
+
+        """
         if not self.context.manager.format_python_code_blocks:
             return self.code
         try:
@@ -234,6 +324,32 @@ class CodeFormatters:
                     )
         return self.code
 
+    def rst(self) -> str:
+        """Format reStructuredText code.
+
+        :returns: Formatted reStructuredText code.
+
+        """
+        manager = self.context.manager
+        try:
+            document = manager.parse_string(
+                manager.current_file,
+                self.code,
+                line_offset=manager.get_code_line(self.code) - 1,
+            )
+            formatted = manager.format_node(
+                self.context.width,
+                document,
+                is_docstring=False,
+            )
+            return formatted.rstrip()
+        except InvalidRstErrors as errors:  # pragma: no cover
+            manager.error_count += len(errors.errors)
+            for error in errors.errors:
+                if manager.reporter:
+                    manager.reporter.error(str(error))
+            return self.code
+
 
 class Manager:
     """Manager for formatting reStructuredText."""
@@ -246,7 +362,15 @@ class Manager:
         format_python_code_blocks: bool = True,
         section_adornments: list[tuple[str, bool]] | None = None,
     ):
-        """Initialize the manager."""
+        """Initialize the manager.
+
+        :param reporter: Reporter instance for logging.
+        :param black_config: Black formatting configuration.
+        :param docstring_trailing_line: Whether to add trailing line to docstrings.
+        :param format_python_code_blocks: Whether to format Python code blocks.
+        :param section_adornments: Section adornment configuration.
+
+        """
         rst_extras.register()
         self.black_config = black_config
         self.current_offset = 0
@@ -267,7 +391,11 @@ class Manager:
         self.section_adornments = section_adornments
 
     def _patch_unknown_directives(self, text: str) -> None:
-        """Patch unknown directives and roles into the parser."""
+        """Patch unknown directives and roles into the parser.
+
+        :param text: Text to parse for unknown directives.
+
+        """
         doc = new_document(str(self.current_file), self.settings)
         parser = rst.Parser()
         doc.reporter = IgnoreMessagesReporter(
@@ -352,7 +480,15 @@ class Manager:
         node: nodes.Node,
         is_docstring: bool = False,
     ) -> str:
-        """Format a node."""
+        """Format a node.
+
+        :param width: Maximum line width for formatting.
+        :param node: The node to format.
+        :param is_docstring: Whether this is formatting a docstring.
+
+        :returns: Formatted string representation of the node.
+
+        """
         self._in_docstring = is_docstring
         formatted_node = "\n".join(
             self.perform_format(
@@ -380,15 +516,12 @@ class Manager:
         ``adornment-character`` with the character used for underline or overlining the
         section, and ``adornment-overline``, if the section should be overlined or not.
 
-        input_lines
-            The lines of input (splitted by newline), that we must format.
-
-        document
-            The pre-parsed document tree, that will be modified with new section
-            attributes as described above.
+        :param input_lines: The lines of input (split by newline), that we must format.
+        :param document: The pre-parsed document tree, that will be modified with new
+            section attributes as described above.
 
         """
-        for section in document.traverse(nodes.section):
+        for section in document.findall(nodes.section):
             title_node = section.next_node(nodes.title)
             if (
                 title_node
@@ -409,7 +542,16 @@ class Manager:
                 section["adornment-overline"] = overline
 
     def get_code_line(self, code: str, strict: bool = False) -> int:
-        """Get the line number of the code in the file."""
+        """Get the line number of the code in the file.
+
+        :param code: Code string to find.
+        :param strict: Whether to use strict mode.
+
+        :returns: Line number of the code in the file.
+
+        :raises ValueError: If the code is not found.
+
+        """
         lines = self.original_text.splitlines()
         code_lines = code.splitlines()
         multiple = len([line for line in lines if code_lines[0] in line]) > 1
@@ -439,7 +581,15 @@ class Manager:
         text: str,
         line_offset: int = 0,
     ) -> nodes.document:
-        """Parse a string of reStructuredText."""
+        """Parse a string of reStructuredText.
+
+        :param file_name: Name of the file being parsed.
+        :param text: Text content to parse.
+        :param line_offset: Line offset for error reporting.
+
+        :returns: Parsed document node.
+
+        """
         self.current_file = file_name
         self.current_offset = line_offset
         self.original_text = text
@@ -460,7 +610,16 @@ class Manager:
         node: nodes.Node,
         context: FormatContext,
     ) -> Iterator[str]:
-        """Format a node."""
+        """Format a node.
+
+        :param node: The node to format.
+        :param context: Formatting context.
+
+        :returns: Iterator of formatted lines.
+
+        :raises ValueError: If the node type is unknown.
+
+        """
         try:
             func = getattr(self.formatters, type(node).__name__)
         except AttributeError:  # pragma: no cover
@@ -470,7 +629,13 @@ class Manager:
 
 
 def pairwise(items: Iterable[T]) -> Iterator[tuple[T, T]]:
-    """Return pairs of adjacent items from the iterable."""
+    """Return pairs of adjacent items from the iterable.
+
+    :param items: Iterable of items to pair.
+
+    :returns: Iterator of adjacent item pairs.
+
+    """
     a, b = itertools.tee(items)
     next(b, None)
     return zip(a, b, strict=False)
@@ -484,7 +649,14 @@ class Formatters:
         separator: T,
         items: Iterable[Iterable[T]],
     ) -> Iterator[T]:
-        """Chain items with a separator between them."""
+        """Chain items with a separator between them.
+
+        :param separator: Separator to insert between items.
+        :param items: Iterable of iterables to chain.
+
+        :returns: Iterator of chained items with separators.
+
+        """
         first = True
         for item in items:
             if not first:
@@ -494,7 +666,14 @@ class Formatters:
 
     @staticmethod
     def _divide_evenly(width: int, column_count: int) -> list[int]:
-        """Divide width evenly among column_count columns."""
+        """Divide width evenly among column_count columns.
+
+        :param width: Total width to divide.
+        :param column_count: Number of columns.
+
+        :returns: List of widths for each column.
+
+        """
         evenly = [floor(width / column_count)] * column_count
         for i in range(width % column_count):
             evenly[-1 - i] += 1
@@ -502,7 +681,13 @@ class Formatters:
 
     @staticmethod
     def _enum_first(items: Iterable[T]) -> Iterator[tuple[bool, T]]:
-        """Yield items with a boolean indicating if it's the first item."""
+        """Yield items with a boolean indicating if it's the first item.
+
+        :param items: Iterable of items to process.
+
+        :returns: Iterator of tuples (is_first, item).
+
+        """
         return zip(
             itertools.chain([True], itertools.repeat(False)), items, strict=False
         )
@@ -514,7 +699,15 @@ class Formatters:
         context: FormatContext,
         current_line: int,
     ) -> Iterator[str]:
-        """Wrap text to the given width."""
+        """Wrap text to the given width.
+
+        Example:
+
+        .. code-block:: rst
+
+            Wraps inline text content to fit within the specified line width.
+
+        """
         if width is not None and width <= 0:
             msg = f'Invalid starting width {context.starting_width} in File "{context.current_file}", line {current_line}'
             raise ValueError(msg)
@@ -603,11 +796,23 @@ class Formatters:
             yield " ".join(words)
 
     def Text(self, node: nodes.Text, _) -> inline_iterator:
-        """Format a text node."""
+        """Format a text node.
+
+        Example:
+
+        .. code-block:: rst
+
+            Plain text content.
+
+        """
         yield unescape(node, restore_backslashes=True).replace(r"\ ", "")
 
     def __init__(self, manager: Manager):
-        """Initialize the formatters."""
+        """Initialize the formatters.
+
+        :param manager: Manager instance for formatting.
+
+        """
         self.manager = manager
 
     def _format_children(
@@ -615,7 +820,14 @@ class Formatters:
         node: nodes.Node,
         context: FormatContext,
     ) -> Iterator[Iterator[str]]:
-        """Format the children of a node."""
+        """Format the children of a node.
+
+        :param node: The node whose children to format.
+        :param context: Formatting context.
+
+        :returns: Iterator of formatted child content.
+
+        """
         return (
             (
                 self.manager.perform_format(child, context)
@@ -632,7 +844,16 @@ class Formatters:
         width: int,
         widths: list[int] = None,
     ):
-        """Generate a table matrix."""
+        """Generate a table matrix.
+
+        :param context: Formatting context.
+        :param rows: List of table rows.
+        :param width: Table width.
+        :param widths: Optional list of column widths.
+
+        :returns: List of lists containing column widths for each row.
+
+        """
         if widths:
             return [
                 [
@@ -668,7 +889,14 @@ class Formatters:
         ]
 
     def _list(self, node: nodes.Node, context: FormatContext) -> line_iterator:
-        """Format a list node."""
+        """Format a list node.
+
+        :param node: The list node to format.
+        :param context: Formatting context.
+
+        :returns: Iterator of formatted list lines.
+
+        """
         sub_children = []
         for child_index, child in enumerate(node.children, 1):
             sub_children.append(
@@ -683,7 +911,14 @@ class Formatters:
         yield from chain(sub_children)
 
     def _prepend_if_any(self, prefix: T, items: Iterator[T]) -> Iterator[T]:
-        """Prepend a prefix if there are any items."""
+        """Prepend a prefix if there are any items.
+
+        :param prefix: Prefix to add to the first item.
+        :param items: Iterator of items.
+
+        :returns: Iterator with prefix prepended to first item if any items exist.
+
+        """
         try:
             item = next(items)
         except StopIteration:
@@ -697,7 +932,17 @@ class Formatters:
         node: nodes.Node,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a sub-admonition node."""
+        """Format a sub-admonition node.
+
+        Example:
+
+        .. code-block:: rst
+
+            .. note::
+
+                This is a note admonition.
+
+        """
         yield f".. {node.tagname}::"
         yield ""
         yield from self._with_spaces(
@@ -720,7 +965,14 @@ class Formatters:
     warning = _sub_admonition
 
     def _with_spaces(self, space_count: int, lines: Iterable[str]) -> Iterator[str]:
-        """Yield lines with the given number of leading spaces."""
+        """Yield lines with the given number of leading spaces.
+
+        :param space_count: Number of spaces to add.
+        :param lines: Iterable of lines to indent.
+
+        :returns: Iterator of indented lines.
+
+        """
         spaces = " " * space_count
         for line in lines:
             yield spaces + line if line else line
@@ -730,7 +982,22 @@ class Formatters:
         node: nodes.admonition,
         context: FormatContext,
     ) -> line_iterator:
-        """Format an admonition node."""
+        """Format an admonition node.
+
+        :param node: The admonition node to format.
+        :param context: Formatting context.
+
+        :returns: Iterator of formatted admonition lines.
+
+        Example:
+
+        .. code-block:: rst
+
+            .. admonition:: Custom Title
+
+                This is a custom admonition with a title.
+
+        """
         title = node.children[0]
         assert isinstance(title, nodes.title)
         yield (
@@ -755,7 +1022,20 @@ class Formatters:
         node: nodes.block_quote,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a block quote node."""
+        """Format a block quote node.
+
+        :param node: The block quote node to format.
+        :param context: Formatting context.
+
+        :returns: Iterator of formatted block quote lines.
+
+        Example:
+
+        .. code-block:: rst
+
+            This is a block quote. It is indented.
+
+        """
         yield from self._with_spaces(
             4,
             self._chain_with_line_separator(
@@ -768,7 +1048,22 @@ class Formatters:
         node: nodes.bullet_list,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a bullet list node."""
+        """Format a bullet list node.
+
+        :param node: The bullet list node to format.
+        :param context: Formatting context.
+
+        :returns: Iterator of formatted bullet list lines.
+
+        Example:
+
+        .. code-block:: rst
+
+            - First item
+            - Second item
+            - Third item
+
+        """
         yield from self._list(node, context.with_bullet("-"))
 
     def comment(
@@ -776,7 +1071,17 @@ class Formatters:
         node: nodes.comment,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a comment node."""
+        """Format a comment node.
+
+        Example:
+
+        .. code-block:: rst
+
+            ..
+                This is a comment.
+                It won't appear in the output.
+
+        """
         if len(node.children) == 1:
             text = "\n".join(chain(self._format_children(node, context)))
             if "\n" not in text:
@@ -793,7 +1098,16 @@ class Formatters:
         node: nodes.definition,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a definition node."""
+        """Format a definition node.
+
+        Example:
+
+        .. code-block:: rst
+
+            term
+                The definition of the term.
+
+        """
         yield from self._chain_with_line_separator(
             "", self._format_children(node, context)
         )
@@ -803,7 +1117,19 @@ class Formatters:
         node: nodes.definition_list,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a definition list node."""
+        """Format a definition list node.
+
+        Example:
+
+        .. code-block:: rst
+
+            term 1
+                Definition 1.
+
+            term 2
+                Definition 2.
+
+        """
         yield from self._chain_with_line_separator(
             "", self._format_children(node, context)
         )
@@ -813,7 +1139,16 @@ class Formatters:
         node: nodes.definition_list_item,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a definition list item node."""
+        """Format a definition list item node.
+
+        Example:
+
+        .. code-block:: rst
+
+            term
+                The definition.
+
+        """
         for child in node.children:
             if isinstance(child, nodes.term):
                 yield from self.manager.perform_format(child, context)
@@ -823,7 +1158,17 @@ class Formatters:
                 )
 
     def directive(self, node: Directive, context: FormatContext) -> line_iterator:
-        """Format a directive node."""
+        """Format a directive node.
+
+        Example:
+
+        .. code-block:: rst
+
+            .. note::
+
+                This is a note directive.
+
+        """
         attributes = node.attributes
         directive = attributes["directive"]
         is_code_block = directive.name in ["code", "code-block", "sourcecode"]
@@ -870,7 +1215,18 @@ class Formatters:
         node: nodes.doctest_block,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a doctest block."""
+        """Format a doctest block.
+
+        Example:
+
+        .. code-block:: rst
+
+            >>> print("Hello")
+            Hello
+            >>> 1 + 1
+            2
+
+        """
         code = node.children[0].astext()
         parser = DocTestParser()
         try:
@@ -918,7 +1274,15 @@ class Formatters:
         node: nodes.document,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a document node."""
+        """Format a document node.
+
+        Example:
+
+        .. code-block:: rst
+
+            The entire document content.
+
+        """
         yield from self._chain_with_line_separator(
             "", self._format_children(node, context)
         )
@@ -928,7 +1292,15 @@ class Formatters:
         node: nodes.emphasis,
         context: FormatContext,
     ) -> inline_iterator:
-        """Format an emphasis node."""
+        """Format an emphasis node.
+
+        Example:
+
+        .. code-block:: rst
+
+            This is *emphasized* text.
+
+        """
         joined = "".join(chain(self._format_children(node, context))).replace(
             "*", "\\*"
         )
@@ -939,7 +1311,17 @@ class Formatters:
         node: nodes.enumerated_list,
         context: FormatContext,
     ) -> line_iterator:
-        """Format an enumerated list node."""
+        """Format an enumerated list node.
+
+        Example:
+
+        .. code-block:: rst
+
+            1. First item
+            2. Second item
+            3. Third item
+
+        """
         yield from self._list(
             node,
             context.with_ordinal(node.attributes.get("start", 1)).with_ordinal_format(
@@ -953,7 +1335,15 @@ class Formatters:
         node: nodes.field,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a field node."""
+        """Format a field node.
+
+        Example:
+
+        .. code-block:: rst
+
+            :param name: Description of the parameter.
+
+        """
         children = chain(self._format_children(node, context))
         field_name = next(children)
         is_empty_sphinx_metadata_field = field_name.startswith(
@@ -1006,7 +1396,15 @@ class Formatters:
         node: nodes.field_body,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a field body node."""
+        """Format a field body node.
+
+        Example:
+
+        .. code-block:: rst
+
+            Description of the field.
+
+        """
         yield from self._chain_with_line_separator(
             "",
             self._format_children(
@@ -1022,7 +1420,18 @@ class Formatters:
         node: nodes.field_list,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a field list node."""
+        """Format a field list node.
+
+        Example:
+
+        .. code-block:: rst
+
+            :param arg1: Description.
+            :param arg2: Description.
+
+            :returns: Return value description.
+
+        """
         param_fields = []
         param_types = {}
         var_fields = []
@@ -1165,7 +1574,15 @@ class Formatters:
         node: nodes.field_name,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a field name node."""
+        """Format a field name node.
+
+        Example:
+
+        .. code-block:: rst
+
+            :param name: Description of the parameter.
+
+        """
         text = " ".join(chain(self._format_children(node, context)))
         body = ":"
         field_kinds = [
@@ -1184,7 +1601,15 @@ class Formatters:
         yield body
 
     def footnote(self, node: nodes.footnote_reference, context: FormatContext):
-        """Format a footnote node."""
+        """Format a footnote node.
+
+        Example:
+
+        .. code-block:: rst
+
+            .. [1] This is a footnote.
+
+        """
         prefix = ".."
         children = self._wrap_text(
             (context.width - 4 if context.width is not None else None),
@@ -1210,7 +1635,15 @@ class Formatters:
         node: nodes.footnote_reference,
         context: FormatContext,
     ):
-        """Format a footnote reference node."""
+        """Format a footnote reference node.
+
+        Example:
+
+        .. code-block:: rst
+
+            This is a reference [1]_ to a footnote.
+
+        """
         footnote_name = "#" if node.attributes.get("auto", False) else ""
         yield inline_markup(f"[{footnote_name}{node.attributes.get('refname', '')}]_")
 
@@ -1221,15 +1654,50 @@ class Formatters:
         node: nodes.inline,
         context: FormatContext,
     ) -> inline_iterator:
-        """Format an inline node."""
+        """Format an inline node.
+
+        :param node: The inline node to format.
+        :param context: Formatting context.
+
+        :returns: Iterator of formatted inline content.
+
+        Example:
+
+        .. code-block:: rst
+
+            This is inline content.
+
+        """
         yield from chain(self._format_children(node, context))  # pragma: no cover
 
     def label(self, node: nodes.footnote_reference, context: FormatContext):
-        """Format a label node."""
+        """Format a label node.
+
+        :param node: The label node to format.
+        :param context: Formatting context.
+
+        :returns: Formatted label string.
+
+        Example:
+
+        .. code-block:: rst
+
+            [label]
+
+        """
         yield f"[{' '.join(chain(self._format_children(node, context)))}]"
 
     def line(self, node: nodes.line, context: FormatContext) -> line_iterator:
-        """Format a line node."""
+        """Format a line node.
+
+        Example:
+
+        .. code-block:: rst
+
+            |   This is a line
+            |   in a line block.
+
+        """
         if not node.children:
             yield "|"
             return
@@ -1253,7 +1721,17 @@ class Formatters:
         node: nodes.line_block,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a line block node."""
+        """Format a line block node.
+
+        Example:
+
+        .. code-block:: rst
+
+            |   Line one
+            |   Line two
+            |   Line three
+
+        """
         yield from chain(self._format_children(node, context.in_line_block()))
 
     def list_item(
@@ -1261,7 +1739,15 @@ class Formatters:
         node: nodes.list_item,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a list item node."""
+        """Format a list item node.
+
+        Example:
+
+        .. code-block:: rst
+
+            - This is a list item.
+
+        """
         if not node.children:  # pragma: no cover
             yield "-"  # no idea why this isn't covered anymore
             return
@@ -1285,7 +1771,15 @@ class Formatters:
         node: nodes.literal,
         context: FormatContext,
     ) -> inline_iterator:
-        """Format a literal node."""
+        """Format a literal node.
+
+        Example:
+
+        .. code-block:: rst
+
+            This is ``literal`` text.
+
+        """
         yield inline_markup(
             f"``{''.join(chain(self._format_children(node, context)))}``"
         )
@@ -1295,7 +1789,22 @@ class Formatters:
         node: nodes.literal_block,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a literal block node."""
+        """Format a literal block node.
+
+        Example:
+
+        .. code-block:: rst
+
+            ::
+
+                This is a literal block
+                with preformatted text.
+
+            .. code-block:: python
+
+                print("Hello, world!")
+
+        """
         if len(node.attributes["classes"]) > 1 and node.attributes["classes"][0] in [
             "code",
             "code-block",
@@ -1323,7 +1832,21 @@ class Formatters:
         node: nodes.paragraph,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a paragraph node."""
+        """Format a paragraph node.
+
+        :param node: The paragraph node to format.
+        :param context: Formatting context.
+
+        :returns: Iterator of formatted paragraph lines.
+
+        Example:
+
+        .. code-block:: rst
+
+            This is a paragraph of text that will be wrapped according to the line length
+            settings.
+
+        """
         wrap_text_context = context.sub_indent(context.subsequent_indent)
         if context.is_docstring:
             context.is_docstring = False
@@ -1345,7 +1868,11 @@ class Formatters:
         node: pending,
         context: FormatContext,
     ) -> inline_iterator:  # pragma: no cover
-        """Format a pending node."""
+        """Format a pending node.
+
+        :raises NotImplementedError: Always raised as pending nodes are not supported.
+
+        """
         msg = f'Unknown node found at File "{context.current_file}", line {node.line}'
         raise NotImplementedError(msg)
 
@@ -1354,15 +1881,30 @@ class Formatters:
         node: nodes.paragraph,
         context: FormatContext,
     ) -> line_iterator:  # pragma: no cover
-        """Format a problematic node."""
+        """Format a problematic node.
+
+        :param node: The problematic node to format.
+        :param context: Formatting context.
+
+        :returns: Iterator of formatted lines.
+
+        """
         yield from chain(self._format_children(node, context))
 
     def ref_role(
         self,
         node: nodes.Node,
         context: FormatContext,
-    ) -> inline_iterator:  # pragma: no cover I don't think this is able to be covered
-        """Format a ref_role node."""
+    ) -> inline_iterator:
+        """Format a ref_role node.
+
+        Example:
+
+        .. code-block:: rst
+
+            :ref:`Link text <target>`
+
+        """
         attributes = node.attributes
         target = attributes["target"]
         if attributes["has_explicit_title"]:
@@ -1378,7 +1920,15 @@ class Formatters:
         node: nodes.reference,
         context: FormatContext,
     ) -> inline_iterator:
-        """Format a reference node."""
+        """Format a reference node.
+
+        Example:
+
+        .. code-block:: rst
+
+            `Link text <https://example.com>`_
+
+        """
         title = " ".join(
             self._wrap_text(
                 None, chain(self._format_children(node, context)), context, node.line
@@ -1386,7 +1936,6 @@ class Formatters:
         )
 
         def anonymous_suffix(is_anonymous: bool) -> str:
-            """Return the appropriate suffix for anonymous references."""
             return "__" if is_anonymous else "_"
 
         attributes = node.attributes
@@ -1443,11 +1992,29 @@ class Formatters:
         node: nodes.Node,
         context: FormatContext,
     ) -> inline_iterator:
-        """Format a role node."""
+        """Format a role node.
+
+        Example:
+
+        .. code-block:: rst
+
+            :guilabel:`Button Text`
+
+        """
         yield inline_markup(f":{node.attributes['role']}:`{node.attributes['text']}`")
 
     def row(self, node: nodes.row, context: FormatContext) -> line_iterator:
-        """Format a table row node."""
+        """Format a table row node.
+
+        Example:
+
+        .. code-block:: rst
+
+            ===== =====
+            Cell1 Cell2
+            ===== =====
+
+        """
         all_lines = [
             self._chain_with_line_separator(
                 "", self._format_children(entry, context.with_width(width))
@@ -1465,7 +2032,19 @@ class Formatters:
         node: nodes.section,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a section node."""
+        """Format a section node.
+
+        Example:
+
+        .. code-block:: rst
+
+            ###############
+             Section Title
+            ###############
+
+            Section content.
+
+        """
         yield from self._chain_with_line_separator(
             "", self._format_children(node, context.in_section())
         )
@@ -1475,7 +2054,15 @@ class Formatters:
         node: nodes.strong,
         context: FormatContext,
     ) -> inline_iterator:
-        """Format a strong node."""
+        """Format a strong node.
+
+        Example:
+
+        .. code-block:: rst
+
+            This is **bold** text.
+
+        """
         joined = "".join(chain(self._format_children(node, context))).replace(
             "*", "\\*"
         )
@@ -1486,7 +2073,15 @@ class Formatters:
         node: nodes.substitution_definition,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a substitution definition node."""
+        """Format a substitution definition node.
+
+        Example:
+
+        .. code-block:: rst
+
+            .. |name| replace:: replacement text
+
+        """
         elements = node.rawsource.split("|")
         target = elements[1]
         directive = elements[2].strip().split("::")[0]
@@ -1516,7 +2111,15 @@ class Formatters:
         node: nodes.substitution_reference,
         context: FormatContext,
     ) -> inline_iterator:
-        """Format a substitution reference node."""
+        """Format a substitution reference node.
+
+        Example:
+
+        .. code-block:: rst
+
+            |name|
+
+        """
         child = chain(self._format_children(node, context))
         yield inline_markup(f"|{''.join(child)}|")
 
@@ -1525,7 +2128,19 @@ class Formatters:
         node: nodes.table,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a table node."""
+        """Format a table node.
+
+        Example:
+
+        .. code-block:: rst
+
+            ===== =====
+            Col 1 Col 2
+            ===== =====
+            Data1 Data2
+            ===== =====
+
+        """
         rows = []
         rows_to_check = []
         for row in node.findall(nodes.row):
@@ -1626,7 +2241,15 @@ class Formatters:
         node: nodes.target,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a target node."""
+        """Format a target node.
+
+        Example:
+
+        .. code-block:: rst
+
+            .. _target-name: https://example.com
+
+        """
         if not isinstance(node.parent, (nodes.document, nodes.section)):
             return
         try:
@@ -1646,13 +2269,30 @@ class Formatters:
         node: nodes.tbody,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a table body node."""
+        """Format a table body node.
+
+        Example:
+
+        .. code-block:: rst
+
+            Table body rows.
+
+        """
         yield from chain(self._format_children(node, context))
 
     thead = tbody
 
     def term(self, node: nodes.term, context: FormatContext) -> line_iterator:
-        """Format a term node."""
+        """Format a term node.
+
+        Example:
+
+        .. code-block:: rst
+
+            term
+                Definition.
+
+        """
         yield " ".join(
             self._wrap_text(
                 None, chain(self._format_children(node, context)), context, node.line
@@ -1664,7 +2304,19 @@ class Formatters:
         node: nodes.tgroup,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a table group node."""
+        """Format a table group node.
+
+        Example:
+
+        .. code-block:: rst
+
+            ===== =====
+            Col1  Col2
+            ===== =====
+            Data1 Data2
+            ===== =====
+
+        """
         sep = " ".join("=" * width for width in context.column_widths)
         yield sep
         for child in node.children:
@@ -1682,7 +2334,17 @@ class Formatters:
         node: nodes.title,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a title node."""
+        """Format a title node.
+
+        Example:
+
+        .. code-block:: rst
+
+            ###############
+             Section Title
+            ###############
+
+        """
         text = " ".join(
             self._wrap_text(
                 None, chain(self._format_children(node, context)), context, node.line
@@ -1719,7 +2381,15 @@ class Formatters:
         node: nodes.title_reference,
         context: FormatContext,
     ) -> inline_iterator:
-        """Format a title reference node."""
+        """Format a title reference node.
+
+        Example:
+
+        .. code-block:: rst
+
+            `Title Reference`
+
+        """
         yield inline_markup(f"`{''.join(chain(self._format_children(node, context)))}`")
 
     def transition(
@@ -1727,5 +2397,17 @@ class Formatters:
         node: nodes.transition,
         context: FormatContext,
     ) -> line_iterator:
-        """Format a transition node."""
+        """Format a transition node.
+
+        Example:
+
+        .. code-block:: rst
+
+            Some text before the transition.
+
+            ----
+
+            Some text after the transition.
+
+        """
         yield "----"

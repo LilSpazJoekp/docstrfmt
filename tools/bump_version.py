@@ -5,6 +5,7 @@ COMMIT_PREFIX = "Bump to v"
 
 
 def main():
+    """Main entry point for version bumping script."""
     line = sys.stdin.readline()
     if not line.startswith(COMMIT_PREFIX):
         sys.stderr.write(
