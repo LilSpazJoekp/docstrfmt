@@ -1700,7 +1700,7 @@ class Formatters:
                     f"Section at line {node.line} is at depth "
                     f"{context.section_depth}, however there are only "
                     f"{len(context.manager.section_adornments)} adornments to pick "
-                    f"from. You must review your inputs or change settings."
+                    "from. You must review your inputs or change settings."
                 )
                 raise
 
