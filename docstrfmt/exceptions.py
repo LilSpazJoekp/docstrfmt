@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Sized
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     from pathlib import Path
 
 
@@ -23,8 +24,15 @@ class InvalidRstError(ValueError):
             f' "{self.file}"{f", line {self.line}" if self.line else ""}:\n{self.message}'
         )
 
-    def __init__(self, file: Path, level: str, line: int, message: str):
-        """Initialize an invalid RST error."""
+    def __init__(self, file: Path | str, level: str, line: int, message: str) -> None:
+        """Initialize an invalid RST error.
+
+        :param file: The file where the error occurred.
+        :param level: The severity level of the error.
+        :param line: The line number where the error occurred.
+        :param message: The error message.
+
+        """
         self.file = file
         self.level = level
 
@@ -36,11 +44,19 @@ class InvalidRstError(ValueError):
         return self.error_message
 
 
-class InvalidRstErrors(DocstrfmtError):
+class InvalidRstErrors(DocstrfmtError, Sized):
     """Container for multiple invalid RST errors."""
 
-    def __init__(self, errors: list[InvalidRstError]):
-        """Initialize the error container with a list of errors."""
+    def __len__(self) -> int:  # pragma: no cover
+        """Return the number of errors."""
+        return len(self.errors)
+
+    def __init__(self, errors: list[InvalidRstError]) -> None:
+        """Initialize the error container with a list of errors.
+
+        :param errors: List of InvalidRstError instances.
+
+        """
         self.errors = errors
 
     def __str__(self) -> str:

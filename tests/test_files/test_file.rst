@@ -305,6 +305,14 @@ Python code blocks are formatted with Black_ (if it's found on ``PATH``).
         "the way Black does it",
     ]
 
+ReStructuredText code blocks are formatted with docstrfmt itself.
+
+.. code-block:: rst
+
+    .. admonition:: Custom Title
+
+        This is a custom admonition with a title.
+
 .. code-block:: text
 
     this is just text
