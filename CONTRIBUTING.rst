@@ -1,20 +1,22 @@
-Contributing to docstrfmt
-=========================
+###########################
+ Contributing to docstrfmt
+###########################
 
 Thank you for your interest in contributing to docstrfmt! This document provides
 guidelines and instructions for contributing to the project.
 
-Getting Started
----------------
+*****************
+ Getting Started
+*****************
 
 Prerequisites
-~~~~~~~~~~~~~
+=============
 
 - Python 3.10 or higher
 - `uv <https://docs.astral.sh/uv/>`_ (recommended) or pip
 
 Setting Up Your Development Environment
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+=======================================
 
 1. Fork the repository on GitHub and clone your fork:
 
@@ -50,11 +52,12 @@ Setting Up Your Development Environment
 
        uv run pre-commit install
 
-Development Workflow
---------------------
+**********************
+ Development Workflow
+**********************
 
 Running Tests
-~~~~~~~~~~~~~
+=============
 
 Run the test suite using pytest:
 
@@ -83,7 +86,7 @@ Run tests for a specific Python version:
     uv run tox -e py310
 
 Running Linters
-~~~~~~~~~~~~~~~
+===============
 
 The project uses pre-commit hooks to ensure code quality. Run all checks:
 
@@ -116,7 +119,7 @@ Format the docs with docstrfmt:
     uv run docstrfmt .
 
 Running the Daemon
-~~~~~~~~~~~~~~~~~~
+==================
 
 To test the daemon functionality, first install with the daemon extras:
 
@@ -130,8 +133,9 @@ Then start the daemon:
 
     uv run docstrfmtd
 
-Code Style Guidelines
----------------------
+***********************
+ Code Style Guidelines
+***********************
 
 - Follow PEP 8 guidelines
 - Use type hints for function signatures
@@ -139,8 +143,9 @@ Code Style Guidelines
 - Keep line length to 88 characters (Black's default)
 - Use meaningful variable and function names
 
-Making Changes
---------------
+****************
+ Making Changes
+****************
 
 1. Create a new branch for your changes:
 
@@ -170,23 +175,26 @@ Making Changes
 
 5. Open a Pull Request on GitHub
 
-Pull Request Guidelines
------------------------
+*************************
+ Pull Request Guidelines
+*************************
 
 - Provide a clear description of the changes
 - Reference any related issues
 - Ensure all tests pass and coverage remains at 100%
 
-Testing Guidelines
-------------------
+********************
+ Testing Guidelines
+********************
 
 - Write tests for all new features and bug fixes
 - Ensure all tests pass before submitting a PR
 - Maintain 100% test coverage
 - Use descriptive test names that explain what is being tested
 
-Adding New Features
--------------------
+*********************
+ Adding New Features
+*********************
 
 When adding new reStructuredText constructs or features:
 

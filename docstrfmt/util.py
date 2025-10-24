@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 
 # Modified from docutils.parsers.rst.states.Body
-def make_enumerator(ordinal: int, sequence: str, fmt: tuple[str, str]) -> str | None:
+def make_enumerator(ordinal: int, sequence: str, fmt: tuple[str, str]) -> str:
     """Construct and return the next enumerated list item marker, and an auto-enumerator ("#" instead of the regular enumerator).
 
     :param ordinal: The ordinal number.
@@ -34,13 +34,15 @@ def make_enumerator(ordinal: int, sequence: str, fmt: tuple[str, str]) -> str | 
     else:
         if sequence.endswith("alpha"):
             if ordinal > 26:  # pragma: no cover
-                return None
+                msg = "alphabetic enumerators support only up to 26 items"
+                raise ParserError(msg) from None
             enumerator = chr(ordinal + ord("a") - 1)
         elif sequence.endswith("roman"):
             try:
                 enumerator = roman.toRoman(ordinal)
             except roman.RomanError:  # pragma: no cover
-                return None
+                msg = "invalid roman numeric enumerator"
+                raise ParserError(msg) from None
         else:  # pragma: no cover
             msg = f'unknown enumerator sequence: "{sequence}"'
             raise ParserError(msg)
@@ -50,7 +52,7 @@ def make_enumerator(ordinal: int, sequence: str, fmt: tuple[str, str]) -> str | 
             enumerator = enumerator.upper()
         else:  # pragma: no cover
             msg = f'unknown enumerator sequence: "{sequence}"'
-            raise ParserError(msg)
+            raise ParserError(msg) from None
     return fmt[0] + enumerator + fmt[1]
 
 
@@ -156,7 +158,7 @@ class FileCache:
             with tempfile.NamedTemporaryFile(
                 dir=str(cache_file.parent), delete=False
             ) as f:
-                pickle.dump(new_cache, f, protocol=4)
+                pickle.dump(new_cache, f, protocol=4)  # type: ignore[call-arg]
             Path(f.name).replace(cache_file)
         except OSError:  # pragma: no cover
             pass
@@ -165,7 +167,7 @@ class FileCache:
 class LineResolver:
     """A class to resolve the line number of a code block in a file."""
 
-    def __init__(self, file: Path, source: str) -> None:
+    def __init__(self, file: Path | str, source: str) -> None:
         """Initialize the class.
 
         :param file: Path to the file.

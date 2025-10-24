@@ -11,21 +11,17 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from docutils import nodes, utils
-from sphinx.domains.std import ProductionList
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
-
-import docutils
-import sphinx
-from docutils.parsers.rst import directives, roles
+from docutils.parsers.rst import Directive, directives, roles
 from docutils.parsers.rst.directives import body, images, misc, parts, tables
+from sphinx import domains, util
 from sphinx.directives import code, other
+from sphinx.domains.std import ProductionList
+from sphinx.ext.autodoc import directive as sphinx_directive
 
 try:  # pragma: no cover
     from sphinx.directives.admonitions import SeeAlso
 except ImportError:  # pragma: no cover
-    from sphinx.directives.other import SeeAlso
+    from sphinx.directives.other import SeeAlso  # type: ignore[assignment]
 
 # Import these only to load their domain subclasses.
 from sphinx.domains import c, changeset, cpp, python  # noqa: F401
@@ -34,12 +30,15 @@ from sphinx.roles import generic_docroles, specific_docroles
 
 from . import ROLE_ALIASES
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 T = TypeVar("T")
 
 
-def _add_directive(
+def add_directive(
     name: str,
-    cls: type[docutils.parsers.rst.Directive],
+    cls: type[Directive],
     *,
     raw: bool = True,
     is_injected: bool = False,
@@ -61,7 +60,7 @@ def _add_directive(
     # - Override the run method to just stick the directive into the tree.
     # - Add a `raw` attribute to inform formatting later on.
     namespace = {
-        "option_spec": autodoc.directive.DummyOptionSpec(),
+        "option_spec": sphinx_directive.DummyOptionSpec(),
         "run": lambda self: [directive(directive=self)],
         "raw": raw,
         "has_content": True if is_injected else cls.has_content,
@@ -105,15 +104,15 @@ def register() -> None:
         roles.register_canonical_role(r, generic_role)
 
     roles.register_canonical_role("download", ReferenceRole())
-    for domain in _subclasses(sphinx.domains.Domain):
+    for domain in _subclasses(domains.Domain):
         for name, role_callable in domain.roles.items():
-            if isinstance(role_callable, sphinx.util.docutils.ReferenceRole):
+            if isinstance(role_callable, util.docutils.ReferenceRole):
                 roles.register_canonical_role(name, ReferenceRole())
                 roles.register_canonical_role(f"{domain.name}:{name}", ReferenceRole())
 
         for name, directive_callable in domain.directives.items():
-            _add_directive(name, directive_callable)
-            _add_directive(f"{domain.name}:{name}", directive_callable)
+            add_directive(name, directive_callable)
+            add_directive(f"{domain.name}:{name}", directive_callable)
 
     for name, _nodeclass in generic_docroles.items():
         roles.register_local_role(name, generic_role)
@@ -122,54 +121,54 @@ def register() -> None:
         roles.register_local_role(name, generic_role)
 
     # docutils directives
-    _add_directive("contents", parts.Contents)
-    _add_directive("figure", images.Figure, raw=False)
-    _add_directive("image", images.Image)
-    _add_directive("include", misc.Include)
-    _add_directive("unicode", misc.Unicode)
-    _add_directive("list-table", tables.ListTable, raw=False)
-    _add_directive("csv-table", tables.CSVTable, raw=False)
-    _add_directive("rst-table", tables.RSTTable, raw=False)
-    _add_directive("rst-class", misc.Class)
-    _add_directive("math", body.MathBlock)
-    _add_directive("meta", misc.Meta)
-    _add_directive("raw", misc.Raw)
-    _add_directive("rubric", body.Rubric, raw=False)
+    add_directive("contents", parts.Contents)
+    add_directive("figure", images.Figure, raw=False)
+    add_directive("image", images.Image)
+    add_directive("include", misc.Include)
+    add_directive("unicode", misc.Unicode)
+    add_directive("list-table", tables.ListTable, raw=False)
+    add_directive("csv-table", tables.CSVTable, raw=False)
+    add_directive("rst-table", tables.RSTTable, raw=False)
+    add_directive("rst-class", misc.Class)
+    add_directive("math", body.MathBlock)
+    add_directive("meta", misc.Meta)  # type: ignore[attr]
+    add_directive("raw", misc.Raw)
+    add_directive("rubric", body.Rubric, raw=False)
 
     # sphinx directives
-    _add_directive("autosummary", autosummary.Autosummary)
-    _add_directive("code-block", code.CodeBlock)
-    _add_directive("deprecated", changeset.VersionChange, raw=False)
-    _add_directive("highlight", code.Highlight)
-    _add_directive("literalinclude", code.LiteralInclude)
-    _add_directive("productionlist", ProductionList)
-    _add_directive("seealso", SeeAlso, raw=False)
-    _add_directive("sourcecode", code.CodeBlock)
-    _add_directive("toctree", other.TocTree)
-    _add_directive("versionadded", changeset.VersionChange, raw=False)
-    _add_directive("versionchanged", changeset.VersionChange, raw=False)
-    _add_directive("versionremoved", changeset.VersionChange, raw=False)
+    add_directive("autosummary", autosummary.Autosummary)
+    add_directive("code-block", code.CodeBlock)
+    add_directive("deprecated", changeset.VersionChange, raw=False)
+    add_directive("highlight", code.Highlight)
+    add_directive("literalinclude", code.LiteralInclude)
+    add_directive("productionlist", ProductionList)
+    add_directive("seealso", SeeAlso, raw=False)
+    add_directive("sourcecode", code.CodeBlock)
+    add_directive("toctree", other.TocTree)
+    add_directive("versionadded", changeset.VersionChange, raw=False)
+    add_directive("versionchanged", changeset.VersionChange, raw=False)
+    add_directive("versionremoved", changeset.VersionChange, raw=False)
 
     for d in set(_subclasses(autodoc.Documenter)):
         if d.objtype != "object":
-            _add_directive(
-                f"auto{d.objtype}", autodoc.directive.AutodocDirective, raw=False
+            add_directive(
+                f"auto{d.objtype}", sphinx_directive.AutodocDirective, raw=False
             )
 
-    try:
+    try:  # pragma: no cover
         import sphinxarg.ext  # noqa: PLC0415
+
+        add_directive("argparse", sphinxarg.ext.ArgParseDirective)
     except ImportError:
         pass
-    else:  # pragma: no cover
-        _add_directive("argparse", sphinxarg.ext.ArgParseDirective)
 
 
-class ReferenceRole(sphinx.util.docutils.ReferenceRole):
+class ReferenceRole(util.docutils.ReferenceRole):
     """Role that doesn't do anything."""
 
     def run(
         self,
-    ) -> tuple[list[docutils.nodes.Node], list[docutils.nodes.system_message]]:
+    ) -> tuple[list[nodes.Node], list[nodes.system_message]]:
         """Run the role.
 
         :returns: Tuple containing list of nodes and empty list of system messages.
@@ -185,14 +184,17 @@ class ReferenceRole(sphinx.util.docutils.ReferenceRole):
         return [node], []
 
 
+# noinspection PyPep8Naming
 class directive(nodes.Element, nodes.Inline):
     """A directive that doesn't do anything."""
 
 
+# noinspection PyPep8Naming
 class ref_role(nodes.Element):
     """A role that doesn't do anything."""
 
 
+# noinspection PyPep8Naming
 class role(nodes.Element):
     """A role that doesn't do anything."""
 

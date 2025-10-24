@@ -24,7 +24,7 @@ class InvalidRstError(ValueError):
             f' "{self.file}"{f", line {self.line}" if self.line else ""}:\n{self.message}'
         )
 
-    def __init__(self, file: Path, level: str, line: int, message: str):
+    def __init__(self, file: Path | str, level: str, line: int, message: str) -> None:
         """Initialize an invalid RST error.
 
         :param file: The file where the error occurred.

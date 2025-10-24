@@ -13,8 +13,8 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from contextlib import nullcontext
 from copy import copy
 from functools import partial
-from multiprocessing import Lock, freeze_support
 from multiprocessing import Manager as MultiManager
+from multiprocessing import freeze_support
 from os.path import abspath
 from pathlib import Path
 from textwrap import dedent, indent
@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 import click
 import libcst as cst
 
+# noinspection PyUnreachableCode
 if sys.version_info >= (3, 11):
     import tomllib as toml  # pragma: no cover
 else:
@@ -46,8 +47,8 @@ from .util import FileCache, LineResolver, plural
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from contextlib import AbstractContextManager
+    from threading import Lock
 
-    from _typeshed import SupportsWrite
     from libcst import AssignTarget, ClassDef, FunctionDef, Module, SimpleString
 
 echo = partial(click.secho, err=True)
@@ -64,7 +65,7 @@ def _format_file(
     format_python_code_blocks: bool,
     section_adornments: list[tuple[str, bool]] | None,
     raw_output: bool,
-    lock: Lock,
+    lock: Lock | None,
 ):
     """Format a single file with the given parameters.
 
@@ -86,11 +87,12 @@ def _format_file(
     """
     error_count = 0
     manager = Manager(
-        reporter,
-        mode,
-        docstring_trailing_line,
-        format_python_code_blocks,
-        section_adornments,
+        current_file=file.name,
+        black_config=mode,
+        docstring_trailing_line=docstring_trailing_line,
+        format_python_code_blocks=format_python_code_blocks,
+        reporter=reporter,
+        section_adornments=section_adornments,
     )
     if file.name == "-":
         raw_output = True
@@ -226,14 +228,14 @@ def _parse_sources(context: click.Context, _: click.Parameter, value: list[str] 
         else:
             for item in map(Path, glob.iglob(source, recursive=True)):
                 if item.is_dir():
-                    for file in [
+                    for f in [
                         found
                         for extension in extensions
                         for found in glob.iglob(
                             f"{item}/**/*{extension}", recursive=True
                         )
                     ]:
-                        files_to_format.add(abspath(file))
+                        files_to_format.add(abspath(f))
                 else:
                     files_to_format.add(abspath(item))
     for file in list(map(Path, files_to_format)):
@@ -304,7 +306,7 @@ def _process_python(
 
 def _process_rst(
     check: bool,
-    file: Path,
+    file: Path | str,
     input_string: str,
     line_length: int,
     manager: Manager,
@@ -327,7 +329,7 @@ def _process_rst(
         the number of errors.
 
     """
-    doc = manager.parse_string(file, input_string)
+    doc = manager.parse_string(input_string, file=file)
     if reporter.level >= 3:
         reporter.debug("=" * 60)
         reporter.debug(dump_node(doc))
@@ -347,6 +349,7 @@ def _process_rst(
             with lock or nullcontext():
                 _write_output(file, output, nullcontext(sys.stdout), raw_output)
         else:
+            assert isinstance(file, Path)
             _write_output(
                 file,
                 output,
@@ -495,9 +498,9 @@ async def _run_formatter(
 
 
 def _write_output(
-    file: Path,
+    file: Path | str,
     output: str,
-    output_manager: AbstractContextManager[SupportsWrite],
+    output_manager: AbstractContextManager,
     raw: bool,
 ):
     """Write formatted output to a file or stdout.
@@ -516,7 +519,7 @@ def _write_output(
 
 # This code is borrowed from psf/black
 # see here for license: https://github.com/psf/black/blob/master/LICENSE
-def cancel(tasks: Iterable[asyncio.Task[Any]]) -> None:  # pragma: no cover
+def cancel(tasks: Iterable[asyncio.Future[Any]]) -> None:  # pragma: no cover
     """Asyncio signal handler that cancels all `tasks` and reports to stderr.
 
     :param tasks: Iterable of asyncio tasks to cancel.
@@ -530,7 +533,7 @@ def cancel(tasks: Iterable[asyncio.Task[Any]]) -> None:  # pragma: no cover
 def shutdown(loop: asyncio.AbstractEventLoop) -> None:  # pragma: no cover
     """Cancel all pending tasks on `loop`, wait for them, and close the loop.
 
-    :param loop: The asyncio event loop to shutdown.
+    :param loop: The asyncio event loop to shut down.
 
     """
     try:
@@ -630,7 +633,7 @@ class Visitor(CSTTransformer):
 
         """
         super().__init__()
-        self._last_assign = None
+        self._last_assign: AssignTarget | None = None
         self._object_names = [object_name]
         self._object_type = None
         self._blank_line = manager.docstring_trailing_line
@@ -685,7 +688,8 @@ class Visitor(CSTTransformer):
         self._object_names.pop(-1)
         return updated_node
 
-    def _escape_quoting(self, node: SimpleString) -> SimpleString:
+    @staticmethod
+    def _escape_quoting(node: SimpleString) -> SimpleString:
         """Escapes quotes in a docstring when necessary.
 
         :param node: The SimpleString node to escape.
@@ -724,15 +728,15 @@ class Visitor(CSTTransformer):
             position_meta = self.get_metadata(PositionProvider, original_node)
             old_object_type = None
             if self._last_assign:
-                self._object_names.append(self._last_assign.target.children[2].value)
+                self._object_names.append(self._last_assign.target.children[2].value)  # type: ignore[attr]
                 old_object_type = copy(self._object_type)
                 self._object_type = "attribute"
-            indent_level = position_meta.start.column
+            indent_level = position_meta.start.column  # type: ignore[attr]
             source = dedent(
-                (" " * indent_level) + original_node.evaluated_value
+                (" " * indent_level) + str(original_node.evaluated_value)
             ).rstrip()
             doc = self.manager.parse_string(
-                self.file, source, self.line_resolver.offset(original_node.value)
+                source, self.line_resolver.offset(original_node.value), file=self.file
             )
             if reporter.level >= 3:
                 reporter.debug("=" * 60)
@@ -754,7 +758,7 @@ class Visitor(CSTTransformer):
                 f"{self._object_type} {'.'.join(self._object_names)!r}"
             )
             single_line = len(output.splitlines()) == 1
-            original_strip = original_node.evaluated_value.rstrip(" ")
+            original_strip = str(original_node.evaluated_value).rstrip(" ")
             end_line_count = len(original_strip) - len(original_strip.rstrip("\n"))
             ending = "" if single_line else "\n\n" if self._blank_line else "\n"
             if single_line:
@@ -831,6 +835,7 @@ class Visitor(CSTTransformer):
         return True
 
 
+# noinspection PyUnusedLocal
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
 @click.option(
     "-c",
@@ -994,7 +999,7 @@ def main(
     quiet: bool,
     raw_input: str,
     raw_output: bool,
-    section_adornments: list[tuple[str, bool]],
+    section_adornments: list[tuple[str, bool]] | None,
     verbose: int,
     files: list[str],
 ) -> None:
@@ -1039,14 +1044,15 @@ def main(
         section_adornments = None
 
     if raw_input:
-        manager = Manager(
-            reporter,
-            mode,
-            docstring_trailing_line,
-            format_python_code_blocks,
-            section_adornments,
-        )
         file = "<raw_input>"
+        manager = Manager(
+            current_file=file,
+            black_config=mode,
+            docstring_trailing_line=docstring_trailing_line,
+            format_python_code_blocks=format_python_code_blocks,
+            reporter=reporter,
+            section_adornments=section_adornments,
+        )
         check = False
         try:
             misformatted = False
@@ -1093,12 +1099,12 @@ def main(
         worker_count = os.cpu_count()
         if sys.platform == "win32":  # pragma: no cover
             # Work around https://bugs.python.org/issue26903
-            worker_count = min(worker_count, 61)
+            worker_count = min(worker_count or 61, 61)
         try:
             executor = ProcessPoolExecutor(max_workers=worker_count)
         except (ImportError, OSError):  # pragma: no cover
-            # we arrive here if the underlying system does not support multi-processing
-            # like in AWS Lambda or Termux, in which case we gracefully fallback to
+            # we arrive here if the underlying system does not support multiprocessing
+            # like in AWS Lambda or Termux, in which case we gracefully fall back to
             # a ThreadPollExecutor with just a single worker (more workers would not do us
             # any good due to the Global Interpreter Lock)
             executor = ThreadPoolExecutor(max_workers=1)
