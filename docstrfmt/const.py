@@ -1,7 +1,5 @@
 """Constants for docstrfmt."""
 
-# pragma: no cover
-
 DEFAULT_EXCLUDE = [
     "**/.direnv/",
     "**/.direnv/",
@@ -32,3 +30,17 @@ ROLE_ALIASES = {
     "superscript": "sup",
 }
 DEFAULT_LINE_LENGTH = 88
+NODE_MAPPING = {
+    "attention": "_sub_admonition",
+    "caution": "_sub_admonition",
+    "danger": "_sub_admonition",
+    "error": "_sub_admonition",
+    "hint": "_sub_admonition",
+    "important": "_sub_admonition",
+    "meta": "_sub_admonition",
+    "note": "_sub_admonition",
+    "seealso": "_sub_admonition",
+    "tip": "_sub_admonition",
+    "warning": "_sub_admonition",
+    "Text": "text",
+}

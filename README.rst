@@ -1,5 +1,6 @@
-docstrfmt: a formatter for Sphinx flavored reStructuredText
-===========================================================
+#############################################################
+ docstrfmt: a formatter for Sphinx flavored reStructuredText
+#############################################################
 
 .. image:: https://img.shields.io/pypi/v/docstrfmt.svg
     :alt: Latest docstrfmt Version
@@ -29,8 +30,9 @@ docstrfmt: a formatter for Sphinx flavored reStructuredText
 
 *This is considered to be in beta however it is mostly stable.*
 
-Description
------------
+*************
+ Description
+*************
 
 docstrfmt is a tool for automatically formatting reStructuredText_ in files and Python
 docstrings in a consistent way.
@@ -46,15 +48,17 @@ what I can do.
 
 To get a feel for the output of docstrfmt, see `the sample file <sample.rst>`__.
 
-Differences between docstrfmt and rstfmt_
------------------------------------------
+*******************************************
+ Differences between docstrfmt and rstfmt_
+*******************************************
 
 The main difference between rstfmt_ and docstrfmt is the ability to format Python
 docstrings. I am open to merging this project with rstfmt_, however, there as several
 differences in formatting conventions between the two (hence the separate fork).
 
-Usage
------
+*******
+ Usage
+*******
 
 .. code-block:: sh
 
@@ -118,10 +122,10 @@ to avoid the cost of starting and importing everything on every run.
     curl -fsS http://locahost:5219 --data-binary @/dev/stdin
 
 With Editors
-~~~~~~~~~~~~
+============
 
 PyCharm
-+++++++
+-------
 
 Instructions derived from `black documentation
 <https://black.readthedocs.io/en/stable/editor_integration.html#pycharm-intellij-idea>`_
@@ -194,7 +198,7 @@ Instructions derived from `black documentation
    3. Uncheck "Auto-save edited files to trigger the watcher" in Advanced Options
 
 With pre-commit
-~~~~~~~~~~~~~~~
+===============
 
 .. code-block:: yaml
 
@@ -206,11 +210,12 @@ With pre-commit
             language_version: python3
             types_or: [python, rst, txt] # only needed if you want to include txt files.
 
-Contributing
-------------
+**************
+ Contributing
+**************
 
-See `CONTRIBUTING.rst <CONTRIBUTING.rst>`_ for detailed information about setting up a
-development environment and contributing to the project.
+See CONTRIBUTING.rst for detailed information about setting up a development environment
+and contributing to the project.
 
 .. _black: https://github.com/psf/black
 

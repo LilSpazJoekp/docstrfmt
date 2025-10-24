@@ -24,11 +24,11 @@ async def handler(request: web.Request) -> web.Response:
     body = await request.text()
 
     start_time = time.perf_counter()
-    manager = Manager(log, None)
+    manager = Manager(current_file="-", black_config=None, reporter=log)
     try:
         try:
             text = manager.format_node(
-                width, manager.parse_string("<server_input>", body)
+                width, manager.parse_string(body, file="<server_input>")
             )
             resp = web.Response(text=text)
         except utils.SystemMessage as error:  # pragma: no cover
