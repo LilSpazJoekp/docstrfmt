@@ -82,7 +82,7 @@ class FileCache:
             / f"cache.{f'{docstring_trailing_line}_{format_python_code_blocks}_{include_txt}_{line_length}_{mode}'}.pickle"
         )
 
-    def _read_cache(self) -> dict[Path, tuple[float, int]]:
+    def _read_cache(self) -> dict[str, tuple[float, int]]:
         """Read the cache file."""
         cache_file = self._get_cache_filename()
         if not cache_file.exists():
@@ -101,9 +101,12 @@ class FileCache:
         """Generate the list of files to process."""
         todo, done = set(), set()
         for file in (Path(f).resolve() for f in files):
-            if self.cache.get(file) != self._get_file_info(file) or self.ignore_cache:
+            if (
+                self.cache.get(str(file)) != self._get_file_info(file)
+                or self.ignore_cache
+            ):
                 todo.add(file)
-            else:  # pragma: no cover
+            else:
                 done.add(file)
         return todo, done
 
@@ -114,7 +117,7 @@ class FileCache:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             new_cache = {
                 **self.cache,
-                **{file.resolve(): self._get_file_info(file) for file in files},
+                **{str(file.resolve()): self._get_file_info(file) for file in files},
             }
             with tempfile.NamedTemporaryFile(
                 dir=str(cache_file.parent), delete=False

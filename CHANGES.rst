@@ -29,6 +29,7 @@ Unreleased
   4. Default of 88
 - Image and Unicode substitution definitions were not being formatted correctly.
 - Files specified in pyproject are now parsed correctly.
+- Fixed issue when loading cache in certain environments.
 
 **Removed**
 

@@ -675,6 +675,26 @@ def test_globbing(runner, file):
     assert result.output.endswith("were reformatted.\nDone! 🎉\n")
 
 
+@pytest.mark.parametrize("file", test_files)
+def test_cache(runner, file):
+    args = [
+        "-e",
+        "tests/test_files/error_files/",
+        "-e",
+        "tests/test_files/test_encoding.rst",
+        "-l",
+        80,
+        file,
+    ]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output.endswith("were reformatted.\nDone! 🎉\n")
+
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output.endswith("was checked.\nDone! 🎉\n")
+
+
 def test_comment_preserve_single_line(runner):
     file = "..  A comment in a single line is not placed on the next one.\n"
     fixed = ".. A comment in a single line is not placed on the next one.\n"
