@@ -7,6 +7,13 @@ import docutils.utils
 
 
 def get_entry_slice(doc):
+    """Extract log entry slice from document.
+
+    :param doc: Document to extract from.
+
+    :returns: Slice of log entries.
+
+    """
     current_version = sys.stdin.readline().strip()
     start_line = None
     end_line = None

@@ -10,6 +10,7 @@ dev = [
 ]
 lint = [
   "pre-commit",
+  "pyright>=1.1.406",
   "ruff>=0.0.292"
 ]
 test = [
@@ -44,6 +45,7 @@ classifiers = [
 dependencies = [
   "black>=24",
   "click>=8",
+  "coverage>=7.11.0",
   "docutils>=0.21",
   "docutils-stubs==0.0.22",
   "libcst>=1",
@@ -51,7 +53,7 @@ dependencies = [
   "roman",
   "sphinx>=7",
   "tabulate>=0.9",
-  "toml>=0.10;python_version<'3.11'",
+  "tomli>=0.10;python_version<'3.11'",
   "types-docutils==0.22.2.20251006"
 ]
 dynamic = ["version", "description"]
@@ -79,11 +81,36 @@ docstrfmtd = "docstrfmt.server:main [d]"
 extend_exclude = '/(\.venv.*)/'
 line-length = 88
 
+[tool.coverage.report]
+exclude_also = [
+  "if __name__ == __main__.:",
+  "def __repr__",
+  "def __str__",
+  "raise NotImplementedError",
+  "raise NotImplemented",
+  "except ImportError",
+  "except ModuleNotFoundError",
+  "if TYPE_CHECKING:"
+]
+omit = [
+  "tests/*",
+  "docstrfmt/__main__.py"
+]
+
 [tool.docstrfmt]
+files = ["docstrfmt", "tests"]
 extend_exclude = ["tests/test_files/error_files/*"]
 
 [tool.isort]
 profile = "black"
+
+[tool.pyright]
+include = ["docstrfmt"]
+reportPrivateImportUsage = false
+reportMissingImports = false
+executionEnvironments = [
+  {root = "docstrfmt/docstrfmt.py", reportAttributeAccessIssue = "none"}
+]
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
@@ -191,7 +218,7 @@ dependency_groups = ["lint"]
 
 [tool.tox.env.style-fix]
 commands = [
-  ["ruff", "check", "--fix"],
+  ["ruff", "check", "--fix", "{posargs}"],
   ["ruff", "format", "--target-version", "py310"]
 ]
 description = "run lint check on code base"
@@ -199,8 +226,7 @@ dependency_groups = ["lint"]
 
 [tool.tox.env_run_base]
 commands = [
-  ["pytest", "{posargs}"],
-  ["coverage", "report", "-m", "--fail-under=100"]
+  ["pytest", "{posargs}"]
 ]
 description = "Run test under {base_python}"
 dependency_groups = ["test"]

@@ -13,8 +13,8 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from contextlib import nullcontext
 from copy import copy
 from functools import partial
-from multiprocessing import Lock, freeze_support
 from multiprocessing import Manager as MultiManager
+from multiprocessing import freeze_support
 from os.path import abspath
 from pathlib import Path
 from textwrap import dedent, indent
@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 import click
 import libcst as cst
 
+# noinspection PyUnreachableCode
 if sys.version_info >= (3, 11):
     import tomllib as toml  # pragma: no cover
 else:
@@ -38,18 +39,16 @@ from click import Context
 from libcst import CSTTransformer, Expr
 from libcst.metadata import ParentNodeProvider, PositionProvider
 
-from . import DEFAULT_EXCLUDE, __version__
-from .const import SECTION_CHARS
+from . import DEFAULT_EXCLUDE, SECTION_CHARS, Manager, __version__
 from .debug import dump_node
-from .docstrfmt import Manager
 from .exceptions import InvalidRstErrors
 from .util import FileCache, LineResolver, plural
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     from collections.abc import Iterable
     from contextlib import AbstractContextManager
+    from threading import Lock
 
-    from _typeshed import SupportsWrite
     from libcst import AssignTarget, ClassDef, FunctionDef, Module, SimpleString
 
 echo = partial(click.secho, err=True)
@@ -66,15 +65,34 @@ def _format_file(
     format_python_code_blocks: bool,
     section_adornments: list[tuple[str, bool]] | None,
     raw_output: bool,
-    lock: Lock,
+    lock: Lock | None,
 ):
+    """Format a single file with the given parameters.
+
+    :param check: Whether to check formatting without modifying files.
+    :param file: Path to the file to format.
+    :param file_type: Type of file ('py' or 'rst').
+    :param include_txt: Whether to include .txt files.
+    :param line_length: Maximum line length.
+    :param mode: Black formatting mode.
+    :param docstring_trailing_line: Whether to add trailing line to docstrings.
+    :param format_python_code_blocks: Whether to format Python code blocks.
+    :param section_adornments: Section adornment configuration.
+    :param raw_output: Whether to output raw formatted text.
+    :param lock: Lock for thread safety.
+
+    :returns: A tuple containing a boolean indicating if the file was misformatted and
+        the number of errors.
+
+    """
     error_count = 0
     manager = Manager(
-        reporter,
-        mode,
-        docstring_trailing_line,
-        format_python_code_blocks,
-        section_adornments,
+        current_file=file.name,
+        black_config=mode,
+        docstring_trailing_line=docstring_trailing_line,
+        format_python_code_blocks=format_python_code_blocks,
+        reporter=reporter,
+        section_adornments=section_adornments,
     )
     if file.name == "-":
         raw_output = True
@@ -130,6 +148,18 @@ def _format_file(
 def _parse_pyproject_config(
     context: click.Context, _: click.Parameter, value: str | None
 ) -> Mode:
+    """Parse pyproject.toml configuration for docstrfmt and black.
+
+    :param context: Click context containing command parameters.
+    :param _: Unused parameter.
+    :param value: Path to pyproject.toml file.
+
+    :returns: Black Mode configuration object.
+
+    :raises click.FileError: If the configuration file cannot be read.
+    :raises click.BadOptionUsage: If configuration values are invalid.
+
+    """
     if not value:
         pyproject_toml = find_pyproject_toml(tuple(context.params.get("files", (".",))))
         value = pyproject_toml if pyproject_toml else None
@@ -176,6 +206,15 @@ def _parse_pyproject_config(
 
 
 def _parse_sources(context: click.Context, _: click.Parameter, value: list[str] | None):
+    """Parse and expand source files from command line arguments.
+
+    :param context: Click context containing command parameters.
+    :param _: Unused parameter.
+    :param value: List of source files/directories from command line.
+
+    :returns: List of resolved file paths to format.
+
+    """
     sources = value or context.params.get("files", [])
     exclude = list(context.params.get("exclude", DEFAULT_EXCLUDE))
     extend_exclude = list(context.params.get("extend_exclude", []))
@@ -189,14 +228,14 @@ def _parse_sources(context: click.Context, _: click.Parameter, value: list[str] 
         else:
             for item in map(Path, glob.iglob(source, recursive=True)):
                 if item.is_dir():
-                    for file in [
+                    for f in [
                         found
                         for extension in extensions
                         for found in glob.iglob(
                             f"{item}/**/*{extension}", recursive=True
                         )
                     ]:
-                        files_to_format.add(abspath(file))
+                        files_to_format.add(abspath(f))
                 else:
                     files_to_format.add(abspath(item))
     for file in list(map(Path, files_to_format)):
@@ -220,6 +259,21 @@ def _process_python(
     lock: Lock | None = None,
     newline: str | None = None,
 ):
+    """Process a Python file for docstring formatting.
+
+    :param check: Whether to check formatting without modifying files.
+    :param file: Path to the file to process.
+    :param input_string: Content of the file to process.
+    :param line_length: Maximum line length.
+    :param manager: Manager instance for formatting.
+    :param raw_output: Whether to output raw formatted text.
+    :param lock: Lock for thread safety.
+    :param newline: Newline character to use.
+
+    :returns: A tuple containing a boolean indicating if the file was misformatted and
+        the number of errors.
+
+    """
     if isinstance(file, str):
         file = Path(file)
     filename = file.name
@@ -252,7 +306,7 @@ def _process_python(
 
 def _process_rst(
     check: bool,
-    file: Path,
+    file: Path | str,
     input_string: str,
     line_length: int,
     manager: Manager,
@@ -260,7 +314,22 @@ def _process_rst(
     lock: Lock | None = None,
     newline: str | None = None,
 ):
-    doc = manager.parse_string(file, input_string)
+    """Process a reStructuredText file for formatting.
+
+    :param check: Whether to check formatting without modifying files.
+    :param file: Path to the file to process.
+    :param input_string: Content of the file to process.
+    :param line_length: Maximum line length.
+    :param manager: Manager instance for formatting.
+    :param raw_output: Whether to output raw formatted text.
+    :param lock: Lock for thread safety.
+    :param newline: Newline character to use.
+
+    :returns: A tuple containing a boolean indicating if the file was misformatted and
+        the number of errors.
+
+    """
+    doc = manager.parse_string(input_string, file=file)
     if reporter.level >= 3:
         reporter.debug("=" * 60)
         reporter.debug(dump_node(doc))
@@ -280,6 +349,7 @@ def _process_rst(
             with lock or nullcontext():
                 _write_output(file, output, nullcontext(sys.stdout), raw_output)
         else:
+            assert isinstance(file, Path)
             _write_output(
                 file,
                 output,
@@ -290,6 +360,15 @@ def _process_rst(
 
 
 def _resolve_length(context: click.Context, _: click.Parameter, value: int | None):
+    """Resolve line length from command line or pyproject.toml.
+
+    :param context: Click context containing command parameters.
+    :param _: Unused parameter.
+    :param value: Line length from command line.
+
+    :returns: Resolved line length value.
+
+    """
     pyproject_line_length = context.params.pop("line_length", None)
     return value or pyproject_line_length
 
@@ -297,6 +376,17 @@ def _resolve_length(context: click.Context, _: click.Parameter, value: int | Non
 def _validate_adornments(
     context: click.Context, _: click.Parameter, value: str | None
 ) -> list[tuple[str, bool]] | None:
+    """Validate and parse section adornments configuration.
+
+    :param context: Click context containing command parameters.
+    :param _: Unused parameter.
+    :param value: Section adornments string from command line.
+
+    :returns: List of tuples containing (character, has_overline) for each adornment.
+
+    :raises click.BadParameter: If adornments are not unique.
+
+    """
     actual_value = value or context.params["section_adornments"]
 
     if len(actual_value) != len(set(actual_value)):
@@ -327,6 +417,25 @@ async def _run_formatter(
     loop: asyncio.AbstractEventLoop,
     executor: ProcessPoolExecutor | ThreadPoolExecutor,
 ):
+    """Run the formatter on multiple files asynchronously.
+
+    :param check: Whether to check formatting without modifying files.
+    :param file_type: Type of files to process ('py' or 'rst').
+    :param files: List of file paths to format.
+    :param include_txt: Whether to include .txt files.
+    :param docstring_trailing_line: Whether to add trailing line to docstrings.
+    :param format_python_code_blocks: Whether to format Python code blocks.
+    :param section_adornments: Section adornment configuration.
+    :param mode: Black formatting mode.
+    :param line_length: Maximum line length.
+    :param raw_output: Whether to output raw formatted text.
+    :param cache: File cache for tracking changes.
+    :param loop: Event loop for async operations.
+    :param executor: Process or thread pool executor.
+
+    :returns: Tuple of (misformatted_files, total_error_count).
+
+    """
     # This code is heavily based on that of psf/black
     # see here for license: https://github.com/psf/black/blob/master/LICENSE
     todo, already_done = cache.gen_todo_list(files)
@@ -389,11 +498,19 @@ async def _run_formatter(
 
 
 def _write_output(
-    file: Path,
+    file: Path | str,
     output: str,
-    output_manager: AbstractContextManager[SupportsWrite],
+    output_manager: AbstractContextManager,
     raw: bool,
 ):
+    """Write formatted output to a file or stdout.
+
+    :param file: Path to the file being processed.
+    :param output: Formatted content to write.
+    :param output_manager: Context manager for output destination.
+    :param raw: Whether this is raw output mode.
+
+    """
     with output_manager as f:
         f.write(output)
     if not raw:
@@ -402,15 +519,23 @@ def _write_output(
 
 # This code is borrowed from psf/black
 # see here for license: https://github.com/psf/black/blob/master/LICENSE
-def cancel(tasks: Iterable[asyncio.Task[Any]]) -> None:  # pragma: no cover
-    """Asyncio signal handler that cancels all `tasks` and reports to stderr."""
+def cancel(tasks: Iterable[asyncio.Future[Any]]) -> None:  # pragma: no cover
+    """Asyncio signal handler that cancels all `tasks` and reports to stderr.
+
+    :param tasks: Iterable of asyncio tasks to cancel.
+
+    """
     reporter.error("Aborted!")
     for task in tasks:
         task.cancel()
 
 
 def shutdown(loop: asyncio.AbstractEventLoop) -> None:  # pragma: no cover
-    """Cancel all pending tasks on `loop`, wait for them, and close the loop."""
+    """Cancel all pending tasks on `loop`, wait for them, and close the loop.
+
+    :param loop: The asyncio event loop to shut down.
+
+    """
     try:
         all_tasks = asyncio.all_tasks
         # This part is borrowed from asyncio/runners.py in Python 3.7b2.
@@ -434,26 +559,53 @@ class Reporter:
     """A class to report messages."""
 
     def __init__(self, level: int = 1):
-        """Initialize the reporter."""
+        """Initialize the reporter.
+
+        :param level: Verbosity level for reporting.
+
+        """
         self.level = level
         self.error_count = 0
 
     def _log_message(self, message: str, level: int, **formatting_kwargs: Any):
+        """Log a message if the current level is sufficient.
+
+        :param message: Message to log.
+        :param level: Minimum level required to show the message.
+        :param formatting_kwargs: Additional formatting options for ``click.secho``.
+
+        """
         if self.level >= level:
             echo(message, **formatting_kwargs)
             sys.stderr.flush()
             sys.stdout.flush()
 
     def debug(self, message: str, **formatting_kwargs: Any):
-        """Log a debug message."""
+        """Log a debug message.
+
+        :param message: Debug message to log.
+        :param formatting_kwargs: Additional formatting options for ``click.secho``.
+
+        """
         self._log_message(message, 3, bold=False, fg="blue", **formatting_kwargs)
 
     def error(self, message: str, **formatting_kwargs: Any):
-        """Log an error message."""
+        """Log an error message.
+
+        :param message: Error message to log.
+        :param formatting_kwargs: Additional formatting options for ``click.secho``.
+
+        """
         self._log_message(message, -1, bold=False, fg="red", **formatting_kwargs)
 
     def print(self, message: str, level: int = 0, **formatting_kwargs: Any):
-        """Log a message."""
+        """Log a message.
+
+        :param message: Message to log.
+        :param level: Minimum level required to show the message.
+        :param formatting_kwargs: Additional formatting options for ``click.secho``.
+
+        """
         formatting_kwargs.setdefault("bold", level == 0)
         self._log_message(message, level, **formatting_kwargs)
 
@@ -471,9 +623,17 @@ class Visitor(CSTTransformer):
         manager: Manager,
         object_name: str,
     ):
-        """Initialize the visitor."""
+        """Initialize the visitor.
+
+        :param file: Path to the file being processed.
+        :param input_string: Content of the file.
+        :param line_length: Maximum line length.
+        :param manager: Manager instance for formatting.
+        :param object_name: Name of the object being processed.
+
+        """
         super().__init__()
-        self._last_assign = None
+        self._last_assign: AssignTarget | None = None
         self._object_names = [object_name]
         self._object_type = None
         self._blank_line = manager.docstring_trailing_line
@@ -485,7 +645,13 @@ class Visitor(CSTTransformer):
         self.line_resolver = LineResolver(self.file, input_string)
 
     def _is_docstring(self, node: SimpleString) -> bool:
-        """Check if the node is a docstring."""
+        """Check if the node is a docstring.
+
+        :param node: The SimpleString node to check.
+
+        :returns: True if the node is a docstring, False otherwise.
+
+        """
         return node.quote.startswith(('"""', "'''")) and isinstance(
             self.get_metadata(ParentNodeProvider, node), Expr
         )
@@ -495,7 +661,14 @@ class Visitor(CSTTransformer):
         original_node: ClassDef,
         updated_node: ClassDef,
     ) -> ClassDef:
-        """Remove the class name from the object name stack."""
+        """Remove the class name from the object name stack.
+
+        :param original_node: The original ClassDef node.
+        :param updated_node: The updated ClassDef node.
+
+        :returns: The updated ClassDef node.
+
+        """
         self._object_names.pop(-1)
         return updated_node
 
@@ -504,12 +677,26 @@ class Visitor(CSTTransformer):
         original_node: FunctionDef,
         updated_node: FunctionDef,
     ) -> FunctionDef:
-        """Remove the function name from the object name stack."""
+        """Remove the function name from the object name stack.
+
+        :param original_node: The original FunctionDef node.
+        :param updated_node: The updated FunctionDef node.
+
+        :returns: The updated FunctionDef node.
+
+        """
         self._object_names.pop(-1)
         return updated_node
 
-    def _escape_quoting(self, node: SimpleString) -> SimpleString:
-        """Escapes quotes in a docstring when necessary."""
+    @staticmethod
+    def _escape_quoting(node: SimpleString) -> SimpleString:
+        """Escapes quotes in a docstring when necessary.
+
+        :param node: The SimpleString node to escape.
+
+        :returns: The escaped SimpleString node.
+
+        """
         # handles quoting escaping once
         for quote in ('"', "'"):
             quoting = quote * 3
@@ -529,20 +716,27 @@ class Visitor(CSTTransformer):
     def leave_SimpleString(  # noqa: N802
         self, original_node: SimpleString, updated_node: SimpleString
     ) -> SimpleString:
-        """Format the docstring."""
+        """Format the docstring.
+
+        :param original_node: The original SimpleString node.
+        :param updated_node: The updated SimpleString node.
+
+        :returns: The formatted SimpleString node.
+
+        """
         if self._is_docstring(original_node):
             position_meta = self.get_metadata(PositionProvider, original_node)
             old_object_type = None
             if self._last_assign:
-                self._object_names.append(self._last_assign.target.children[2].value)
+                self._object_names.append(self._last_assign.target.children[2].value)  # type: ignore[attr]
                 old_object_type = copy(self._object_type)
                 self._object_type = "attribute"
-            indent_level = position_meta.start.column
+            indent_level = position_meta.start.column  # type: ignore[attr]
             source = dedent(
-                (" " * indent_level) + original_node.evaluated_value
+                (" " * indent_level) + str(original_node.evaluated_value)
             ).rstrip()
             doc = self.manager.parse_string(
-                self.file, source, self.line_resolver.offset(original_node.value)
+                source, self.line_resolver.offset(original_node.value), file=self.file
             )
             if reporter.level >= 3:
                 reporter.debug("=" * 60)
@@ -564,7 +758,7 @@ class Visitor(CSTTransformer):
                 f"{self._object_type} {'.'.join(self._object_names)!r}"
             )
             single_line = len(output.splitlines()) == 1
-            original_strip = original_node.evaluated_value.rstrip(" ")
+            original_strip = str(original_node.evaluated_value).rstrip(" ")
             end_line_count = len(original_strip) - len(original_strip.rstrip("\n"))
             ending = "" if single_line else "\n\n" if self._blank_line else "\n"
             if single_line:
@@ -596,29 +790,52 @@ class Visitor(CSTTransformer):
         return self._escape_quoting(updated_node)
 
     def visit_AssignTarget_target(self, node: AssignTarget) -> None:
-        """Set the last assign node."""
+        """Set the last assign node.
+
+        :param node: The AssignTarget node.
+
+        """
         self._last_assign = node
 
     def visit_ClassDef(self, node: ClassDef) -> bool | None:
-        """Set the object type to class."""
+        """Set the object type to class.
+
+        :param node: The ClassDef node.
+
+        :returns: True to continue visiting children.
+
+        """
         self._object_names.append(node.name.value)
         self._object_type = "class"
         self._last_assign = None
         return True
 
     def visit_FunctionDef(self, node: FunctionDef) -> bool | None:
-        """Set the object type to function."""
+        """Set the object type to function.
+
+        :param node: The FunctionDef node.
+
+        :returns: True to continue visiting children.
+
+        """
         self._object_names.append(node.name.value)
         self._object_type = "function"
         self._last_assign = None
         return True
 
     def visit_Module(self, node: Module) -> bool | None:
-        """Set the object type to module."""
+        """Set the object type to module.
+
+        :param node: The Module node.
+
+        :returns: True to continue visiting children.
+
+        """
         self._object_type = "module"
         return True
 
 
+# noinspection PyUnusedLocal
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
 @click.option(
     "-c",
@@ -782,11 +999,32 @@ def main(
     quiet: bool,
     raw_input: str,
     raw_output: bool,
-    section_adornments: list[tuple[str, bool]],
+    section_adornments: list[tuple[str, bool]] | None,
     verbose: int,
     files: list[str],
 ) -> None:
-    """Format reStructuredText and Python files."""
+    """Format reStructuredText and Python files.
+
+    :param context: Click context containing command parameters.
+    :param check: Whether to check formatting without modifying files.
+    :param docstring_trailing_line: Whether to add trailing line to docstrings.
+    :param exclude: List of paths to exclude from formatting.
+    :param extend_exclude: Additional paths to exclude from formatting.
+    :param file_type: Type of files to process ('py' or 'rst').
+    :param format_python_code_blocks: Whether to format Python code blocks.
+    :param ignore_cache: Whether to ignore the cache.
+    :param include_txt: Whether to include .txt files.
+    :param line_length: Maximum line length.
+    :param preserve_adornments: Whether to preserve existing section adornments.
+    :param mode: Black formatting mode.
+    :param quiet: Whether to suppress non-error output.
+    :param raw_input: Raw input string to format.
+    :param raw_output: Whether to output raw formatted text.
+    :param section_adornments: Section adornment configuration.
+    :param verbose: Verbosity level.
+    :param files: List of files to format.
+
+    """
     reporter.level = verbose
     if "-" in files and len(files) > 1:
         reporter.error("ValueError: stdin can not be used with other paths")
@@ -806,14 +1044,15 @@ def main(
         section_adornments = None
 
     if raw_input:
-        manager = Manager(
-            reporter,
-            mode,
-            docstring_trailing_line,
-            format_python_code_blocks,
-            section_adornments,
-        )
         file = "<raw_input>"
+        manager = Manager(
+            current_file=file,
+            black_config=mode,
+            docstring_trailing_line=docstring_trailing_line,
+            format_python_code_blocks=format_python_code_blocks,
+            reporter=reporter,
+            section_adornments=section_adornments,
+        )
         check = False
         try:
             misformatted = False
@@ -860,12 +1099,12 @@ def main(
         worker_count = os.cpu_count()
         if sys.platform == "win32":  # pragma: no cover
             # Work around https://bugs.python.org/issue26903
-            worker_count = min(worker_count, 61)
+            worker_count = min(worker_count or 61, 61)
         try:
             executor = ProcessPoolExecutor(max_workers=worker_count)
         except (ImportError, OSError):  # pragma: no cover
-            # we arrive here if the underlying system does not support multi-processing
-            # like in AWS Lambda or Termux, in which case we gracefully fallback to
+            # we arrive here if the underlying system does not support multiprocessing
+            # like in AWS Lambda or Termux, in which case we gracefully fall back to
             # a ThreadPollExecutor with just a single worker (more workers would not do us
             # any good due to the Global Interpreter Lock)
             executor = ThreadPoolExecutor(max_workers=1)
