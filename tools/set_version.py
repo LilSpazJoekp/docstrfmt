@@ -5,8 +5,8 @@ from datetime import date
 
 import packaging.version
 
-CHANGELOG_HEADER = "Change Log\n==========\n\n"
-UNRELEASED_HEADER = "Unreleased\n----------\n\n"
+CHANGELOG_HEADER = "############\n Change Log\n############\n\n"
+UNRELEASED_HEADER = "************\n Unreleased\n************\n\n"
 
 
 def add_unreleased_to_changelog():
