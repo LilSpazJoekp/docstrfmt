@@ -108,7 +108,9 @@ def update_changelog(version):
 
     date_string = date.today().strftime("%Y/%m/%d")
     version_line = f" {version} ({date_string})\n"
-    version_header = f"{'*' * len(version_line)}\n{version_line}{'*' * len(version_line)}\n\n"
+    version_header = (
+        f"{'*' * len(version_line)}\n{version_line}{'*' * len(version_line)}\n\n"
+    )
 
     with open("CHANGES.rst", "w") as fp:
         fp.write(f"{CHANGELOG_HEADER}{version_header}{content[len(expected_header) :]}")
