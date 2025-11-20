@@ -9,4 +9,4 @@ from .const import (
 )
 from .docstrfmt import Manager
 
-__version__ = "1.11.2.dev0"
+__version__ = "2.0.0"
