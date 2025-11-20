@@ -54,7 +54,7 @@ dependencies = [
   "sphinx>=7",
   "tabulate>=0.9",
   "tomli>=0.10;python_version<'3.11'",
-  "types-docutils==0.22.2.20251006"
+  "types-docutils==0.22.3.20251115"
 ]
 dynamic = ["version", "description"]
 keywords = ["black", "docutils", "autoformatter", "formatter", "lint", "restructuredtext", "rst", "sphinx"]
