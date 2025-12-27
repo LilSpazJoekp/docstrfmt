@@ -6,6 +6,10 @@
  Unreleased
 ************
 
+**Added**
+
+- Fixed formatting of Python code blocks with continuation lines in docstrings.
+
 ********************
  2.0.0 (2025/11/20)
 ********************
@@ -33,7 +37,6 @@
 - Image and Unicode substitution definitions were not being formatted correctly.
 - Files specified in pyproject are now parsed correctly.
 - Fixed issue when loading cache in certain environments.
-- Fixed formatting of Python code blocks with continuation lines in docstrings.
 
 **Removed**
 
