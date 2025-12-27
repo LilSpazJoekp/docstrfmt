@@ -33,6 +33,7 @@
 - Image and Unicode substitution definitions were not being formatted correctly.
 - Files specified in pyproject are now parsed correctly.
 - Fixed issue when loading cache in certain environments.
+- Fixed formatting of Python code blocks with continuation lines in docstrings.
 
 **Removed**
 

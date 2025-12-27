@@ -1075,20 +1075,10 @@ class Formatters:
                 f"Invalid doctest block: {e}",
             ) from None
         doctest_blocks = []
-        current_block = ""
-        while parsed:
-            example = parsed.pop(0)
-            if example.want:
-                current_block += example.source.strip()
-                formatted = CodeFormatters(current_block, context).python()
-                doctest_blocks.append((formatted, example.want.strip()))
-                current_block = ""
-            else:  # pragma: no cover
-                current_block += example.source.strip() + "\n"
-        if current_block:
-            # If there's any remaining code, format it as well.
-            formatted = CodeFormatters(current_block, context).python()
-            doctest_blocks.append((formatted, ""))
+        for example in parsed:
+            formatted = CodeFormatters(example.source.strip(), context).python()
+            doctest_blocks.append((formatted, example.want.strip()))
+
         if not doctest_blocks:
             raise InvalidRstError(
                 context.current_file,
@@ -1097,11 +1087,10 @@ class Formatters:
                 "Empty doctest block.",
             )
         for formatted, want in doctest_blocks:
-            for line in formatted.splitlines():
-                if line.startswith(" "):
-                    yield f"... {line}"
-                elif line:
-                    yield f">>> {line}"
+            first_line, *other_lines = formatted.splitlines()
+            yield f">>> {first_line}"
+            for line in other_lines:
+                yield f"... {line}" if line else "..."
             if want:
                 yield from want.splitlines()
 
