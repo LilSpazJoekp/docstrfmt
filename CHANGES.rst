@@ -6,7 +6,7 @@
  Unreleased
 ************
 
-**Added**
+**Fixed**
 
 - Fixed formatting of Python code blocks with continuation lines in docstrings.
 
