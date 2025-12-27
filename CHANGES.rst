@@ -6,6 +6,10 @@
  Unreleased
 ************
 
+********************
+ 2.0.1 (2025/12/27)
+********************
+
 **Fixed**
 
 - Fixed formatting of Python code blocks with continuation lines in docstrings.
