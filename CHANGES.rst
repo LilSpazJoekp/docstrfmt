@@ -6,6 +6,10 @@
  Unreleased
 ************
 
+********************
+ 2.0.2 (2026/02/07)
+********************
+
 **Fixed**
 
 - Fix resolving section adornments from pyproject.toml.
