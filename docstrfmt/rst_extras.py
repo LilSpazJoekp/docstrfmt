@@ -111,8 +111,8 @@ def register() -> None:
                 roles.register_canonical_role(f"{domain.name}:{name}", ReferenceRole())
 
         for name, directive_callable in domain.directives.items():
-            add_directive(name, directive_callable)
-            add_directive(f"{domain.name}:{name}", directive_callable)
+            add_directive(name, directive_callable, raw=False)
+            add_directive(f"{domain.name}:{name}", directive_callable, raw=False)
 
     for name, _nodeclass in generic_docroles.items():
         roles.register_local_role(name, generic_role)
@@ -151,9 +151,7 @@ def register() -> None:
 
     for d in set(_subclasses(autodoc.Documenter)):
         if d.objtype != "object":
-            add_directive(
-                f"auto{d.objtype}", sphinx_directive.AutodocDirective, raw=False
-            )
+            add_directive(f"auto{d.objtype}", sphinx_directive.AutodocDirective, raw=False)
 
     try:  # pragma: no cover
         import sphinxarg.ext  # noqa: PLC0415

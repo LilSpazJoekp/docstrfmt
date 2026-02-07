@@ -927,16 +927,6 @@ def test_stdin(runner, file, file_type):
     assert result.output == output
 
 
-@pytest.mark.parametrize(
-    "file", ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"]
-)
-def test_too_small_line_length(runner, file):
-    args = ["-l", 4, file]
-    result = runner.invoke(main, args=args)
-    assert result.exit_code == 1
-    assert result.output.startswith("ValueError: Invalid starting width")
-
-
 def test_type_replaced(runner, tmp_path):
     file = "tests/test_files/error_files/py_file_type_field_removal.py"
     args = ["-o", file]

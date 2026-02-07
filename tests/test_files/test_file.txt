@@ -630,11 +630,7 @@ Functions
 
 .. py:data:: X
 
-    x = [
-        "here are some items",
-        "indented and with line breaks",
-        "the way Black does it",
-    ]
+    This is an example data item from the Python domain.
 
 Line Blocks
 -----------

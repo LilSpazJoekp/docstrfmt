@@ -15,3 +15,4 @@
 ##############
 
 - Bryce Boe <bbzbryce@gmail.com> `@bboe <https://github.com/bboe>`_
+.. Add "Name <email (optional)> `@GithubUsername <https://github.com/GithubUsername`_" above this line.

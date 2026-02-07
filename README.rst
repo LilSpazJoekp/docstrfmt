@@ -94,7 +94,7 @@ differences in formatting conventions between the two (hence the separate fork).
     4. The ``line-length`` specified in the ``tool.docstrfmt`` section in a
        ``pyproject.toml`` autodetected `like Black`_.
     5. The ``line-length`` specified in the ``tool.black`` section in a
-       ``pyproject.toml`` autodetected `like Black`_.
+       ``pyproject.toml``.
     6. `Black's default line length`_ (88 at the time of this writing).
 
 Like Black's blackd_, there is also a daemon that provides formatting via HTTP requests

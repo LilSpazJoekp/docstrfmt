@@ -5,8 +5,13 @@ requires = ["flit_core >=3.4,<5"]
 [dependency-groups]
 dev = [
   "packaging",
+  {include-group = "docs"},
   {include-group = "lint"},
   {include-group = "test"}
+]
+docs = [
+  "furo",
+  "sphinx-autobuild",
 ]
 lint = [
   "pre-commit",
@@ -99,7 +104,7 @@ omit = [
 
 [tool.docstrfmt]
 files = ["docstrfmt", "tests"]
-extend_exclude = ["tests/test_files/error_files/*"]
+extend_exclude = ["tests/test_files/error_files/*", "docs/examples/pre/*"]
 
 [tool.isort]
 profile = "black"

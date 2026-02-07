@@ -33,6 +33,7 @@ DEFAULT_LINE_LENGTH = 88
 NODE_MAPPING = {
     "attention": "_sub_admonition",
     "caution": "_sub_admonition",
+    "citation": "footnote",
     "danger": "_sub_admonition",
     "error": "_sub_admonition",
     "hint": "_sub_admonition",
