@@ -387,7 +387,7 @@ def _validate_adornments(
     :raises click.BadParameter: If adornments are not unique.
 
     """
-    actual_value = value or context.params["section_adornments"]
+    actual_value = context.params.pop("section_adornments", value)
 
     if len(actual_value) != len(set(actual_value)):
         msg = "Section adornments must be unique"
@@ -395,11 +395,13 @@ def _validate_adornments(
 
     if "|" in actual_value:
         with_overline, without_overline = actual_value.split("|", 1)
-        return list(zip(with_overline, itertools.repeat(True))) + list(
+        adornments = list(zip(with_overline, itertools.repeat(True))) + list(
             zip(without_overline, itertools.repeat(False))
         )
+    else:
+        adornments = list(zip(actual_value, itertools.repeat(False)))
 
-    return list(zip(actual_value, itertools.repeat(False)))
+    return adornments
 
 
 async def _run_formatter(
