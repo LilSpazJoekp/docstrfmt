@@ -932,6 +932,99 @@ def test_section_reformatting_python_adornments(runner):
     assert result.output == fixed
 
 
+@pytest.mark.parametrize(
+    ("pyproject_toml_file", "fixed"),
+    [
+        (
+            "tests/test_files/pyproject-section-adornments.toml",
+            """
+            =====
+             One
+            =====
+
+            -----
+             Two
+            -----
+
+            Three
+            ~~~~~
+
+            Four
+            ++++
+
+            Five
+            ....
+
+            -----------
+             Two again
+            -----------
+
+            Some content.
+            """,
+        ),
+        (
+            "tests/test_files/pyproject-section-adornments_no_overline.toml",
+            """
+            One
+            ===
+
+            Two
+            ---
+
+            Three
+            ~~~~~
+
+            Four
+            ++++
+
+            Five
+            ....
+
+            Two again
+            ---------
+
+            Some content.
+            """,
+        ),
+    ],
+)
+def test_section_reformatting_adornments__from_pyproject(
+    runner, pyproject_toml_file, fixed
+):
+    file = """
+        #####
+         One
+        #####
+
+        *****
+         Two
+        *****
+
+        Three
+        =====
+
+        Four
+        ----
+
+        Five
+        ^^^^
+
+        ***********
+         Two again
+        ***********
+
+        Some content.
+
+    """
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    args = ["-p", pyproject_toml_file, "-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
 def test_section_reformatting_python_preserve_adornments(runner):
     file = '''
     """This is an example python file."""
