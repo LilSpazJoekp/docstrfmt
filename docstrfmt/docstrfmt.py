@@ -339,6 +339,7 @@ class CodeFormatters:
 
         """
         manager = self.context.manager
+        manager.original_text = self.code
         try:
             document = manager.parse_string(
                 self.code, line_offset=manager.get_code_line(self.code) - 1
@@ -1618,7 +1619,7 @@ class Formatters:
         node: nodes.literal,
         context: FormatContext,
     ) -> inline_iterator:
-        """Format a literal node.
+        r"""Format a literal node.
 
         Example:
 
@@ -1626,7 +1627,23 @@ class Formatters:
 
             This is ``literal`` text.
 
+        If the literal needs to end with a space:
+
+        .. code-block:: rst
+
+            This is a :literal:`literal with a trailing space \ ` that is not surrounded
+            with (``).
+
         """
+        if node.rawsource.startswith(":literal:") and node.rawsource.endswith(
+            (r"\ `", "\\\n`")
+        ):
+            # When the node ends with a backslash followed by a space or new line, don't
+            # remove the :literal: role and just return the node untouched. This is a
+            # workaround for specific edge cases in docutils.
+            yield inline_markup(node.rawsource)
+            return
+
         yield inline_markup(
             f"``{''.join(chain(self._format_children(node, context)))}``"
         )

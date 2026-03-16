@@ -104,6 +104,19 @@ this:
     (surrounded by whitespace) or in the middle of a word won't be recognized. See the
     `markup spec`__ for full details.
 
+If you want to end the literal string with a space, you need to use the ``:literal:``
+role, like this:
+
+.. code-block::
+
+    :literal:`string with a space at the end \ `
+
+In a replacement:
+
+.. |literal| replace:: :literal:`string with a space at the end \ `
+
+This is the result: |literal|.
+
 Lists
 =====
 
