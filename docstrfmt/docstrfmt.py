@@ -25,6 +25,7 @@ from docutils import nodes, utils
 from docutils.frontend import OptionParser
 from docutils.parsers import rst
 from docutils.parsers.rst import Directive, roles
+from docutils.statemachine import StringList
 from docutils.transforms import Transform
 from docutils.utils import new_document, unescape
 
@@ -1008,6 +1009,18 @@ class Formatters:
         directive = attributes["directive"]
         is_code_block = directive.name in ["code", "code-block", "sourcecode"]
         in_substitution = isinstance(node.parent, nodes.substitution_definition)
+        if (
+            directive.name
+            in ["deprecated", "versionadded", "versionchanged", "versionremoved"]
+            and len(directive.arguments) > 1
+        ):
+            # These directives have a required argument that we want to preserve, but
+            # the content is just a normal paragraph that we can format like usual.
+            # If there is more than 1 argument, then those need to be moved to the
+            # content attribute.
+            directive.content = StringList(directive.arguments[1:])
+            directive.arguments = directive.arguments[:1]
+
         parts = [
             f".. {'code-block' if is_code_block else directive.name}::",
             *directive.arguments,
