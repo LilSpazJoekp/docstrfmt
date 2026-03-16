@@ -19,6 +19,8 @@
 - Fixed handling of 'changes' directives (``deprecated``, ``versionadded``,
   ``versionchanged``, and ``versionremoved``) and will now format the description text
   within the content body of the directive.
+- Fixed an issue where ``:literal:`` roles were being replaced with literal formatting
+  (surrounded with ``) when the literal string ended with an escaped space or ``\n``.
 
 ********************
  2.0.2 (2026/02/07)
