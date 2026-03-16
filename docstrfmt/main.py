@@ -66,6 +66,7 @@ def _format_file(
     section_adornments: list[tuple[str, bool]] | None,
     raw_output: bool,
     lock: Lock | None,
+    bullet_list_marker: str = "-",
     center_section_titles: bool = True,
 ):
     """Format a single file with the given parameters.
@@ -81,6 +82,7 @@ def _format_file(
     :param section_adornments: Section adornment configuration.
     :param raw_output: Whether to output raw formatted text.
     :param lock: Lock for thread safety.
+    :param bullet_list_marker: Bullet character to use for unordered lists.
     :param center_section_titles: Whether to center section titles with overlines.
 
     :returns: A tuple containing a boolean indicating if the file was misformatted and
@@ -91,6 +93,7 @@ def _format_file(
     manager = Manager(
         current_file=file.name,
         black_config=mode,
+        bullet_list_marker=bullet_list_marker,
         center_section_titles=center_section_titles,
         docstring_trailing_line=docstring_trailing_line,
         format_python_code_blocks=format_python_code_blocks,
@@ -421,6 +424,7 @@ async def _run_formatter(
     cache: FileCache,
     loop: asyncio.AbstractEventLoop,
     executor: ProcessPoolExecutor | ThreadPoolExecutor,
+    bullet_list_marker: str = "-",
     center_section_titles: bool = True,
 ):
     """Run the formatter on multiple files asynchronously.
@@ -438,6 +442,7 @@ async def _run_formatter(
     :param cache: File cache for tracking changes.
     :param loop: Event loop for async operations.
     :param executor: Process or thread pool executor.
+    :param bullet_list_marker: Bullet character to use for unordered lists.
     :param center_section_titles: Whether to center section titles with overlines.
 
     :returns: Tuple of (misformatted_files, total_error_count).
@@ -466,6 +471,7 @@ async def _run_formatter(
                 section_adornments,
                 raw_output,
                 lock,
+                bullet_list_marker,
                 center_section_titles,
             )
         ): file
@@ -846,6 +852,14 @@ class Visitor(CSTTransformer):
 # noinspection PyUnusedLocal
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
 @click.option(
+    "-b",
+    "--bullet-list-marker",
+    default="-",
+    help="Bullet character to use for unordered lists.",
+    show_default=True,
+    type=click.Choice(["-", "*", "+"], case_sensitive=False),
+)
+@click.option(
     "--center-section-titles/--no-center-section-titles",
     default=True,
     help=(
@@ -1002,6 +1016,7 @@ class Visitor(CSTTransformer):
 @click.pass_context
 def main(
     context: Context,
+    bullet_list_marker: str,
     center_section_titles: bool,
     check: bool,
     docstring_trailing_line: bool,
@@ -1024,6 +1039,7 @@ def main(
     """Format reStructuredText and Python files.
 
     :param context: Click context containing command parameters.
+    :param bullet_list_marker: Bullet character to use for unordered lists.
     :param center_section_titles: Whether to center section titles with overlines.
     :param check: Whether to check formatting without modifying files.
     :param docstring_trailing_line: Whether to add trailing line to docstrings.
@@ -1067,6 +1083,7 @@ def main(
         manager = Manager(
             current_file=file,
             black_config=mode,
+            bullet_list_marker=bullet_list_marker,
             center_section_titles=center_section_titles,
             docstring_trailing_line=docstring_trailing_line,
             format_python_code_blocks=format_python_code_blocks,
@@ -1108,6 +1125,7 @@ def main(
                 section_adornments,
                 raw_output,
                 None,
+                bullet_list_marker,
                 center_section_titles,
             )
             if misformatted:
@@ -1145,6 +1163,7 @@ def main(
                     cache,
                     loop,
                     executor,
+                    bullet_list_marker,
                     center_section_titles,
                 )
             )

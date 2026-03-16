@@ -10,6 +10,9 @@
 
 - Added command-line option ``--center-section-titles/--no-center-section-titles`` to
   control whether section titles with overlines are centered with a leading space.
+- Added command-line option ``--bullet-list-marker`` or ``-b`` to configure the bullet
+  character used for unordered lists (``-``, ``*``, or ``+``). Defaults to ``-`` for
+  backward compatibility.
 
 **Fixed**
 
