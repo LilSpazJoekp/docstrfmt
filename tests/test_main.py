@@ -122,6 +122,24 @@ def test_docstring_trailing_line(runner, flag):
         )
 
 
+@pytest.mark.parametrize("marker", ["-", "*"])
+def test_bullet_list_marker(runner, marker):
+    bullet_input = "* item one\n* item two\n* item three\n"
+    args = ["-b", marker, "-"]
+    result = runner.invoke(main, args=args, input=bullet_input)
+    assert result.exit_code == 0
+    expected = f"{marker} item one\n{marker} item two\n{marker} item three\n"
+    assert result.output == expected
+
+
+def test_bullet_list_marker_default(runner):
+    bullet_input = "* item one\n* item two\n"
+    args = ["-"]
+    result = runner.invoke(main, args=args, input=bullet_input)
+    assert result.exit_code == 0
+    assert result.output == "- item one\n- item two\n"
+
+
 def test_encoding(runner):
     file = "tests/test_files/test_encoding.rst"
     args = [file]

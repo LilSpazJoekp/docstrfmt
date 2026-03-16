@@ -168,7 +168,7 @@ class FormatContext:
         self.manager = manager
         self.black_config = black_config
         self.starting_width = width
-        self.bullet: str = ""
+        self.bullet: str = "-"
         self.column_widths = []
         self.current_ordinal = 0
         self.first_line_len: int = 0
@@ -366,6 +366,7 @@ class Manager:
         current_file: Path | str,
         black_config: Mode | None = None,
         center_section_titles: bool = True,
+        bullet_list_marker: str = "-",
         docstring_trailing_line: bool = True,
         format_python_code_blocks: bool = True,
         reporter: Reporter | utils.Reporter | logging.Logger,
@@ -378,6 +379,7 @@ class Manager:
         :param black_config: Black formatting configuration.
         :param center_section_titles: Whether to center section titles with overlines
             by adding a leading space.
+        :param bullet_list_marker: Bullet character to use for unordered lists.
         :param docstring_trailing_line: Whether to add trailing line to docstrings.
         :param format_python_code_blocks: Whether to format Python code blocks.
         :param section_adornments: Section adornment configuration.
@@ -387,6 +389,7 @@ class Manager:
         self.current_file = current_file
         self.black_config = black_config
         self.center_section_titles = center_section_titles
+        self.bullet_list_marker = bullet_list_marker
         self.current_offset = 0
         self.error_count = 0
         self.reporter = reporter
@@ -906,7 +909,9 @@ class Formatters:
             - Third item
 
         """
-        yield from self._list(node, context.with_bullet("-"))
+        yield from self._list(
+            node, context.with_bullet(context.manager.bullet_list_marker)
+        )
 
     def comment(
         self,
@@ -1591,9 +1596,9 @@ class Formatters:
 
         """
         if not node.children:  # pragma: no cover
-            yield "-"  # no idea why this isn't covered anymore
+            yield context.bullet  # no idea why this isn't covered anymore
             return
-        if context.current_ordinal and context.bullet not in ["-", "*", "+"]:
+        if context.current_ordinal:
             context.bullet = make_enumerator(
                 context.current_ordinal, context.ordinal_format, ("", ".")
             )
