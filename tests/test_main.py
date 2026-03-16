@@ -1193,6 +1193,84 @@ def test_section_reformatting_custom_adornments(runner):
     assert result.output == fixed
 
 
+def test_section_reformatting_center_titles(runner):
+    file = """
+              ###
+              One
+              ###
+
+              ***
+              Two
+              ***
+
+              Three
+              =====
+
+              Some content.
+           """
+
+    fixed = """
+              #####
+               One
+              #####
+
+              *****
+               Two
+              *****
+
+              Three
+              =====
+
+              Some content.
+            """
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    args = ["-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
+def test_section_reformatting_no_center_titles(runner):
+    file = """
+              ###
+              One
+              ###
+
+              ***
+              Two
+              ***
+
+              Three
+              =====
+
+              Some content.
+           """
+
+    fixed = """
+              ###
+              One
+              ###
+
+              ***
+              Two
+              ***
+
+              Three
+              =====
+
+              Some content.
+            """
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    args = ["--no-center-section-titles", "-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
 def test_section_reformatting_insufficient_adornments(runner):
     file = """
               ===

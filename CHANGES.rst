@@ -6,6 +6,11 @@
  Unreleased
 ************
 
+**Added**
+
+- Added command-line option ``--center-section-titles/--no-center-section-titles`` to
+  control whether section titles with overlines are centered with a leading space.
+
 **Fixed**
 
 - Fixed handling of 'changes' directives (``deprecated``, ``versionadded``,

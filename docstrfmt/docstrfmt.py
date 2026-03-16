@@ -365,6 +365,7 @@ class Manager:
         *,
         current_file: Path | str,
         black_config: Mode | None = None,
+        center_section_titles: bool = True,
         docstring_trailing_line: bool = True,
         format_python_code_blocks: bool = True,
         reporter: Reporter | utils.Reporter | logging.Logger,
@@ -375,6 +376,8 @@ class Manager:
         :param current_file: The current file being processed.
         :param reporter: utils.Reporter instance for logging.
         :param black_config: Black formatting configuration.
+        :param center_section_titles: Whether to center section titles with overlines
+            by adding a leading space.
         :param docstring_trailing_line: Whether to add trailing line to docstrings.
         :param format_python_code_blocks: Whether to format Python code blocks.
         :param section_adornments: Section adornment configuration.
@@ -383,6 +386,7 @@ class Manager:
         rst_extras.register()
         self.current_file = current_file
         self.black_config = black_config
+        self.center_section_titles = center_section_titles
         self.current_offset = 0
         self.error_count = 0
         self.reporter = reporter
@@ -2216,10 +2220,16 @@ class Formatters:
                 raise
 
         if overline:
-            # section headings with overline are centered
-            yield char * (2 + len(text))
-            yield " " + text
-            yield char * (2 + len(text))
+            if context.manager.center_section_titles:
+                # section headings with overline are centered
+                yield char * (2 + len(text))
+                yield " " + text
+                yield char * (2 + len(text))
+            else:
+                # section headings with overline are not centered
+                yield char * len(text)
+                yield text
+                yield char * len(text)
         else:
             # sections headings without overline are justified
             yield text
