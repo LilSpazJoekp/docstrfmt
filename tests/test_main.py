@@ -1165,6 +1165,69 @@ def test_section_reformatting_custom_adornments(runner):
     assert result.output == fixed
 
 
+def test_section_reformatting_no_center_titles(runner):
+    file = """
+              ###
+              One
+              ###
+
+              ***
+              Two
+              ***
+
+              Three
+              =====
+
+              Some content.
+           """
+
+    fixed = """
+              #####
+               One
+              #####
+
+              *****
+               Two
+              *****
+
+              Three
+              =====
+
+              Some content.
+            """
+
+    no_center_fixed = """
+              ###
+              One
+              ###
+
+              ***
+              Two
+              ***
+
+              Three
+              =====
+
+              Some content.
+            """
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    no_center_fixed = textwrap.dedent(no_center_fixed).lstrip()
+
+    # Default behavior: titles are centered (leading space added)
+    args = ["-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+    # With --no-center-section-titles: titles are not centered (no leading space)
+    args = ["--no-center-section-titles", "-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == no_center_fixed
+
+
 def test_section_reformatting_insufficient_adornments(runner):
     file = """
               ===

@@ -66,6 +66,7 @@ def _format_file(
     section_adornments: list[tuple[str, bool]] | None,
     raw_output: bool,
     lock: Lock | None,
+    center_section_titles: bool = True,
 ):
     """Format a single file with the given parameters.
 
@@ -80,6 +81,7 @@ def _format_file(
     :param section_adornments: Section adornment configuration.
     :param raw_output: Whether to output raw formatted text.
     :param lock: Lock for thread safety.
+    :param center_section_titles: Whether to center section titles with overlines.
 
     :returns: A tuple containing a boolean indicating if the file was misformatted and
         the number of errors.
@@ -89,6 +91,7 @@ def _format_file(
     manager = Manager(
         current_file=file.name,
         black_config=mode,
+        center_section_titles=center_section_titles,
         docstring_trailing_line=docstring_trailing_line,
         format_python_code_blocks=format_python_code_blocks,
         reporter=reporter,
@@ -418,6 +421,7 @@ async def _run_formatter(
     cache: FileCache,
     loop: asyncio.AbstractEventLoop,
     executor: ProcessPoolExecutor | ThreadPoolExecutor,
+    center_section_titles: bool = True,
 ):
     """Run the formatter on multiple files asynchronously.
 
@@ -434,6 +438,7 @@ async def _run_formatter(
     :param cache: File cache for tracking changes.
     :param loop: Event loop for async operations.
     :param executor: Process or thread pool executor.
+    :param center_section_titles: Whether to center section titles with overlines.
 
     :returns: Tuple of (misformatted_files, total_error_count).
 
@@ -461,6 +466,7 @@ async def _run_formatter(
                 section_adornments,
                 raw_output,
                 lock,
+                center_section_titles,
             )
         ): file
         for file in sorted(todo)
@@ -840,6 +846,15 @@ class Visitor(CSTTransformer):
 # noinspection PyUnusedLocal
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
 @click.option(
+    "--center-section-titles/--no-center-section-titles",
+    default=True,
+    help=(
+        "Whether to center section titles with overlines by adding a leading space."
+        " When disabled, section titles with overlines will not have a leading space"
+        " and the adornment will match the exact length of the title text."
+    ),
+)
+@click.option(
     "-c",
     "--check",
     is_flag=True,
@@ -987,6 +1002,7 @@ class Visitor(CSTTransformer):
 @click.pass_context
 def main(
     context: Context,
+    center_section_titles: bool,
     check: bool,
     docstring_trailing_line: bool,
     exclude: list[str],
@@ -1008,6 +1024,7 @@ def main(
     """Format reStructuredText and Python files.
 
     :param context: Click context containing command parameters.
+    :param center_section_titles: Whether to center section titles with overlines.
     :param check: Whether to check formatting without modifying files.
     :param docstring_trailing_line: Whether to add trailing line to docstrings.
     :param exclude: List of paths to exclude from formatting.
@@ -1050,6 +1067,7 @@ def main(
         manager = Manager(
             current_file=file,
             black_config=mode,
+            center_section_titles=center_section_titles,
             docstring_trailing_line=docstring_trailing_line,
             format_python_code_blocks=format_python_code_blocks,
             reporter=reporter,
@@ -1090,6 +1108,7 @@ def main(
                 section_adornments,
                 raw_output,
                 None,
+                center_section_titles,
             )
             if misformatted:
                 misformatted_files.add(file)
@@ -1126,6 +1145,7 @@ def main(
                     cache,
                     loop,
                     executor,
+                    center_section_titles,
                 )
             )
         finally:
