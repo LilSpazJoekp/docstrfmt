@@ -11,13 +11,19 @@
 - Added command-line option ``--center-section-titles/--no-center-section-titles`` to
   control whether section titles with overlines are centered with a leading space.
 
+**Fixed**
+
+- Fixed handling of 'changes' directives (``deprecated``, ``versionadded``,
+  ``versionchanged``, and ``versionremoved``) and will now format the description text
+  within the content body of the directive.
+
 ********************
  2.0.2 (2026/02/07)
 ********************
 
 **Fixed**
 
-- Fix resolving section adornments from pyproject.toml.
+- Fixed resolving section adornments from pyproject.toml.
 
 ********************
  2.0.1 (2025/12/27)

@@ -46,6 +46,34 @@ def test_call(file):
 
 
 @pytest.mark.parametrize(
+    "file,expected",
+    [
+        (
+            ".. deprecated:: 1.0 This was deprecated in version 1.0.",
+            ".. deprecated:: 1.0\n\n    This was deprecated in version 1.0.\n",
+        ),
+        (
+            ".. versionadded:: 1.0 This was added in version 1.0.",
+            ".. versionadded:: 1.0\n\n    This was added in version 1.0.\n",
+        ),
+        (
+            ".. versionchanged:: 1.0 This was changed in version 1.0.",
+            ".. versionchanged:: 1.0\n\n    This was changed in version 1.0.\n",
+        ),
+        (
+            ".. versionremoved:: 1.0 This was removed in version 1.0.",
+            ".. versionremoved:: 1.0\n\n    This was removed in version 1.0.\n",
+        ),
+    ],
+)
+def test_changes(runner, file, expected):
+    args = ["-"]
+    result = runner.invoke(main, args=args, input=file)
+    assert result.exit_code == 0
+    assert result.output == expected
+
+
+@pytest.mark.parametrize(
     "file", ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"]
 )
 def test_check(runner, file):
