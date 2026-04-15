@@ -52,7 +52,7 @@ dependencies = [
   "platformdirs>=4",
   "roman",
   "sphinx>=7",
-  "tabulate>=0.9",
+  "tabulate>=0.10.0",
   "tomli>=0.10;python_version<'3.11'",
   "types-docutils==0.22.3.20260316"
 ]
