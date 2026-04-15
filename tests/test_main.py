@@ -484,6 +484,45 @@ def test_pyproject_toml(runner):
     assert result.output == "1 file was checked.\nDone! 🎉\n"
 
 
+@pytest.mark.parametrize("indent", [3, 4, 5, 8])
+def test_indent_spaces(runner, indent):
+    raw_input = ".. note::\n\n    This is a note."
+    args = ["-l", 80, "-In", indent, "-t", "rst", "-r", raw_input]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    expected_indent = " " * indent
+    assert f".. note::\n\n{expected_indent}This is a note.\n" == result.output
+
+
+def test_indent_spaces_default(runner):
+    raw_input = ".. note::\n\n    This is a note."
+    args = ["-l", 80, "-t", "rst", "-r", raw_input]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert ".. note::\n\n    This is a note.\n" == result.output
+
+
+def test_indent_spaces_minimum(runner):
+    raw_input = ".. note::\n\n    This is a note."
+    args = ["-l", 80, "-In", 2, "-t", "rst", "-r", raw_input]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code != 0
+
+
+def test_indent_spaces_idempotent(runner):
+    raw_input = ".. note::\n\n    This is a note.\n\n::\n\n    literal block"
+    for indent in [3, 4, 5]:
+        args = ["-l", 80, "-In", indent, "-t", "rst", "-r", raw_input]
+        result = runner.invoke(main, args=args)
+        assert result.exit_code == 0
+        output = result.output
+        # Format again, should be idempotent
+        args[-1] = output
+        result = runner.invoke(main, args=args)
+        assert result.exit_code == 0
+        assert result.output == output
+
+
 def test_quiet(runner):
     args = ["-q", "-l", 80, "tests/test_files/test_file.rst"]
     result = runner.invoke(main, args=args)
