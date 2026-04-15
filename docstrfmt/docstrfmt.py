@@ -366,8 +366,9 @@ class Manager:
         *,
         current_file: Path | str,
         black_config: Mode | None = None,
-        center_section_titles: bool = True,
         bullet_list_marker: str = "-",
+        bullet_newlines: bool = False,
+        center_section_titles: bool = True,
         docstring_trailing_line: bool = True,
         format_python_code_blocks: bool = True,
         reporter: Reporter | utils.Reporter | logging.Logger,
@@ -378,9 +379,10 @@ class Manager:
         :param current_file: The current file being processed.
         :param reporter: utils.Reporter instance for logging.
         :param black_config: Black formatting configuration.
+        :param bullet_list_marker: Bullet character to use for unordered lists.
+        :param bullet_newlines: Whether to add blank lines between list items.
         :param center_section_titles: Whether to center section titles with overlines
             by adding a leading space.
-        :param bullet_list_marker: Bullet character to use for unordered lists.
         :param docstring_trailing_line: Whether to add trailing line to docstrings.
         :param format_python_code_blocks: Whether to format Python code blocks.
         :param section_adornments: Section adornment configuration.
@@ -389,8 +391,9 @@ class Manager:
         rst_extras.register()
         self.current_file = current_file
         self.black_config = black_config
-        self.center_section_titles = center_section_titles
         self.bullet_list_marker = bullet_list_marker
+        self.bullet_newlines = bullet_newlines
+        self.center_section_titles = center_section_titles
         self.current_offset = 0
         self.error_count = 0
         self.reporter = reporter
@@ -790,11 +793,16 @@ class Formatters:
         """
         sub_children = []
         for child_index, child in enumerate(node.children, 1):  # type: ignore[attr]
+            is_not_last_child = len(node.children) != child_index  # type: ignore[attr]
             sub_children.append(
                 list(self.manager.perform_format(child, context))
                 + (
                     [""]
-                    if len(child.children) > 1 and len(node.children) != child_index  # type: ignore[attr]
+                    if is_not_last_child
+                    and (
+                        self.manager.bullet_newlines
+                        or len(child.children) > 1
+                    )
                     else []
                 )
             )
