@@ -97,6 +97,36 @@ differences in formatting conventions between the two (hence the separate fork).
        ``pyproject.toml`` autodetected `like Black`_.
     6. `Black's default line length`_ (88 at the time of this writing).
 
+Caching
+=======
+
+docstrfmt uses a file cache to speed up successive runs. When a file is successfully
+formatted, its modification time and size are stored in a cache file. On the next run,
+files that haven't changed since the last successful formatting are skipped. The cache is
+stored in a platform-specific user cache directory (e.g.,
+``~/.cache/docstrfmt/<version>/`` on Linux).
+
+The cache is keyed by the formatting options (line length, etc.), so changing options will
+cause all files to be reprocessed.
+
+To bypass the cache, use the ``-i`` / ``--ignore-cache`` flag:
+
+.. code-block:: sh
+
+    docstrfmt --ignore-cache <file>...
+
+This is particularly useful in CI environments where you want to ensure all files are
+checked regardless of any local cache state.
+
+To clear the cache manually, delete the cache directory:
+
+.. code-block:: sh
+
+    # On Linux/macOS
+    rm -rf ~/.cache/docstrfmt/
+
+    # Or use the platform-appropriate cache directory for your OS.
+
 Like Black's blackd_, there is also a daemon that provides formatting via HTTP requests
 to avoid the cost of starting and importing everything on every run.
 

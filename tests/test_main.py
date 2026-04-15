@@ -741,6 +741,29 @@ def test_cache(runner, file):
     assert result.output.endswith("was checked.\nDone! 🎉\n")
 
 
+@pytest.mark.parametrize("file", test_files)
+def test_check_cache_does_not_cache_misformatted(runner, file):
+    args = [
+        "-c",
+        "-e",
+        "tests/test_files/error_files/",
+        "-e",
+        "tests/test_files/test_encoding.rst",
+        "-l",
+        80,
+        file,
+    ]
+    # First check run should find files that could be reformatted
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 1
+    assert "could be reformatted" in result.output
+
+    # Second check run should still find the same files (not cached as done)
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 1
+    assert "could be reformatted" in result.output
+
+
 def test_comment_preserve_single_line(runner):
     file = "..  A comment in a single line is not placed on the next one.\n"
     fixed = ".. A comment in a single line is not placed on the next one.\n"
