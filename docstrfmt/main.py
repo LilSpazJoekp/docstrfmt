@@ -63,6 +63,7 @@ def _format_file(
     mode: Mode,
     docstring_trailing_line: bool,
     format_python_code_blocks: bool,
+    header_newline: bool,
     section_adornments: list[tuple[str, bool]] | None,
     raw_output: bool,
     lock: Lock | None,
@@ -79,6 +80,7 @@ def _format_file(
     :param mode: Black formatting mode.
     :param docstring_trailing_line: Whether to add trailing line to docstrings.
     :param format_python_code_blocks: Whether to format Python code blocks.
+    :param header_newline: Whether to add a double-newline before section headers.
     :param section_adornments: Section adornment configuration.
     :param raw_output: Whether to output raw formatted text.
     :param lock: Lock for thread safety.
@@ -97,6 +99,7 @@ def _format_file(
         center_section_titles=center_section_titles,
         docstring_trailing_line=docstring_trailing_line,
         format_python_code_blocks=format_python_code_blocks,
+        header_newline=header_newline,
         reporter=reporter,
         section_adornments=section_adornments,
     )
@@ -417,6 +420,7 @@ async def _run_formatter(
     include_txt: bool,
     docstring_trailing_line: bool,
     format_python_code_blocks: bool,
+    header_newline: bool,
     section_adornments: list[tuple[str, bool]] | None,
     mode: Mode,
     line_length: int,
@@ -435,6 +439,7 @@ async def _run_formatter(
     :param include_txt: Whether to include .txt files.
     :param docstring_trailing_line: Whether to add trailing line to docstrings.
     :param format_python_code_blocks: Whether to format Python code blocks.
+    :param header_newline: Whether to add a double-newline before section headers.
     :param section_adornments: Section adornment configuration.
     :param mode: Black formatting mode.
     :param line_length: Maximum line length.
@@ -468,6 +473,7 @@ async def _run_formatter(
                 mode,
                 docstring_trailing_line,
                 format_python_code_blocks,
+                header_newline,
                 section_adornments,
                 raw_output,
                 lock,
@@ -918,6 +924,12 @@ class Visitor(CSTTransformer):
     help="Whether format Python code blocks.",
 )
 @click.option(
+    "-Hn",
+    "--header-newline/--no-header-newline",
+    default=False,
+    help="Whether to add a double-newline before every section header.",
+)
+@click.option(
     "-i",
     "--ignore-cache",
     help="Ignore the cache. Useful for testing.",
@@ -1024,6 +1036,7 @@ def main(
     extend_exclude: list[str],
     file_type: str,
     format_python_code_blocks: bool,
+    header_newline: bool,
     ignore_cache: bool,
     include_txt: bool,
     line_length: int,
@@ -1047,6 +1060,7 @@ def main(
     :param extend_exclude: Additional paths to exclude from formatting.
     :param file_type: Type of files to process ('py' or 'rst').
     :param format_python_code_blocks: Whether to format Python code blocks.
+    :param header_newline: Whether to add a double-newline before section headers.
     :param ignore_cache: Whether to ignore the cache.
     :param include_txt: Whether to include .txt files.
     :param line_length: Maximum line length.
@@ -1087,6 +1101,7 @@ def main(
             center_section_titles=center_section_titles,
             docstring_trailing_line=docstring_trailing_line,
             format_python_code_blocks=format_python_code_blocks,
+            header_newline=header_newline,
             reporter=reporter,
             section_adornments=section_adornments,
         )
@@ -1122,6 +1137,7 @@ def main(
                 mode,
                 docstring_trailing_line,
                 format_python_code_blocks,
+                header_newline,
                 section_adornments,
                 raw_output,
                 None,
@@ -1156,6 +1172,7 @@ def main(
                     include_txt,
                     docstring_trailing_line,
                     format_python_code_blocks,
+                    header_newline,
                     section_adornments,
                     mode,
                     line_length,

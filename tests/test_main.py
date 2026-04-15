@@ -1310,6 +1310,128 @@ def test_section_reformatting_insufficient_adornments(runner):
     assert "there are only 2 adornments to pick from" in result.output
 
 
+def test_section_reformatting_header_newline(runner):
+    file = """
+              Some intro text.
+
+              ============
+              First header
+              ============
+
+              blah
+
+              second header
+              -------------
+
+              foo
+           """
+
+    fixed = """
+              Some intro text.
+
+
+              ##############
+               First header
+              ##############
+
+              blah
+
+
+              ***************
+               second header
+              ***************
+
+              foo
+            """
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    args = ["-Hn", "-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
+def test_section_reformatting_header_newline_nested(runner):
+    file = """
+              ============
+              Top Section
+              ============
+
+              Content.
+
+              Sub Section
+              -----------
+
+              Sub content.
+
+              ===============
+              Second Section
+              ===============
+
+              More content.
+           """
+
+    fixed = """
+              #############
+               Top Section
+              #############
+
+              Content.
+
+
+              *************
+               Sub Section
+              *************
+
+              Sub content.
+
+
+              ################
+               Second Section
+              ################
+
+              More content.
+            """
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    args = ["-Hn", "-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
+def test_section_reformatting_header_newline_from_pyproject(runner):
+    file = """
+              Some text.
+
+              =============
+              First Section
+              =============
+
+              Content.
+           """
+
+    fixed = """
+              Some text.
+
+
+              ###############
+               First Section
+              ###############
+
+              Content.
+            """
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    args = ["-p", "tests/test_files/pyproject-header-newline.toml", "-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
 def test_section_reformatting_numpydoc(runner):
     file = '''
               def function(param1: str, param2: int) -> None:
