@@ -792,7 +792,6 @@ class Formatters:
 
         """
         sub_children = []
-        is_not_last_child = False
         for child_index, child in enumerate(node.children, 1):  # type: ignore[attr]
             is_not_last_child = len(node.children) != child_index  # type: ignore[attr]
             sub_children.append(
