@@ -11,7 +11,7 @@ dev = [
 lint = [
   "pre-commit",
   "pyright>=1.1.406",
-  "ruff>=0.0.292"
+  "ruff>=0.15.10"
 ]
 test = [
   "aiohttp",
