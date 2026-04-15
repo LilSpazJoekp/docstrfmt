@@ -2344,7 +2344,7 @@ def _chain_with_section_line_separator(
 
     """
     first = True
-    for child, item in zip(children, items):
+    for child, item in zip(children, items, strict=True):
         if not first:
             yield separator
             if isinstance(child, nodes.section):
