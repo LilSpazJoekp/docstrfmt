@@ -501,7 +501,7 @@ async def _run_formatter(
                 if misformatted:
                     misformatted_files.add(file)
                 if (
-                    not (misformatted and raw_output) or (check and not misformatted)
+                    not misformatted or (not check and not raw_output)
                 ) and errors == 0:
                     files_to_cache.append(file)
     if cancelled:  # pragma: no cover
@@ -920,7 +920,7 @@ class Visitor(CSTTransformer):
 @click.option(
     "-i",
     "--ignore-cache",
-    help="Ignore the cache. Useful for testing.",
+    help="Ignore the cache. Useful for CI environments.",
     is_flag=True,
 )
 @click.option(
