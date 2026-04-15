@@ -91,6 +91,7 @@ class FileCache:
         :returns: Path to the cache file.
 
         """
+        auto_numbered_lists = str(self.context.params["auto_numbered_lists"])
         docstring_trailing_line = str(self.context.params["docstring_trailing_line"])
         format_python_code_blocks = str(
             self.context.params["format_python_code_blocks"]
@@ -100,7 +101,7 @@ class FileCache:
         include_txt = str(self.context.params["include_txt"])
         return (
             self.cache_dir
-            / f"cache.{f'{docstring_trailing_line}_{format_python_code_blocks}_{include_txt}_{line_length}_{mode}'}.pickle"
+            / f"cache.{f'{auto_numbered_lists}_{docstring_trailing_line}_{format_python_code_blocks}_{include_txt}_{line_length}_{mode}'}.pickle"
         )
 
     def _read_cache(self) -> dict[str, tuple[float, int]]:

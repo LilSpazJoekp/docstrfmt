@@ -68,6 +68,7 @@ def _format_file(
     lock: Lock | None,
     bullet_list_marker: str = "-",
     center_section_titles: bool = True,
+    auto_numbered_lists: bool = False,
 ):
     """Format a single file with the given parameters.
 
@@ -84,6 +85,7 @@ def _format_file(
     :param lock: Lock for thread safety.
     :param bullet_list_marker: Bullet character to use for unordered lists.
     :param center_section_titles: Whether to center section titles with overlines.
+    :param auto_numbered_lists: Whether to use auto-numbered (``#.``) enumerators.
 
     :returns: A tuple containing a boolean indicating if the file was misformatted and
         the number of errors.
@@ -92,6 +94,7 @@ def _format_file(
     error_count = 0
     manager = Manager(
         current_file=file.name,
+        auto_numbered_lists=auto_numbered_lists,
         black_config=mode,
         bullet_list_marker=bullet_list_marker,
         center_section_titles=center_section_titles,
@@ -426,6 +429,7 @@ async def _run_formatter(
     executor: ProcessPoolExecutor | ThreadPoolExecutor,
     bullet_list_marker: str = "-",
     center_section_titles: bool = True,
+    auto_numbered_lists: bool = False,
 ):
     """Run the formatter on multiple files asynchronously.
 
@@ -444,6 +448,7 @@ async def _run_formatter(
     :param executor: Process or thread pool executor.
     :param bullet_list_marker: Bullet character to use for unordered lists.
     :param center_section_titles: Whether to center section titles with overlines.
+    :param auto_numbered_lists: Whether to use auto-numbered (``#.``) enumerators.
 
     :returns: Tuple of (misformatted_files, total_error_count).
 
@@ -473,6 +478,7 @@ async def _run_formatter(
                 lock,
                 bullet_list_marker,
                 center_section_titles,
+                auto_numbered_lists,
             )
         ): file
         for file in sorted(todo)
@@ -852,6 +858,15 @@ class Visitor(CSTTransformer):
 # noinspection PyUnusedLocal
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
 @click.option(
+    "-An",
+    "--auto-numbered-lists",
+    is_flag=True,
+    help=(
+        "Use auto-numbered list markers (#.) instead of explicit numbers for"
+        " enumerated lists."
+    ),
+)
+@click.option(
     "-b",
     "--bullet-list-marker",
     default="-",
@@ -1016,6 +1031,7 @@ class Visitor(CSTTransformer):
 @click.pass_context
 def main(
     context: Context,
+    auto_numbered_lists: bool,
     bullet_list_marker: str,
     center_section_titles: bool,
     check: bool,
@@ -1039,6 +1055,7 @@ def main(
     """Format reStructuredText and Python files.
 
     :param context: Click context containing command parameters.
+    :param auto_numbered_lists: Whether to use auto-numbered (``#.``) enumerators.
     :param bullet_list_marker: Bullet character to use for unordered lists.
     :param center_section_titles: Whether to center section titles with overlines.
     :param check: Whether to check formatting without modifying files.
@@ -1082,6 +1099,7 @@ def main(
         file = "<raw_input>"
         manager = Manager(
             current_file=file,
+            auto_numbered_lists=auto_numbered_lists,
             black_config=mode,
             bullet_list_marker=bullet_list_marker,
             center_section_titles=center_section_titles,
@@ -1127,6 +1145,7 @@ def main(
                 None,
                 bullet_list_marker,
                 center_section_titles,
+                auto_numbered_lists,
             )
             if misformatted:
                 misformatted_files.add(file)
@@ -1165,6 +1184,7 @@ def main(
                     executor,
                     bullet_list_marker,
                     center_section_titles,
+                    auto_numbered_lists,
                 )
             )
         finally:
