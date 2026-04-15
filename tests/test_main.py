@@ -140,6 +140,38 @@ def test_bullet_list_marker_default(runner):
     assert result.output == "- item one\n- item two\n"
 
 
+def test_auto_numbered_lists(runner):
+    numbered_input = "1. item one\n2. item two\n3. item three\n"
+    args = ["-An", "-"]
+    result = runner.invoke(main, args=args, input=numbered_input)
+    assert result.exit_code == 0
+    assert result.output == "#. item one\n#. item two\n#. item three\n"
+
+
+def test_auto_numbered_lists_long_flag(runner):
+    numbered_input = "1. item one\n2. item two\n"
+    args = ["--auto-numbered-lists", "-"]
+    result = runner.invoke(main, args=args, input=numbered_input)
+    assert result.exit_code == 0
+    assert result.output == "#. item one\n#. item two\n"
+
+
+def test_auto_numbered_lists_default(runner):
+    numbered_input = "1. item one\n2. item two\n"
+    args = ["-"]
+    result = runner.invoke(main, args=args, input=numbered_input)
+    assert result.exit_code == 0
+    assert result.output == "1. item one\n2. item two\n"
+
+
+def test_auto_numbered_lists_roundtrip(runner):
+    auto_input = "#. item one\n#. item two\n#. item three\n"
+    args = ["-An", "-"]
+    result = runner.invoke(main, args=args, input=auto_input)
+    assert result.exit_code == 0
+    assert result.output == "#. item one\n#. item two\n#. item three\n"
+
+
 def test_encoding(runner):
     file = "tests/test_files/test_encoding.rst"
     args = [file]

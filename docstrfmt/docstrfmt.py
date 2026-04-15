@@ -365,6 +365,7 @@ class Manager:
         self,
         *,
         current_file: Path | str,
+        auto_numbered_lists: bool = False,
         black_config: Mode | None = None,
         center_section_titles: bool = True,
         bullet_list_marker: str = "-",
@@ -376,6 +377,8 @@ class Manager:
         """Initialize the manager.
 
         :param current_file: The current file being processed.
+        :param auto_numbered_lists: Whether to use auto-numbered (``#.``) enumerators
+            instead of explicit numbers.
         :param reporter: utils.Reporter instance for logging.
         :param black_config: Black formatting configuration.
         :param center_section_titles: Whether to center section titles with overlines
@@ -388,6 +391,7 @@ class Manager:
         """
         rst_extras.register()
         self.current_file = current_file
+        self.auto_numbered_lists = auto_numbered_lists
         self.black_config = black_config
         self.center_section_titles = center_section_titles
         self.bullet_list_marker = bullet_list_marker
@@ -1600,9 +1604,12 @@ class Formatters:
             yield context.bullet  # no idea why this isn't covered anymore
             return
         if context.current_ordinal:
-            context.bullet = make_enumerator(
-                context.current_ordinal, context.ordinal_format, ("", ".")
-            )
+            if context.manager.auto_numbered_lists:
+                context.bullet = "#."
+            else:
+                context.bullet = make_enumerator(
+                    context.current_ordinal, context.ordinal_format, ("", ".")
+                )
             context.current_ordinal += 1
         width = len(context.bullet) + 1
         bullet = f"{context.bullet} "
