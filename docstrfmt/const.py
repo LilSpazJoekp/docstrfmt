@@ -29,6 +29,7 @@ ROLE_ALIASES = {
     "subscript": "sub",
     "superscript": "sup",
 }
+DEFAULT_INDENT_SPACES = 4
 DEFAULT_LINE_LENGTH = 88
 NODE_MAPPING = {
     "attention": "_sub_admonition",

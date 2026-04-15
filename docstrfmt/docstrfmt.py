@@ -370,6 +370,7 @@ class Manager:
         bullet_list_marker: str = "-",
         docstring_trailing_line: bool = True,
         format_python_code_blocks: bool = True,
+        indent_spaces: int = 4,
         reporter: Reporter | utils.Reporter | logging.Logger,
         section_adornments: list[tuple[str, bool]] | None = None,
     ):
@@ -383,6 +384,7 @@ class Manager:
         :param bullet_list_marker: Bullet character to use for unordered lists.
         :param docstring_trailing_line: Whether to add trailing line to docstrings.
         :param format_python_code_blocks: Whether to format Python code blocks.
+        :param indent_spaces: Number of spaces per indentation level.
         :param section_adornments: Section adornment configuration.
 
         """
@@ -391,6 +393,7 @@ class Manager:
         self.black_config = black_config
         self.center_section_titles = center_section_titles
         self.bullet_list_marker = bullet_list_marker
+        self.indent_spaces = indent_spaces
         self.current_offset = 0
         self.error_count = 0
         self.reporter = reporter
@@ -706,6 +709,11 @@ class Formatters:
         """
         self.manager = manager
 
+    @property
+    def _indent(self) -> int:
+        """Return the indent spaces setting from the manager."""
+        return self.manager.indent_spaces
+
     def _format_children(
         self,
         node: nodes.Node,
@@ -820,9 +828,9 @@ class Formatters:
         yield f".. {node.tagname}::"
         yield ""
         yield from _with_spaces(
-            4,
+            self._indent,
             _chain_with_line_separator(
-                "", self._format_children(node, context.indent(4))
+                "", self._format_children(node, context.indent(self._indent))
             ),
         )
 
@@ -849,9 +857,9 @@ class Formatters:
             f" {''.join(_wrap_text(None, chain(self._format_children(title, context)), context, node.line))}"
         )
         yield ""
-        context = context.indent(4)
+        context = context.indent(self._indent)
         yield from _with_spaces(
-            4,
+            self._indent,
             _chain_with_line_separator(
                 "",
                 (
@@ -883,9 +891,9 @@ class Formatters:
 
         """
         yield from _with_spaces(
-            4,
+            self._indent,
             _chain_with_line_separator(
-                "", self._format_children(node, context.indent(4))
+                "", self._format_children(node, context.indent(self._indent))
             ),
         )
 
@@ -939,7 +947,7 @@ class Formatters:
         yield ".."
         if node.children:
             text = "\n".join(chain(self._format_children(node, context)))
-            yield from _with_spaces(4, text.splitlines())
+            yield from _with_spaces(self._indent, text.splitlines())
 
     def definition(
         self,
@@ -998,7 +1006,7 @@ class Formatters:
                 yield from self.manager.perform_format(child, context)
             elif isinstance(child, nodes.definition):
                 yield from _with_spaces(
-                    4, self.manager.perform_format(child, context.indent(4))
+                    self._indent, self.manager.perform_format(child, context.indent(self._indent))
                 )
 
     def directive(
@@ -1040,7 +1048,7 @@ class Formatters:
 
         yield " ".join(parts)
         # Just rely on the order being stable, hopefully.
-        leading_space = "" if in_substitution else " " * 4
+        leading_space = "" if in_substitution else " " * self._indent
         for k, v in directive.options.items():
             yield f"{leading_space}:{k}:" if v is None else f"{leading_space}:{k}: {v}"
 
@@ -1054,9 +1062,9 @@ class Formatters:
                 except (AttributeError, TypeError):
                     pass
             yield ""
-            yield from _with_spaces(4, text.splitlines())
+            yield from _with_spaces(self._indent, text.splitlines())
         elif directive.raw:
-            yield from _prepend_if_any("", _with_spaces(4, directive.content))
+            yield from _prepend_if_any("", _with_spaces(self._indent, directive.content))
         else:
             sub_doc = self.manager.parse_string(
                 "\n".join(directive.content),
@@ -1066,7 +1074,7 @@ class Formatters:
             if sub_doc.children:
                 yield ""
                 yield from _with_spaces(
-                    4, self.manager.perform_format(sub_doc, context.indent(4))
+                    self._indent, self.manager.perform_format(sub_doc, context.indent(self._indent))
                 )
 
     def doctest_block(
@@ -1223,7 +1231,7 @@ class Formatters:
             if child.startswith(".."):
                 blocks_in_child = [child]
                 for block in children[i + 1 :]:
-                    if block.startswith("    ") or block == "":
+                    if block.startswith(" " * self._indent) or block == "":
                         blocks_in_child.append(block)
                     else:  # pragma: no cover
                         break
@@ -1235,7 +1243,7 @@ class Formatters:
                 children_processed.append(child)
         children = children_processed
         yield f"{field_name} {first_line}"
-        yield from _with_spaces(4, children)
+        yield from _with_spaces(self._indent, children)
 
     def field_body(
         self,
@@ -1255,8 +1263,8 @@ class Formatters:
             "",
             self._format_children(
                 node,
-                context.indent(4).wrap_first_at(
-                    len(f":{node.parent.children[0].astext()}: ") - 4
+                context.indent(self._indent).wrap_first_at(
+                    len(f":{node.parent.children[0].astext()}: ") - self._indent
                 ),
             ),
         )
@@ -1460,9 +1468,9 @@ class Formatters:
         """
         prefix = ".."
         children = _wrap_text(
-            (context.width - 4 if context.width is not None else None),
-            chain(self._format_children(node, context.indent(4))),
-            context.wrap_first_at(len(prefix) - 4).indent(4),
+            (context.width - self._indent if context.width is not None else None),
+            chain(self._format_children(node, context.indent(self._indent))),
+            context.wrap_first_at(len(prefix) - self._indent).indent(self._indent),
             node.line,
         )
         footnote_name = (
@@ -1474,7 +1482,7 @@ class Formatters:
         yield " ".join([prefix, *footnote_name, child])
         remaining = list(children)
         if remaining:
-            yield from _with_spaces(4, remaining)
+            yield from _with_spaces(self._indent, remaining)
 
     citation = footnote
 
@@ -1550,7 +1558,7 @@ class Formatters:
             yield "|"
             return
 
-        indent = 4 * context.line_block_depth
+        indent = self._indent * context.line_block_depth
         context = context.indent(indent)
         prefix1 = f"|{' ' * (indent - 1)}"
         prefix2 = " " * indent
@@ -1648,8 +1656,8 @@ class Formatters:
             f"``{''.join(chain(self._format_children(node, context)))}``"
         )
 
-    @staticmethod
     def literal_block(
+        self,
         node: nodes.literal_block,
         context: FormatContext,
     ) -> line_iterator:
@@ -1683,11 +1691,11 @@ class Formatters:
             except (AttributeError, TypeError):
                 pass
             yield ""
-            yield from _with_spaces(4, text.splitlines())
+            yield from _with_spaces(self._indent, text.splitlines())
             return
         else:
             yield "::"
-        yield from _prepend_if_any("", _with_spaces(4, node.rawsource.splitlines()))
+        yield from _prepend_if_any("", _with_spaces(self._indent, node.rawsource.splitlines()))
 
     def paragraph(
         self,
@@ -1954,19 +1962,19 @@ class Formatters:
             if _directive.options.get("alt") == node.attributes["names"][0]:
                 del _directive.options["alt"]
         if directive in ["image", "unicode"]:
-            children = chain(self._format_children(node, context.indent(4)))
+            children = chain(self._format_children(node, context.indent(self._indent)))
         else:  # for date and replace
             children = _wrap_text(
-                (context.width - 4 if context.width is not None else None),
-                chain(self._format_children(node, context.indent(4))),
-                context.wrap_first_at(len(prefix) - 4).indent(4),
+                (context.width - self._indent if context.width is not None else None),
+                chain(self._format_children(node, context.indent(self._indent))),
+                context.wrap_first_at(len(prefix) - self._indent).indent(self._indent),
                 node.line,
             )
         next_child = next(children)
         yield f"{prefix} {next_child}"
         remaining = list(children)
         if remaining:
-            yield from _with_spaces(4, remaining)
+            yield from _with_spaces(self._indent, remaining)
 
     def substitution_reference(
         self,

@@ -39,7 +39,7 @@ from click import Context
 from libcst import CSTTransformer, Expr
 from libcst.metadata import ParentNodeProvider, PositionProvider
 
-from . import DEFAULT_EXCLUDE, SECTION_CHARS, Manager, __version__
+from . import DEFAULT_EXCLUDE, DEFAULT_INDENT_SPACES, SECTION_CHARS, Manager, __version__
 from .debug import dump_node
 from .exceptions import InvalidRstErrors
 from .util import FileCache, LineResolver, plural
@@ -68,6 +68,7 @@ def _format_file(
     lock: Lock | None,
     bullet_list_marker: str = "-",
     center_section_titles: bool = True,
+    indent_spaces: int = DEFAULT_INDENT_SPACES,
 ):
     """Format a single file with the given parameters.
 
@@ -84,6 +85,7 @@ def _format_file(
     :param lock: Lock for thread safety.
     :param bullet_list_marker: Bullet character to use for unordered lists.
     :param center_section_titles: Whether to center section titles with overlines.
+    :param indent_spaces: Number of spaces per indentation level.
 
     :returns: A tuple containing a boolean indicating if the file was misformatted and
         the number of errors.
@@ -97,6 +99,7 @@ def _format_file(
         center_section_titles=center_section_titles,
         docstring_trailing_line=docstring_trailing_line,
         format_python_code_blocks=format_python_code_blocks,
+        indent_spaces=indent_spaces,
         reporter=reporter,
         section_adornments=section_adornments,
     )
@@ -426,6 +429,7 @@ async def _run_formatter(
     executor: ProcessPoolExecutor | ThreadPoolExecutor,
     bullet_list_marker: str = "-",
     center_section_titles: bool = True,
+    indent_spaces: int = DEFAULT_INDENT_SPACES,
 ):
     """Run the formatter on multiple files asynchronously.
 
@@ -444,6 +448,7 @@ async def _run_formatter(
     :param executor: Process or thread pool executor.
     :param bullet_list_marker: Bullet character to use for unordered lists.
     :param center_section_titles: Whether to center section titles with overlines.
+    :param indent_spaces: Number of spaces per indentation level.
 
     :returns: Tuple of (misformatted_files, total_error_count).
 
@@ -473,6 +478,7 @@ async def _run_formatter(
                 lock,
                 bullet_list_marker,
                 center_section_titles,
+                indent_spaces,
             )
         ): file
         for file in sorted(todo)
@@ -930,6 +936,14 @@ class Visitor(CSTTransformer):
     is_flag=True,
 )
 @click.option(
+    "-In",
+    "--indent-spaces",
+    type=click.IntRange(3),
+    default=DEFAULT_INDENT_SPACES,
+    show_default=True,
+    help="Number of spaces per indentation level.",
+)
+@click.option(
     "-l",
     "--line-length",
     type=click.IntRange(4),
@@ -1026,6 +1040,7 @@ def main(
     format_python_code_blocks: bool,
     ignore_cache: bool,
     include_txt: bool,
+    indent_spaces: int,
     line_length: int,
     preserve_adornments: bool,
     mode: Mode,
@@ -1049,6 +1064,7 @@ def main(
     :param format_python_code_blocks: Whether to format Python code blocks.
     :param ignore_cache: Whether to ignore the cache.
     :param include_txt: Whether to include .txt files.
+    :param indent_spaces: Number of spaces per indentation level.
     :param line_length: Maximum line length.
     :param preserve_adornments: Whether to preserve existing section adornments.
     :param mode: Black formatting mode.
@@ -1087,6 +1103,7 @@ def main(
             center_section_titles=center_section_titles,
             docstring_trailing_line=docstring_trailing_line,
             format_python_code_blocks=format_python_code_blocks,
+            indent_spaces=indent_spaces,
             reporter=reporter,
             section_adornments=section_adornments,
         )
@@ -1127,6 +1144,7 @@ def main(
                 None,
                 bullet_list_marker,
                 center_section_titles,
+                indent_spaces,
             )
             if misformatted:
                 misformatted_files.add(file)
@@ -1165,6 +1183,7 @@ def main(
                     executor,
                     bullet_list_marker,
                     center_section_titles,
+                    indent_spaces,
                 )
             )
         finally:

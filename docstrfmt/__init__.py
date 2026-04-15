@@ -2,6 +2,7 @@
 
 from .const import (
     DEFAULT_EXCLUDE,
+    DEFAULT_INDENT_SPACES,
     DEFAULT_LINE_LENGTH,
     NODE_MAPPING,
     ROLE_ALIASES,
