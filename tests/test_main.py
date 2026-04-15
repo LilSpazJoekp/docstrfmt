@@ -140,6 +140,38 @@ def test_bullet_list_marker_default(runner):
     assert result.output == "- item one\n- item two\n"
 
 
+def test_bullet_newlines(runner):
+    bullet_input = "- item one\n- item two\n- item three\n"
+    args = ["-Bn", "-"]
+    result = runner.invoke(main, args=args, input=bullet_input)
+    assert result.exit_code == 0
+    assert result.output == "- item one\n\n- item two\n\n- item three\n"
+
+
+def test_bullet_newlines_enumerated(runner):
+    bullet_input = "1. First item\n2. Second item\n3. Third item\n"
+    args = ["-Bn", "-"]
+    result = runner.invoke(main, args=args, input=bullet_input)
+    assert result.exit_code == 0
+    assert result.output == "1. First item\n\n2. Second item\n\n3. Third item\n"
+
+
+def test_bullet_newlines_idempotent(runner):
+    bullet_input = "- item one\n\n- item two\n\n- item three\n"
+    args = ["-Bn", "-"]
+    result = runner.invoke(main, args=args, input=bullet_input)
+    assert result.exit_code == 0
+    assert result.output == "- item one\n\n- item two\n\n- item three\n"
+
+
+def test_bullet_newlines_default_off(runner):
+    bullet_input = "- item one\n- item two\n"
+    args = ["-"]
+    result = runner.invoke(main, args=args, input=bullet_input)
+    assert result.exit_code == 0
+    assert result.output == "- item one\n- item two\n"
+
+
 def test_encoding(runner):
     file = "tests/test_files/test_encoding.rst"
     args = [file]
