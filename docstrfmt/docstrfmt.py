@@ -6,7 +6,7 @@ import itertools
 import re
 import string
 from collections import namedtuple
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sequence
 from copy import copy
 from dataclasses import dataclass
 from doctest import DocTestParser
@@ -370,6 +370,7 @@ class Manager:
         bullet_list_marker: str = "-",
         docstring_trailing_line: bool = True,
         format_python_code_blocks: bool = True,
+        header_newline: bool = False,
         reporter: Reporter | utils.Reporter | logging.Logger,
         section_adornments: list[tuple[str, bool]] | None = None,
     ):
@@ -383,6 +384,7 @@ class Manager:
         :param bullet_list_marker: Bullet character to use for unordered lists.
         :param docstring_trailing_line: Whether to add trailing line to docstrings.
         :param format_python_code_blocks: Whether to format Python code blocks.
+        :param header_newline: Whether to add a double-newline before section headers.
         :param section_adornments: Section adornment configuration.
 
         """
@@ -393,6 +395,7 @@ class Manager:
         self.bullet_list_marker = bullet_list_marker
         self.current_offset = 0
         self.error_count = 0
+        self.header_newline = header_newline
         self.reporter = reporter
         self.settings = OptionParser(components=[rst.Parser]).get_default_values()
         self.settings.smart_quotes = True
@@ -1131,7 +1134,14 @@ class Formatters:
             The entire document content.
 
         """
-        yield from _chain_with_line_separator("", self._format_children(node, context))
+        if context.manager.header_newline:
+            yield from _chain_with_section_line_separator(
+                "", self._format_children(node, context), node.children
+            )
+        else:
+            yield from _chain_with_line_separator(
+                "", self._format_children(node, context)
+            )
 
     def emphasis(
         self,
@@ -1907,9 +1917,14 @@ class Formatters:
             Section content.
 
         """
-        yield from _chain_with_line_separator(
-            "", self._format_children(node, context.in_section())
-        )
+        if context.manager.header_newline:
+            yield from _chain_with_section_line_separator(
+                "", self._format_children(node, context.in_section()), node.children
+            )
+        else:
+            yield from _chain_with_line_separator(
+                "", self._format_children(node, context.in_section())
+            )
 
     def strong(
         self,
@@ -2310,6 +2325,30 @@ def _chain_with_line_separator(
     for item in items:
         if not first:
             yield separator
+        first = False
+        yield from item
+
+
+def _chain_with_section_line_separator(
+    separator: T,
+    items: Iterable[Iterable[T]],
+    children: Sequence[nodes.Node],
+) -> Iterator[T]:
+    """Chain items with a separator between them, doubling before sections.
+
+    :param separator: Separator to insert between items.
+    :param items: Iterable of iterables to chain.
+    :param children: Sequence of child nodes corresponding to items.
+
+    :returns: Iterator of chained items with separators.
+
+    """
+    first = True
+    for child, item in zip(children, items, strict=True):
+        if not first:
+            yield separator
+            if isinstance(child, nodes.section):
+                yield separator
         first = False
         yield from item
 
