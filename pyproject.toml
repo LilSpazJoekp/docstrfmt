@@ -51,7 +51,7 @@ dependencies = [
   "libcst>=1",
   "platformdirs>=4",
   "roman",
-  "sphinx>=7",
+  "sphinx>=8.1.3",
   "tabulate>=0.10.0",
   "tomli>=0.10;python_version<'3.11'",
   "types-docutils==0.22.3.20260316"
