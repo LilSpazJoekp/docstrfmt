@@ -9,3 +9,9 @@
 ###############
 
 - Danny Zhu <dzhu@dzhu.us> `@dzhu <https://github.com/dzhu>`_
+
+##############
+ Contributors
+##############
+
+- Bryce Boe <bbzbryce@gmail.com> `@bboe <https://github.com/bboe>`_

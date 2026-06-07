@@ -25,6 +25,8 @@
   incorporates every option that affects output (e.g., ``--section-adornments``,
   ``--bullet-list-marker``), so files reformat instead of being skipped after such
   options change.
+- Single-file invocations now use the file cache; previously only runs with two or more
+  files consulted and updated it.
 
 ********************
  2.0.2 (2026/02/07)

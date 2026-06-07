@@ -742,8 +742,7 @@ def test_cache(runner, file):
 
 
 def test_cache_invalidated_by_formatting_options(runner):
-    # Two files are needed so that the parallel code path, which is the only one
-    # that uses the cache, runs.
+    # Two files are used so that the parallel code path runs.
     files = ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"]
     args = ["-l", 80, *files]
     result = runner.invoke(main, args=args)
@@ -759,6 +758,28 @@ def test_cache_invalidated_by_formatting_options(runner):
     result = runner.invoke(main, args=[*args, "-s", "|=-^\"'~+.`_:#*"])
     assert result.exit_code == 0
     assert result.output.endswith("were reformatted.\nDone! 🎉\n")
+
+
+def test_cache_single_file(runner):
+    file = "tests/test_files/test_file.rst"
+    args = ["-l", 80, file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output.endswith("were reformatted.\nDone! 🎉\n")
+
+    # Corrupt the formatting while preserving mtime and size so that a cache hit
+    # is distinguishable from a re-process: only a cache hit skips the file.
+    stat = os.stat(file)
+    with open(file, encoding="utf-8") as f:
+        content = f.read()
+    assert "\n- " in content
+    with open(file, "w", encoding="utf-8") as f:
+        f.write(content.replace("\n- ", "\n* ", 1))
+    os.utime(file, (stat.st_atime, stat.st_mtime))
+
+    result = runner.invoke(main, args=["-c", *args])
+    assert result.exit_code == 0
+    assert result.output.endswith("was checked.\nDone! 🎉\n")
 
 
 def test_comment_preserve_single_line(runner):

@@ -154,8 +154,9 @@ class FileCache:
         todo, done = set(), set()
         for file in (Path(f).resolve() for f in files):
             if (
-                self.cache.get(str(file)) != self._get_file_info(file)
+                file.name == "-"  # stdin cannot be cached
                 or self.ignore_cache
+                or self.cache.get(str(file)) != self._get_file_info(file)
             ):
                 todo.add(file)
             else:

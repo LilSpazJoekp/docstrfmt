@@ -501,8 +501,13 @@ async def _run_formatter(
                 if misformatted:
                     misformatted_files.add(file)
                 if (
-                    not (misformatted and raw_output) or (check and not misformatted)
-                ) and errors == 0:
+                    file.name != "-"  # stdin cannot be cached
+                    and (
+                        not (misformatted and raw_output)
+                        or (check and not misformatted)
+                    )
+                    and errors == 0
+                ):
                     files_to_cache.append(file)
     if cancelled:  # pragma: no cover
         await asyncio.gather(*cancelled, return_exceptions=True)
@@ -1112,10 +1117,18 @@ def main(
 
     cache = FileCache(context, ignore_cache)
     if len(files) < 2:
-        for file in files:
+        if raw_output:
+            # Raw output must always be emitted, even for cached files.
+            todo = {Path(file).resolve() for file in files}
+        else:
+            todo, _already_done = cache.gen_todo_list(files)
+        files_to_cache = []
+        for file in (Path(f) for f in files):
+            if file.resolve() not in todo:
+                continue
             misformatted, error_count = _format_file(
                 check,
-                Path(file),
+                file,
                 file_type,
                 include_txt,
                 line_length,
@@ -1130,6 +1143,15 @@ def main(
             )
             if misformatted:
                 misformatted_files.add(file)
+            if (
+                file.name != "-"  # stdin cannot be cached
+                and not raw_output  # raw output does not modify the file
+                and not (check and misformatted)  # the file remains misformatted
+                and error_count == 0
+            ):
+                files_to_cache.append(file)
+        if files_to_cache:
+            cache.write_cache(files_to_cache)
 
     else:
         # This code is heavily based on that of psf/black
