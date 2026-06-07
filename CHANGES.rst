@@ -14,8 +14,18 @@
   character used for unordered lists (``-``, ``*``, or ``+``). Defaults to ``-`` for
   backward compatibility.
 
+**Changed**
+
+- Command-line options now take precedence over the corresponding ``pyproject.toml``
+  settings consistently; previously ``section-adornments`` set in ``pyproject.toml``
+  overrode an explicit ``--section-adornments``.
+
 **Fixed**
 
+- Fixed ``TypeError: main() missing 1 required positional argument: 'line_length'``
+  with click 8.4+ when ``--pyproject-config`` is given explicitly and the
+  configuration sets ``line-length``. Configuration values now flow through click's
+  default map instead of being written into ``context.params``.
 - Fixed handling of 'changes' directives (``deprecated``, ``versionadded``,
   ``versionchanged``, and ``versionremoved``) and will now format the description text
   within the content body of the directive.

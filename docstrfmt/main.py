@@ -187,14 +187,14 @@ def _parse_pyproject_config(
                 config_value = config.get(key)
                 if config_value is not None and not isinstance(config_value, list):
                     raise click.BadOptionUsage(key, f"Config key {key} must be a list")
-            params = {}
+            # Expose config values through the default map only; writing them
+            # directly into context.params conflicts with how click >=8.4
+            # arbitrates which parameter owns a value slot.
+            default_map = {}
             if context.default_map is not None:  # pragma: no cover
-                params.update(context.default_map)
-            if context.params is not None:
-                params.update(context.params)
-            params.update(config)
-            context.params = params
-            context.default_map = params
+                default_map.update(context.default_map)
+            default_map.update(config)
+            context.default_map = default_map
 
         black_config = parse_pyproject_toml(value)
         black_config.pop("exclude", None)
@@ -221,11 +221,21 @@ def _parse_sources(context: click.Context, _: click.Parameter, value: list[str] 
     :returns: List of resolved file paths to format.
 
     """
-    sources = value or context.params.get("files", [])
-    exclude = list(context.params.get("exclude", DEFAULT_EXCLUDE))
-    extend_exclude = list(context.params.get("extend_exclude", []))
+    default_map = context.default_map or {}
+
+    def lookup(name: str, fallback: Any) -> Any:
+        # Sibling parameters may not be processed yet when this callback runs,
+        # so fall back to the default map, which _parse_pyproject_config fills
+        # with pyproject.toml values.
+        if name in context.params:
+            return context.params[name]
+        return default_map.get(name, fallback)
+
+    sources = value or lookup("files", [])
+    exclude = list(lookup("exclude", DEFAULT_EXCLUDE))
+    extend_exclude = list(lookup("extend_exclude", []))
     exclude.extend(extend_exclude)
-    include_txt = context.params.get("include_txt", False)
+    include_txt = lookup("include_txt", False)
     files_to_format = set()
     extensions = [".py", ".rst"] + ([".txt"] if include_txt else [])
     for source in sources:
@@ -249,10 +259,7 @@ def _parse_sources(context: click.Context, _: click.Parameter, value: list[str] 
             if file.parent.match(exclusion) or file.match(exclusion):
                 files_to_format.discard(abspath(file))
                 break
-    sorted_files = sorted(files_to_format)
-    if context.params.get("files", []):
-        context.params["files"] = sorted_files
-    return sorted_files
+    return sorted(files_to_format)
 
 
 def _process_python(
@@ -365,20 +372,6 @@ def _process_rst(
     return misformatted, error_count
 
 
-def _resolve_length(context: click.Context, _: click.Parameter, value: int | None):
-    """Resolve line length from command line or pyproject.toml.
-
-    :param context: Click context containing command parameters.
-    :param _: Unused parameter.
-    :param value: Line length from command line.
-
-    :returns: Resolved line length value.
-
-    """
-    pyproject_line_length = context.params.pop("line_length", None)
-    return value or pyproject_line_length
-
-
 def _validate_adornments(
     context: click.Context, _: click.Parameter, value: str | None
 ) -> list[tuple[str, bool]] | None:
@@ -386,14 +379,14 @@ def _validate_adornments(
 
     :param context: Click context containing command parameters.
     :param _: Unused parameter.
-    :param value: Section adornments string from command line.
+    :param value: Section adornments string from the command line or pyproject.toml.
 
     :returns: List of tuples containing (character, has_overline) for each adornment.
 
     :raises click.BadParameter: If adornments are not unique.
 
     """
-    actual_value = context.params.pop("section_adornments", value)
+    actual_value = SECTION_CHARS if value is None else value
 
     if len(actual_value) != len(set(actual_value)):
         msg = "Section adornments must be unique"
@@ -943,7 +936,6 @@ class Visitor(CSTTransformer):
         " 'line-length' set in pyproject.toml if set. Defaults to the length provided"
         " to black if not set."
     ),
-    callback=_resolve_length,
 )
 @click.option(
     "-pA",
