@@ -326,7 +326,7 @@ def test_invalid_line_length(runner, file):
     assert result.exit_code == 2
     assert (
         result.output
-        == "Usage: main [OPTIONS] [FILES]...\nTry 'main -h' for help.\n\nError: Invalid"
+        == "Usage: main [OPTIONS] [FILES]...\nTry 'main --help' for help.\n\nError: Invalid"
         " value for '-l' / '--line-length': 3 is not in the range x>=4.\n"
     )
 
@@ -352,7 +352,7 @@ def test_invalid_pyproject_toml(runner):
     result = runner.invoke(main, args=args)
     assert result.exit_code == 2
     assert result.output == (
-        "Usage: main [OPTIONS] [FILES]...\nTry 'main -h' for help.\n\nError: Config"
+        "Usage: main [OPTIONS] [FILES]...\nTry 'main --help' for help.\n\nError: Config"
         " key extend_exclude must be a list\n"
     )
 
