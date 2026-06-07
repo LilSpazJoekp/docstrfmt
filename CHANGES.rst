@@ -6,10 +6,6 @@
  Unreleased
 ************
 
-********************
- 2.1.0 (2026/06/07)
-********************
-
 **Added**
 
 - Added command-line option ``--center-section-titles/--no-center-section-titles`` to
