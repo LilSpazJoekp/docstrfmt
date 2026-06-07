@@ -741,6 +741,26 @@ def test_cache(runner, file):
     assert result.output.endswith("was checked.\nDone! 🎉\n")
 
 
+def test_cache_invalidated_by_formatting_options(runner):
+    # Two files are needed so that the parallel code path, which is the only one
+    # that uses the cache, runs.
+    files = ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"]
+    args = ["-l", 80, *files]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output.endswith("were reformatted.\nDone! 🎉\n")
+
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output.endswith("was checked.\nDone! 🎉\n")
+
+    # Changing an option that affects output must invalidate the cache; the files
+    # need reformatting under the new section adornments.
+    result = runner.invoke(main, args=[*args, "-s", "|=-^\"'~+.`_:#*"])
+    assert result.exit_code == 0
+    assert result.output.endswith("were reformatted.\nDone! 🎉\n")
+
+
 def test_comment_preserve_single_line(runner):
     file = "..  A comment in a single line is not placed on the next one.\n"
     fixed = ".. A comment in a single line is not placed on the next one.\n"

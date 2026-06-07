@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import pickle
 import tempfile
 from collections import defaultdict
@@ -59,6 +60,23 @@ def make_enumerator(ordinal: int, sequence: str, fmt: tuple[str, str]) -> str:
 class FileCache:
     """A class to manage the cache of files."""
 
+    # Parameters that do not affect how a given file is formatted and therefore
+    # must not influence the cache key.
+    _NON_FORMATTING_PARAMS = frozenset(
+        [
+            "check",
+            "exclude",
+            "extend_exclude",
+            "files",
+            "ignore_cache",
+            "mode",
+            "quiet",
+            "raw_input",
+            "raw_output",
+            "verbose",
+        ]
+    )
+
     @staticmethod
     def _get_file_info(file: Path) -> tuple[float, int]:
         """Get the file info.
@@ -88,20 +106,22 @@ class FileCache:
     def _get_cache_filename(self) -> Path:
         """Get the cache filename.
 
+        The filename incorporates every parameter that affects formatting output
+        (e.g., ``section_adornments``, ``bullet_list_marker``) so that changing any
+        of them invalidates previously cached results.
+
         :returns: Path to the cache file.
 
         """
-        docstring_trailing_line = str(self.context.params["docstring_trailing_line"])
-        format_python_code_blocks = str(
-            self.context.params["format_python_code_blocks"]
-        )
-        line_length = str(self.context.params["line_length"])
-        mode = self.context.params["mode"].get_cache_key()
-        include_txt = str(self.context.params["include_txt"])
-        return (
-            self.cache_dir
-            / f"cache.{f'{docstring_trailing_line}_{format_python_code_blocks}_{include_txt}_{line_length}_{mode}'}.pickle"
-        )
+        params = self.context.params
+        parts = [
+            f"{name}={params[name]!r}"
+            for name in sorted(params)
+            if name not in self._NON_FORMATTING_PARAMS
+        ]
+        parts.append(f"mode={params['mode'].get_cache_key()}")
+        key = hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
+        return self.cache_dir / f"cache.{key}.pickle"
 
     def _read_cache(self) -> dict[str, tuple[float, int]]:
         """Read the cache file.

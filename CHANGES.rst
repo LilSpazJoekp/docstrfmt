@@ -21,6 +21,10 @@
   within the content body of the directive.
 - Fixed an issue where ``:literal:`` roles were being replaced with literal formatting
   (surrounded with ``) when the literal string ended with an escaped space or ``\n``.
+- Fixed stale cache hits when formatting options change: the file cache key now
+  incorporates every option that affects output (e.g., ``--section-adornments``,
+  ``--bullet-list-marker``), so files reformat instead of being skipped after such
+  options change.
 
 ********************
  2.0.2 (2026/02/07)
