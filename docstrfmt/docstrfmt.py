@@ -911,7 +911,8 @@ class Formatters:
 
         """
         yield from self._list(
-            node, context.with_bullet(context.manager.bullet_list_marker)
+            node,
+            context.with_bullet(context.manager.bullet_list_marker).with_ordinal(0),
         )
 
     def comment(

@@ -140,6 +140,44 @@ def test_bullet_list_marker_default(runner):
     assert result.output == "- item one\n- item two\n"
 
 
+def test_nested_bullet_in_enumerated_list_preserves_bullets(runner):
+    """A bullet list nested inside an enumerated list must stay bulleted.
+
+    Regression: previously the inherited ``current_ordinal`` from the outer
+    enumerated list leaked into the nested bullet list, causing each ``-``
+    item to be rewritten as a continuing numeric enumerator.
+    """
+    source = (
+        "1. First item\n"
+        "\n"
+        "   - Nested bullet a\n"
+        "   - Nested bullet b\n"
+        "\n"
+        "2. Second item\n"
+    )
+    result = runner.invoke(main, args=["-"], input=source)
+    assert result.exit_code == 0
+    assert result.output == source
+
+
+def test_nested_enumerated_in_bullet_list_restarts_each_item(runner):
+    """Enumerated lists nested under separate bullet items each restart at 1."""
+    source = (
+        "- First bullet\n"
+        "\n"
+        "  1. Nested enum\n"
+        "  2. Nested enum\n"
+        "\n"
+        "- Second bullet\n"
+        "\n"
+        "  1. Another nested enum\n"
+        "  2. Another nested enum\n"
+    )
+    result = runner.invoke(main, args=["-"], input=source)
+    assert result.exit_code == 0
+    assert result.output == source
+
+
 def test_encoding(runner):
     file = "tests/test_files/test_encoding.rst"
     args = [file]
