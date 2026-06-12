@@ -6,6 +6,10 @@
  Unreleased
 ************
 
+********************
+ 2.1.1 (2026/06/12)
+********************
+
 **Fixed**
 
 - Fixed bullet lists nested inside enumerated lists being rewritten as continuing
