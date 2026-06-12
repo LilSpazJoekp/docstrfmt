@@ -6,6 +6,13 @@
  Unreleased
 ************
 
+**Fixed**
+
+- Fixed bullet lists nested inside enumerated lists being rewritten as continuing
+  numeric enumerators (e.g. ``-`` items becoming ``2.``, ``3.``). The
+  ``current_ordinal`` from the outer enumerated list no longer leaks into nested
+  bullet lists.
+
 ********************
  2.1.0 (2026/06/07)
 ********************
