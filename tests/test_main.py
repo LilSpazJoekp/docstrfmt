@@ -140,6 +140,54 @@ def test_bullet_list_marker_default(runner):
     assert result.output == "- item one\n- item two\n"
 
 
+@pytest.mark.parametrize("width", [3, 4])
+def test_indent_width(runner, width):
+    # A directive body, a definition list, and a directive option all use the
+    # configured indentation level.
+    source = (
+        ".. note::\n"
+        "\n"
+        "      Some note text.\n"
+        "\n"
+        "Term\n"
+        "      Definition body.\n"
+        "\n"
+        ".. image:: foo.png\n"
+        "      :alt: alt text\n"
+    )
+    args = ["--indent-width", width, "-"]
+    result = runner.invoke(main, args=args, input=source)
+    assert result.exit_code == 0
+    indent = " " * width
+    expected = (
+        ".. note::\n"
+        "\n"
+        f"{indent}Some note text.\n"
+        "\n"
+        "Term\n"
+        f"{indent}Definition body.\n"
+        "\n"
+        ".. image:: foo.png\n"
+        f"{indent}:alt: alt text\n"
+    )
+    assert result.output == expected
+
+
+def test_indent_width_short_flag(runner):
+    source = ".. note::\n\n      Some note text.\n"
+    result = runner.invoke(main, args=["-w", 3, "-"], input=source)
+    assert result.exit_code == 0
+    assert result.output == ".. note::\n\n   Some note text.\n"
+
+
+def test_indent_width_default(runner):
+    # Without the option the default indentation level is 4 spaces.
+    source = ".. note::\n\n      Some note text.\n"
+    result = runner.invoke(main, args=["-"], input=source)
+    assert result.exit_code == 0
+    assert result.output == ".. note::\n\n    Some note text.\n"
+
+
 def test_nested_bullet_in_enumerated_list_preserves_bullets(runner):
     """A bullet list nested inside an enumerated list must stay bulleted.
 
