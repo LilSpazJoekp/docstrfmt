@@ -731,6 +731,16 @@ class Visitor(CSTTransformer):
                 break
         return node
 
+    @staticmethod
+    def _assign_target_name(node: AssignTarget) -> str | None:
+        """Return a display name for an attribute docstring target."""
+        target = node.target
+        if isinstance(target, cst.Name):
+            return target.value
+        if isinstance(target, cst.Attribute):
+            return target.attr.value
+        return None
+
     def leave_SimpleString(  # noqa: N802
         self, original_node: SimpleString, updated_node: SimpleString
     ) -> SimpleString:
@@ -745,8 +755,11 @@ class Visitor(CSTTransformer):
         if self._is_docstring(original_node):
             position_meta = self.get_metadata(PositionProvider, original_node)
             old_object_type = None
+            assigned_object_name = None
             if self._last_assign:
-                self._object_names.append(self._last_assign.target.children[2].value)  # type: ignore[attr]
+                assigned_object_name = self._assign_target_name(self._last_assign)
+                if assigned_object_name:
+                    self._object_names.append(assigned_object_name)
                 old_object_type = copy(self._object_type)
                 self._object_type = "attribute"
             indent_level = position_meta.start.column  # type: ignore[attr]
@@ -803,7 +816,8 @@ class Visitor(CSTTransformer):
                 updated_node = updated_node.with_changes(value=value)
             if self._last_assign:
                 self._last_assign = None
-                self._object_names.pop(-1)
+                if assigned_object_name:
+                    self._object_names.pop(-1)
                 self._object_type = old_object_type
         return self._escape_quoting(updated_node)
 
