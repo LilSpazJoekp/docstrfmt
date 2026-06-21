@@ -1798,11 +1798,16 @@ class Formatters:
             :ref:`Link text <target>`
 
         """
+
+        # docutils delivers the title and target with backslash escapes already
+        # consumed, so any literal backslashes and backticks must be re-escaped
+        def escape(value: str) -> str:
+            return value.replace("\\", "\\\\").replace("`", r"\`")
+
         attributes = node.attributes
-        target = attributes["target"]
+        target = escape(attributes["target"])
         if attributes["has_explicit_title"]:
-            title = attributes["title"].replace("<", r"\<")
-            title = title.replace("`", r"\`")
+            title = escape(attributes["title"]).replace("<", r"\<")
             text = f"{title} <{target}>"
         else:
             text = target
