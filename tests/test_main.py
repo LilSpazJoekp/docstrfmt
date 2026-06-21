@@ -189,6 +189,38 @@ def test_bullet_list_marker_default(runner):
     assert result.output == "- item one\n- item two\n"
 
 
+def test_ordered_marker_hash_rewrites_numbers(runner):
+    """With "--ordered-marker #" a plain arabic list starting at 1 is rewritten to
+    use the "#" auto-enumerator, and an existing "#" list is kept as-is."""
+    result = runner.invoke(
+        main, args=["--ordered-marker", "#", "-"], input="1. Foo\n2. Bar\n"
+    )
+    assert result.exit_code == 0
+    assert result.output == "#. Foo\n#. Bar\n"
+
+    kept = runner.invoke(
+        main, args=["--ordered-marker", "#", "-"], input="#. One\n#. Two\n"
+    )
+    assert kept.exit_code == 0
+    assert kept.output == "#. One\n#. Two\n"
+
+
+def test_ordered_marker_hash_preserves_non_default_lists(runner):
+    """A "#" auto-enumerator always restarts at 1, so lists that cannot be
+    reproduced by it (a non-1 start, or a lettered sequence) keep their markers."""
+    non_one_start = runner.invoke(
+        main, args=["--ordered-marker", "#", "-"], input="3. Foo\n4. Bar\n"
+    )
+    assert non_one_start.exit_code == 0
+    assert non_one_start.output == "3. Foo\n4. Bar\n"
+
+    lettered = runner.invoke(
+        main, args=["--ordered-marker", "#", "-"], input="a. Foo\nb. Bar\n"
+    )
+    assert lettered.exit_code == 0
+    assert lettered.output == "a. Foo\nb. Bar\n"
+
+
 @pytest.mark.parametrize("width", [3, 4])
 def test_indent_width(runner, width):
     # A directive body, a definition list, and a directive option all use the

@@ -371,6 +371,7 @@ class Manager:
         docstring_trailing_line: bool = True,
         format_python_code_blocks: bool = True,
         indent_width: int = 4,
+        ordered_marker: str = "1",
         reporter: Reporter | utils.Reporter | logging.Logger,
         section_adornments: list[tuple[str, bool]] | None = None,
     ):
@@ -385,6 +386,7 @@ class Manager:
         :param docstring_trailing_line: Whether to add trailing line to docstrings.
         :param format_python_code_blocks: Whether to format Python code blocks.
         :param indent_width: Number of spaces per indentation level.
+        :param ordered_marker: Marker style for ordered (enumerated) lists, 1 or #.
         :param section_adornments: Section adornment configuration.
 
         """
@@ -393,6 +395,7 @@ class Manager:
         self.black_config = black_config
         self.center_section_titles = center_section_titles
         self.bullet_list_marker = bullet_list_marker
+        self.ordered_marker = ordered_marker
         self.current_offset = 0
         self.error_count = 0
         self.reporter = reporter
@@ -1186,11 +1189,17 @@ class Formatters:
             3. Third item
 
         """
+        start = node.attributes.get("start", 1)
+        enumtype = node.attributes["enumtype"]
+        if (
+            context.manager.ordered_marker == "#"
+            and enumtype == "arabic"
+            and start == 1
+        ):
+            enumtype = "#"
         yield from self._list(
             node,
-            context.with_ordinal(node.attributes.get("start", 1)).with_ordinal_format(
-                node.attributes["enumtype"]
-            ),
+            context.with_ordinal(start).with_ordinal_format(enumtype),
         )
         context.current_ordinal = 0
 

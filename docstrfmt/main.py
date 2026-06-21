@@ -69,6 +69,7 @@ def _format_file(
     bullet_list_marker: str = "-",
     center_section_titles: bool = True,
     indent_width: int = 4,
+    ordered_marker: str = "1",
 ):
     """Format a single file with the given parameters.
 
@@ -86,6 +87,7 @@ def _format_file(
     :param bullet_list_marker: Bullet character to use for unordered lists.
     :param center_section_titles: Whether to center section titles with overlines.
     :param indent_width: Number of spaces to use per indentation level.
+    :param ordered_marker: Marker style for ordered (enumerated) lists.
 
     :returns: A tuple containing a boolean indicating if the file was misformatted and
         the number of errors.
@@ -100,6 +102,7 @@ def _format_file(
         docstring_trailing_line=docstring_trailing_line,
         format_python_code_blocks=format_python_code_blocks,
         indent_width=indent_width,
+        ordered_marker=ordered_marker,
         reporter=reporter,
         section_adornments=section_adornments,
     )
@@ -423,6 +426,7 @@ async def _run_formatter(
     bullet_list_marker: str = "-",
     center_section_titles: bool = True,
     indent_width: int = 4,
+    ordered_marker: str = "1",
 ):
     """Run the formatter on multiple files asynchronously.
 
@@ -442,6 +446,7 @@ async def _run_formatter(
     :param bullet_list_marker: Bullet character to use for unordered lists.
     :param center_section_titles: Whether to center section titles with overlines.
     :param indent_width: Number of spaces per indentation level.
+    :param ordered_marker: Marker style for ordered (enumerated) lists.
 
     :returns: Tuple of (misformatted_files, total_error_count).
 
@@ -472,6 +477,7 @@ async def _run_formatter(
                 bullet_list_marker,
                 center_section_titles,
                 indent_width,
+                ordered_marker,
             )
         ): file
         for file in sorted(todo)
@@ -966,6 +972,16 @@ class Visitor(CSTTransformer):
     ),
 )
 @click.option(
+    "--ordered-marker",
+    default="1",
+    help=(
+        "Marker style for ordered (enumerated) lists. '1' keeps the explicit"
+        " numbering; '#' uses the '#' auto-enumerator."
+    ),
+    show_default=True,
+    type=click.Choice(["1", "#"]),
+)
+@click.option(
     "-pA",
     "--preserve-adornments",
     help="Preserve existing section adornments.",
@@ -1053,6 +1069,7 @@ def main(
     include_txt: bool,
     indent_width: int,
     line_length: int,
+    ordered_marker: str,
     preserve_adornments: bool,
     mode: Mode,
     quiet: bool,
@@ -1077,6 +1094,7 @@ def main(
     :param include_txt: Whether to include .txt files.
     :param indent_width: Number of spaces per indentation level.
     :param line_length: Maximum line length.
+    :param ordered_marker: Marker style for ordered (enumerated) lists.
     :param preserve_adornments: Whether to preserve existing section adornments.
     :param mode: Black formatting mode.
     :param quiet: Whether to suppress non-error output.
@@ -1115,6 +1133,7 @@ def main(
             docstring_trailing_line=docstring_trailing_line,
             format_python_code_blocks=format_python_code_blocks,
             indent_width=indent_width,
+            ordered_marker=ordered_marker,
             reporter=reporter,
             section_adornments=section_adornments,
         )
@@ -1164,6 +1183,7 @@ def main(
                 bullet_list_marker,
                 center_section_titles,
                 indent_width,
+                ordered_marker,
             )
             if misformatted:
                 misformatted_files.add(file)
@@ -1212,6 +1232,7 @@ def main(
                     bullet_list_marker,
                     center_section_titles,
                     indent_width,
+                    ordered_marker,
                 )
             )
         finally:
