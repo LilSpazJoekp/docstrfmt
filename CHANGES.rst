@@ -6,6 +6,10 @@
  Unreleased
 ************
 
+********************
+ 2.2.0 (2026/06/21)
+********************
+
 **Added**
 
 - Added command-line option ``--indent-width`` (4 as default) to control
