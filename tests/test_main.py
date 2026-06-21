@@ -283,6 +283,16 @@ def test_encoding(runner):
     assert result.output == "1 file was checked.\nDone! 🎉\n"
 
 
+def test_ref_role_escapes_target(runner):
+    """Test escaped targets."""
+    source = (
+        "the :option:`\\`v`\n\nthe :option:`a\\`b <c\\`d>`\n\nthe :option:`a\\\\b`\n"
+    )
+    result = runner.invoke(main, args=["-"], input=source)
+    assert result.exit_code == 0
+    assert result.output == source
+
+
 def test_encoding_raw_input(runner):
     file = (
         ".. note::\n\n    á Á à À â Â ä Ä ã Ã å Å æ Æ ç Ç é É è È ê Ê ë Ë í Í ì Ì î Î ï"

@@ -14,6 +14,7 @@
 **Fixed**
 
 - Fixed ``IndexError`` when checking attribute docstrings after ``enum.Enum`` members.
+- Fixed references containing a backslash or backtick being emitted unescaped.
 
 ********************
  2.1.1 (2026/06/12)
