@@ -11,6 +11,10 @@
 - Added command-line option ``--indent-width`` (4 as default) to control
   spaces per indent level.
 
+**Fixed**
+
+- Fixed ``IndexError`` when checking attribute docstrings after ``enum.Enum`` members.
+
 ********************
  2.1.1 (2026/06/12)
 ********************

@@ -141,6 +141,36 @@ def test_python_attribute_docstring_after_enum_member(runner):
     assert result.output == file
 
 
+def test_python_docstring_after_tuple_assignment(runner):
+    file = '''
+              A, B = (1, 2)
+              """Documentation for two names."""
+           '''
+
+    file = textwrap.dedent(file).lstrip()
+    ast.parse(file)  # check if input is valid Python code
+    args = ["-t", "py", "-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == file
+
+
+def test_python_docstring_after_attribute_assignment(runner):
+    file = '''
+              class Example:
+                  def method(self):
+                      self.value = 1
+                      """Documentation for value."""
+           '''
+
+    file = textwrap.dedent(file).lstrip()
+    ast.parse(file)  # check if input is valid Python code
+    args = ["-t", "py", "-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == file
+
+
 @pytest.mark.parametrize("marker", ["-", "*"])
 def test_bullet_list_marker(runner, marker):
     bullet_input = "* item one\n* item two\n* item three\n"
