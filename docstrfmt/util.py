@@ -28,7 +28,7 @@ def make_enumerator(ordinal: int, sequence: str, fmt: tuple[str, str]) -> str:
     :returns: The formatted enumerator string or None for invalid ordinals.
 
     """
-    if sequence == "#":  # pragma: no cover
+    if sequence == "#":
         enumerator = "#"
     elif sequence == "arabic":
         enumerator = str(ordinal)
