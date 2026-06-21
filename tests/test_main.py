@@ -269,6 +269,77 @@ def test_indent_width_default(runner):
     assert result.output == ".. note::\n\n    Some note text.\n"
 
 
+def test_keep_blanks_between_list_items(runner):
+    # Without the option, blank lines between list items are collapsed.
+    source = "- bullet\n\n- bullet\n"
+    assert runner.invoke(main, args=["-"], input=source).output == (
+        "- bullet\n- bullet\n"
+    )
+    result = runner.invoke(main, args=["--keep-blanks", "-"], input=source)
+    assert result.exit_code == 0
+    assert result.output == source
+
+
+def test_keep_blanks_between_enumerated_items(runner):
+    source = "1. one\n\n2. two\n"
+    assert runner.invoke(main, args=["-"], input=source).output == "1. one\n2. two\n"
+    result = runner.invoke(main, args=["--keep-blanks", "-"], input=source)
+    assert result.exit_code == 0
+    assert result.output == source
+
+
+def test_keep_blanks_multiple_blanks_before_section(runner):
+    # Multiple blank lines before a section are normally collapsed to one but
+    # are preserved with --keep-blanks.
+    source = "text\n\n\nHeader\n======\n"
+    args = ["--keep-blanks", "-pA", "--no-center-section-titles", "-"]
+    assert runner.invoke(
+        main, args=["-pA", "--no-center-section-titles", "-"], input=source
+    ).output == ("text\n\nHeader\n======\n")
+    result = runner.invoke(main, args=args, input=source)
+    assert result.exit_code == 0
+    assert result.output == source
+
+
+def test_keep_blanks_only_adds_blanks(runner):
+    # --keep-blanks must never collapse blank lines below what the default
+    # formatter produces between sibling blocks.
+    source = "Header\n======\n\n.. note::\n\n    A note.\n\nTail.\n"
+    args = ["-pA", "--no-center-section-titles", "-"]
+    default = runner.invoke(main, args=args, input=source).output
+    kept = runner.invoke(main, args=["--keep-blanks", *args], input=source).output
+    assert kept == default
+
+
+def test_keep_blanks_only_adds_blanks(runner):
+    # --keep-blanks must never collapse blank lines below what the default
+    # formatter produces between sibling blocks.
+    source = ".. option:: BS\n\n   .. TODO\n\n   Warns\n\n.. option:: CA\n"
+    args = ["-pA", "-"]
+    default = runner.invoke(main, args=args, input=source).output
+    kept = runner.invoke(main, args=["--keep-blanks", *args], input=source).output
+    assert kept == default
+
+
+def test_keep_blanks_between_directives(runner):
+    # Extra blank lines between a directive (with a body) and a following block.
+    source = ".. option:: head\n\n   text\n\n\n.. option: more\n"
+    assert runner.invoke(main, args=["-"], input=source).output == (
+        ".. option:: head\n\n    text\n\n.. option: more\n"
+    )
+    result = runner.invoke(main, args=["--keep-blanks", "-"], input=source)
+    assert result.exit_code == 0
+    assert result.output == ".. option:: head\n\n    text\n\n\n.. option: more\n"
+
+
+def test_keep_blanks_default(runner):
+    # Without the option, blank lines between list items are not preserved.
+    source = "- a\n\n- b\n"
+    result = runner.invoke(main, args=["-"], input=source)
+    assert result.exit_code == 0
+    assert result.output == "- a\n- b\n"
+
+
 def test_nested_bullet_in_enumerated_list_preserves_bullets(runner):
     """A bullet list nested inside an enumerated list must stay bulleted.
 
