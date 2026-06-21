@@ -69,6 +69,7 @@ def _format_file(
     bullet_list_marker: str = "-",
     center_section_titles: bool = True,
     indent_width: int = 4,
+    keep_blanks: bool = False,
     ordered_marker: str = "1",
 ):
     """Format a single file with the given parameters.
@@ -87,6 +88,7 @@ def _format_file(
     :param bullet_list_marker: Bullet character to use for unordered lists.
     :param center_section_titles: Whether to center section titles with overlines.
     :param indent_width: Number of spaces to use per indentation level.
+    :param keep_blanks: Keep blank lines between sections as appear in source.
     :param ordered_marker: Marker style for ordered (enumerated) lists.
 
     :returns: A tuple containing a boolean indicating if the file was misformatted and
@@ -102,6 +104,7 @@ def _format_file(
         docstring_trailing_line=docstring_trailing_line,
         format_python_code_blocks=format_python_code_blocks,
         indent_width=indent_width,
+        keep_blanks=keep_blanks,
         ordered_marker=ordered_marker,
         reporter=reporter,
         section_adornments=section_adornments,
@@ -426,6 +429,7 @@ async def _run_formatter(
     bullet_list_marker: str = "-",
     center_section_titles: bool = True,
     indent_width: int = 4,
+    keep_blanks: bool = False,
     ordered_marker: str = "1",
 ):
     """Run the formatter on multiple files asynchronously.
@@ -446,6 +450,7 @@ async def _run_formatter(
     :param bullet_list_marker: Bullet character to use for unordered lists.
     :param center_section_titles: Whether to center section titles with overlines.
     :param indent_width: Number of spaces per indentation level.
+    :param keep_blanks: Keep blank lines between sections as appear in source.
     :param ordered_marker: Marker style for ordered (enumerated) lists.
 
     :returns: Tuple of (misformatted_files, total_error_count).
@@ -477,6 +482,7 @@ async def _run_formatter(
                 bullet_list_marker,
                 center_section_titles,
                 indent_width,
+                keep_blanks,
                 ordered_marker,
             )
         ): file
@@ -962,6 +968,11 @@ class Visitor(CSTTransformer):
     help="Number of spaces per indentation level. Must be 3 or 4.",
 )
 @click.option(
+    "--keep-blanks",
+    help="Keep blank lines between sections as appear in source.",
+    is_flag=True,
+)
+@click.option(
     "-l",
     "--line-length",
     type=click.IntRange(4),
@@ -1068,6 +1079,7 @@ def main(
     ignore_cache: bool,
     include_txt: bool,
     indent_width: int,
+    keep_blanks: bool,
     line_length: int,
     ordered_marker: str,
     preserve_adornments: bool,
@@ -1093,6 +1105,7 @@ def main(
     :param ignore_cache: Whether to ignore the cache.
     :param include_txt: Whether to include .txt files.
     :param indent_width: Number of spaces per indentation level.
+    :param keep_blanks: Keep blank lines between sections as appear in source.
     :param line_length: Maximum line length.
     :param ordered_marker: Marker style for ordered (enumerated) lists.
     :param preserve_adornments: Whether to preserve existing section adornments.
@@ -1133,6 +1146,7 @@ def main(
             docstring_trailing_line=docstring_trailing_line,
             format_python_code_blocks=format_python_code_blocks,
             indent_width=indent_width,
+            keep_blanks=keep_blanks,
             ordered_marker=ordered_marker,
             reporter=reporter,
             section_adornments=section_adornments,
@@ -1183,6 +1197,7 @@ def main(
                 bullet_list_marker,
                 center_section_titles,
                 indent_width,
+                keep_blanks,
                 ordered_marker,
             )
             if misformatted:
@@ -1232,6 +1247,7 @@ def main(
                     bullet_list_marker,
                     center_section_titles,
                     indent_width,
+                    keep_blanks,
                     ordered_marker,
                 )
             )

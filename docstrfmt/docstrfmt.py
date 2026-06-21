@@ -371,6 +371,7 @@ class Manager:
         docstring_trailing_line: bool = True,
         format_python_code_blocks: bool = True,
         indent_width: int = 4,
+        keep_blanks: bool = False,
         ordered_marker: str = "1",
         reporter: Reporter | utils.Reporter | logging.Logger,
         section_adornments: list[tuple[str, bool]] | None = None,
@@ -386,6 +387,7 @@ class Manager:
         :param docstring_trailing_line: Whether to add trailing line to docstrings.
         :param format_python_code_blocks: Whether to format Python code blocks.
         :param indent_width: Number of spaces per indentation level.
+        :param keep_blanks: Keep blank lines between sections as appear in source.
         :param ordered_marker: Marker style for ordered (enumerated) lists, 1 or #.
         :param section_adornments: Section adornment configuration.
 
@@ -410,6 +412,7 @@ class Manager:
         self.docstring_trailing_line = docstring_trailing_line
         self.format_python_code_blocks = format_python_code_blocks
         self.indent_width = indent_width
+        self.keep_blanks = keep_blanks
         self._in_docstring = False  # for resolving line numbers in code blocks
         self.section_adornments = section_adornments
 
@@ -630,6 +633,8 @@ class Manager:
         input_lines = text.splitlines()
         self._pre_process(doc, line_offset, len(input_lines))
         self._register_adornments(input_lines, doc)
+        # Stash the source lines on the document for keep-blanks
+        doc.docstrfmt_source_lines = input_lines
         return doc
 
     def perform_format(
@@ -734,6 +739,97 @@ class Formatters:
             for index, child in enumerate(node.children)  # type: ignore[attr]
         )
 
+    def _block_top_line(self, node: nodes.Node, lines: list[str]) -> int | None:
+        """Return the 1-indexed source line where a block node starts.
+
+        For most nodes this is simply ``node.line``. Sections are special: their
+        ``line`` (the title's ``line``) points at the underline adornment, so we
+        back up over the title text and the optional overline. Directives are
+        special too: their ``line`` points past the directive (into or after the
+        content), so the directive instance's reliable ``lineno`` is used.
+
+        :param node: The node whose first source line is wanted.
+        :param lines: The source lines of the document being formatted.
+
+        :returns: The 1-indexed source line, or ``None`` if it can't be resolved.
+
+        """
+        if isinstance(node, nodes.section):
+            title = node.next_node(nodes.title)
+            title_line = getattr(title, "line", None) if title is not None else None
+            if title_line is None:
+                return None  # pragma: no cover
+            # ``title.line`` is the underline; the title text is the line above,
+            # and an optional overline is the line above that.
+            top = title_line - 1
+            if node.get("adornment-overline"):
+                top -= 1  # pragma: no cover
+            return top
+        if isinstance(node, rst_extras.directive):
+            inner = node.get("directive")
+            lineno = getattr(inner, "lineno", None)
+            if lineno:
+                return lineno
+        return getattr(node, "line", None)
+
+    def _blanks_before(self, node: nodes.Node) -> int | None:
+        """Count blank source lines immediately preceding a block node.
+
+        :param node: The node to look above.
+
+        :returns: The number of consecutive blank (empty or whitespace-only)
+            source lines directly above the node, or ``None`` if the source or
+            the node's position can't be determined.
+
+        """
+        lines = getattr(node.document, "docstrfmt_source_lines", None)
+        if lines is None:
+            return None  # pragma: no cover
+        top = self._block_top_line(node, lines)
+        if not top or top < 1:
+            return None  # pragma: no cover
+        count = 0
+        index = top - 1  # 1-indexed source line directly above ``top``
+        while 1 <= index <= len(lines) and not lines[index - 1].strip():
+            count += 1
+            index -= 1
+        return count
+
+    def _chain_children_keeping_blanks(
+        self,
+        node: nodes.Node,
+        context: FormatContext,
+        default_blanks: int = 1,
+    ) -> line_iterator:
+        """Format children, separating them with source-preserved blank lines.
+
+        When ``keep_blanks`` is disabled this behaves exactly like joining the
+        children with ``default_blanks`` blank lines between them. When enabled,
+        the number of blank lines found in the source between siblings is used
+        instead.
+
+        :param node: The parent node whose children to format.
+        :param context: Formatting context.
+        :param default_blanks: Blank lines to use between children when not
+            keeping source blanks (or when the source position is unknown).
+
+        :returns: Iterator of formatted lines.
+
+        """
+        for index, child in enumerate(node.children):  # type: ignore[attr-defined]
+            if index:
+                blanks = default_blanks
+                if self.manager.keep_blanks:
+                    found = self._blanks_before(child)
+                    if found is not None:
+                        # Only ever add blanks: never collapse below what the
+                        # formatter would normally place between siblings.
+                        blanks = max(default_blanks, found)
+                for _ in range(blanks):
+                    yield ""
+            child_context = context if index == 0 else context.wrap_first_at(0)
+            yield from self.manager.perform_format(child, child_context)
+
     def _generate_table_matrix(
         self,
         context: FormatContext,
@@ -794,16 +890,19 @@ class Formatters:
         :returns: Iterator of formatted list lines.
 
         """
+        children = node.children  # type: ignore[attr]
         sub_children = []
-        for child_index, child in enumerate(node.children, 1):  # type: ignore[attr]
-            sub_children.append(
-                list(self.manager.perform_format(child, context))
-                + (
-                    [""]
-                    if len(child.children) > 1 and len(node.children) != child_index  # type: ignore[attr]
-                    else []
-                )
-            )
+        for child_index, child in enumerate(children, 1):
+            item = list(self.manager.perform_format(child, context))
+            if child_index != len(children):
+                default = 1 if len(child.children) > 1 else 0  # type: ignore[attr]
+                if self.manager.keep_blanks:
+                    found = self._blanks_before(children[child_index])
+                    blanks = default if found is None else max(default, found)
+                else:
+                    blanks = default
+                item += [""] * blanks
+            sub_children.append(item)
 
         yield from chain(sub_children)
 
@@ -1152,7 +1251,7 @@ class Formatters:
             The entire document content.
 
         """
-        yield from _chain_with_line_separator("", self._format_children(node, context))
+        yield from self._chain_children_keeping_blanks(node, context)
 
     def emphasis(
         self,
@@ -1952,9 +2051,7 @@ class Formatters:
             Section content.
 
         """
-        yield from _chain_with_line_separator(
-            "", self._format_children(node, context.in_section())
-        )
+        yield from self._chain_children_keeping_blanks(node, context.in_section())
 
     def strong(
         self,

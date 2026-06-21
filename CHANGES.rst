@@ -10,6 +10,8 @@
 
 - Added command-line option ``--indent-width`` (4 as default) to control
   spaces per indent level.
+- Added command-line option ``--keep-blanks`` to keep extra blank lines
+  between sections as they appear in source.
 - Added command-line option ``--ordered-marker``.
   Default ``1`` keeps explicit numbering; ``#`` uses ``#`` auto-enumerator.
 
