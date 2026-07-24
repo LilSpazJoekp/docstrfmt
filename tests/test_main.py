@@ -11,6 +11,7 @@ try:
 except ImportError:  # pragma: no cover
     import tomli as toml
 from black import DEFAULT_LINE_LENGTH
+from docutils.core import publish_doctree
 
 from docstrfmt.main import main
 
@@ -634,6 +635,20 @@ def test_invalid_table(runner):
         f" another file.\nFailed to format '{os.path.abspath(file)}'\n1 file was"
         " checked.\nDone, but 1 error occurred ❌💥❌\n"
     )
+
+
+def test_simple_table_cjk_width(runner):
+    source = "===== =====\n中文  abc\n===== =====\n"
+    expected = "==== ===\n中文 abc\n==== ===\n"
+
+    result = runner.invoke(main, args=["-"], input=source)
+    assert result.exit_code == 0
+    assert result.output == expected
+
+    doctree = publish_doctree(result.output)
+    assert [
+        node.astext() for node in doctree.findall() if node.tagname == "system_message"
+    ] == []
 
 
 @pytest.mark.parametrize("length", test_line_length)
@@ -1573,6 +1588,43 @@ def test_section_reformatting_no_center_titles(runner):
     file = textwrap.dedent(file).lstrip()
     fixed = textwrap.dedent(fixed).lstrip()
     args = ["--no-center-section-titles", "-r", file]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == fixed
+
+
+def test_section_reformatting_docutils_title_width(runner):
+    file = """
+              ****
+              示例标题
+              ****
+
+              タイトル
+              ####
+
+              Café
+              =====
+
+              Some content.
+           """
+
+    fixed = """
+              **********
+               示例标题
+              **********
+
+              タイトル
+              ########
+
+              Café
+              ====
+
+              Some content.
+            """
+
+    file = textwrap.dedent(file).lstrip()
+    fixed = textwrap.dedent(fixed).lstrip()
+    args = ["-pA", "-r", file]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output == fixed
