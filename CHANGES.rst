@@ -6,6 +6,12 @@
  Unreleased
 ************
 
+**Fixed**
+
+- Fixed rST width calculations for CJK/full-width and combining characters by
+  using docutils column width semantics for section titles, simple tables, and
+  line wrapping.
+
 ********************
  2.2.0 (2026/06/21)
 ********************

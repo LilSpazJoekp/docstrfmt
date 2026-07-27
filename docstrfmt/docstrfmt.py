@@ -27,7 +27,7 @@ from docutils.parsers import rst
 from docutils.parsers.rst import Directive, roles
 from docutils.statemachine import StringList
 from docutils.transforms import Transform
-from docutils.utils import new_document, unescape
+from docutils.utils import column_width, new_document, unescape
 
 from . import NODE_MAPPING, rst_extras
 from .exceptions import InvalidRstError, InvalidRstErrors
@@ -852,7 +852,7 @@ class Formatters:
                 [
                     max(
                         [
-                            len(line)
+                            column_width(line)
                             for child in self._format_children(
                                 cell, context.with_width(width=widths[column_index])
                             )
@@ -868,7 +868,7 @@ class Formatters:
             [
                 max(
                     [
-                        len(line)
+                        column_width(line)
                         for child in self._format_children(
                             cell, context.with_width(width=width)
                         )
@@ -1382,7 +1382,7 @@ class Formatters:
             self._format_children(
                 node,
                 context.indent(context.manager.indent_width).wrap_first_at(
-                    len(f":{node.parent.children[0].astext()}: ")
+                    column_width(f":{node.parent.children[0].astext()}: ")
                     - context.manager.indent_width
                 ),
             ),
@@ -1597,9 +1597,9 @@ class Formatters:
                     node, context.indent(context.manager.indent_width)
                 )
             ),
-            context.wrap_first_at(len(prefix) - context.manager.indent_width).indent(
-                context.manager.indent_width
-            ),
+            context.wrap_first_at(
+                column_width(prefix) - context.manager.indent_width
+            ).indent(context.manager.indent_width),
             node.line,
         )
         footnote_name = (
@@ -2029,7 +2029,7 @@ class Formatters:
         ]
         for line_group in itertools.zip_longest(*all_lines):  # type: ignore[arg-type]
             yield " ".join(
-                (line or "").ljust(width)
+                (line or "") + " " * max(0, width - column_width(line or ""))
                 for line, width in zip(line_group, context.column_widths, strict=False)
             )
 
@@ -2114,7 +2114,7 @@ class Formatters:
                     )
                 ),
                 context.wrap_first_at(
-                    len(prefix) - context.manager.indent_width
+                    column_width(prefix) - context.manager.indent_width
                 ).indent(context.manager.indent_width),
                 node.line,
             )
@@ -2397,21 +2397,22 @@ class Formatters:
                 )
                 raise
 
+        text_width = column_width(text)
         if overline:
             if context.manager.center_section_titles:
                 # section headings with overline are centered
-                yield char * (2 + len(text))
+                yield char * (2 + text_width)
                 yield " " + text
-                yield char * (2 + len(text))
+                yield char * (2 + text_width)
             else:
                 # section headings with overline are not centered
-                yield char * len(text)
+                yield char * text_width
                 yield text
-                yield char * len(text)
+                yield char * text_width
         else:
             # sections headings without overline are justified
             yield text
-            yield char * len(text)
+            yield char * text_width
 
     def title_reference(
         self,
@@ -2584,7 +2585,7 @@ def _wrap_text(
             current_line_length
             + (context.subsequent_indent if bool(words) else 0)
             + bool(words)
-            + len(word)
+            + column_width(word)
         )
         if words and next_line_len > width:
             yield " " * context.subsequent_indent + " ".join(words)
@@ -2592,7 +2593,7 @@ def _wrap_text(
                 width += context.first_line_len
                 context.first_line_len = 0
             words = []
-            next_line_len = len(word)
+            next_line_len = column_width(word)
         words.append(word)
         current_line_length = next_line_len
     if words:
