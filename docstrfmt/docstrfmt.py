@@ -463,7 +463,11 @@ class Manager:
                     InvalidRstError(
                         self.current_file,
                         error.attributes["type"],
-                        (block_length - 1 if error.line is None else error.line)
+                        (
+                            error.line
+                            if error.line is not None
+                            else error.attributes.get("line", block_length)
+                        )
                         + line_offset,
                         error.children[0].children[0].astext(),  # type: ignore[attr]
                     )

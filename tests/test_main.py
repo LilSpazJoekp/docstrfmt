@@ -857,6 +857,18 @@ def test_rst_warning(runner):
     )
 
 
+def test_rst_warning_literal_block_expected_line(runner):
+    file = "tests/test_files/error_files/test_literal_block_expected_warning.rst"
+    result = runner.invoke(main, args=[file])
+    assert result.exit_code == 1
+    assert result.output == (
+        f'WARNING: File "{os.path.abspath(file)}", line 6:\nLiteral block expected;'
+        " none found.\nFailed to format"
+        f" '{os.path.abspath(file)}'\n1 file was checked.\nDone, but 1 error occurred"
+        " ❌💥❌\n"
+    )
+
+
 @pytest.mark.parametrize(
     "file,file_type",
     [("tests/test_files/test_file.rst", "rst"), ("tests/test_files/py_file.py", "py")],
