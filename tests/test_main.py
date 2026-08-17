@@ -608,11 +608,11 @@ def test_invalid_line_length(runner, file):
     args = ["-l", 3, file]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 2
-    assert (
-        result.output
-        == "Usage: main [OPTIONS] [FILES]...\nTry 'main --help' for help.\n\nError: Invalid"
+    expected = (
+        "Usage: main [OPTIONS] [FILES]...\nTry 'main --help' for help.\n\nError: Invalid"
         " value for '-l' / '--line-length': 3 is not in the range x>=4.\n"
     )
+    assert result.output in (expected, expected.replace("--help", "-h"))
 
 
 def test_invalid_multiline_types_py(runner):
@@ -635,10 +635,11 @@ def test_invalid_pyproject_toml(runner):
     ]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 2
-    assert result.output == (
+    expected = (
         "Usage: main [OPTIONS] [FILES]...\nTry 'main --help' for help.\n\nError: Config"
         " key extend_exclude must be a list\n"
     )
+    assert result.output in (expected, expected.replace("--help", "-h"))
 
 
 def test_invalid_rst_file(runner):
