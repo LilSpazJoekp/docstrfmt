@@ -747,6 +747,13 @@ def test_pyproject_toml(runner):
     assert result.output == "1 file was checked.\nDone! 🎉\n"
 
 
+def test_pyproject_toml_black_force_exclude(runner):
+    args = ["-p", "tests/test_files/pyproject-force-exclude.toml"]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == "1 file was checked.\nDone! 🎉\n"
+
+
 def test_quiet(runner):
     args = ["-q", "-l", 80, "tests/test_files/test_file.rst"]
     result = runner.invoke(main, args=args)

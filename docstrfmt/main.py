@@ -208,6 +208,7 @@ def _parse_pyproject_config(
         black_config = parse_pyproject_toml(value)
         black_config.pop("exclude", None)
         black_config.pop("extend_exclude", None)
+        black_config.pop("force_exclude", None)
         target_version = black_config.pop("target_version", ["PY37"])
         if target_version:
             target_version = {
