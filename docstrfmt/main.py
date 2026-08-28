@@ -221,7 +221,9 @@ def _parse_pyproject_config(
     return Mode()
 
 
-def _parse_sources(context: click.Context, _: click.Parameter, value: list[str] | None):
+def _parse_sources(
+    context: click.Context, _: click.Parameter, value: list[str] | None
+) -> list[str]:
     """Parse and expand source files from command line arguments.
 
     :param context: Click context containing command parameters.
@@ -264,9 +266,13 @@ def _parse_sources(context: click.Context, _: click.Parameter, value: list[str] 
                         files_to_format.add(abspath(f))
                 else:
                     files_to_format.add(abspath(item))
+    root_dir = Path.cwd()
     for file in list(map(Path, files_to_format)):
         for exclusion in exclude:
-            if file.parent.match(exclusion) or file.match(exclusion):
+            if (
+                (file.parent != root_dir or Path(exclusion).is_absolute())
+                and file.parent.match(exclusion)
+            ) or file.match(exclusion):
                 files_to_format.discard(abspath(file))
                 break
     return sorted(files_to_format)
