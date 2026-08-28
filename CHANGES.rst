@@ -6,6 +6,10 @@
  Unreleased
 ************
 
+********************
+ 2.2.1 (2026/08/28)
+********************
+
 **Fixed**
 
 - Fixed directory exclusions skipping root files when the invocation directory
