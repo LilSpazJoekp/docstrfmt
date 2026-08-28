@@ -3,8 +3,10 @@ import os
 import subprocess
 import sys
 import textwrap
+from pathlib import Path
 
 import pytest
+from click.testing import CliRunner
 
 try:
     import tomllib as toml
@@ -44,6 +46,39 @@ def test_call(file):
         f"File '{os.path.abspath(file)}' could be reformatted.\n1 out of 1 file could"
         " be reformatted.\nDone! 🎉\n"
     )
+
+
+@pytest.mark.parametrize(
+    ("checkout_name", "source_parent", "exclude_checkout", "expected"),
+    [
+        ("build", ".", False, "1 file was checked.\nDone! 🎉\n"),
+        ("source", "build", False, "0 files was checked.\nDone! 🎉\n"),
+        ("source", ".", True, "0 files was checked.\nDone! 🎉\n"),
+    ],
+    ids=["checkout-root", "excluded-child", "absolute-root"],
+)
+def test_call_build_directory_exclusion(
+    runner: CliRunner,
+    monkeypatch: pytest.MonkeyPatch,
+    checkout_name: str,
+    source_parent: str,
+    exclude_checkout: bool,
+    expected: str,
+) -> None:
+    checkout = Path.cwd() / checkout_name
+    checkout.mkdir()
+    source = checkout / source_parent / "CHANGELOG.rst"
+    source.parent.mkdir(exist_ok=True)
+    source.write_text("Text.\n", encoding="utf-8")
+    monkeypatch.chdir(checkout)
+
+    args = ["--ignore-cache"]
+    if exclude_checkout:
+        args.extend(["--exclude", str(checkout)])
+    result = runner.invoke(main, args=[*args, str(source.relative_to(checkout))])
+
+    assert result.exit_code == 0
+    assert result.output == expected
 
 
 @pytest.mark.parametrize(

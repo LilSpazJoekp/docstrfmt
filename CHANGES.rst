@@ -8,6 +8,8 @@
 
 **Fixed**
 
+- Fixed directory exclusions skipping root files when the invocation directory
+  shares an excluded name such as ``build``.
 - Fixed rST width calculations for CJK/full-width and combining characters by
   using docutils column width semantics for section titles, simple tables, and
   line wrapping.
