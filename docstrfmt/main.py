@@ -7,6 +7,7 @@ import glob
 import itertools
 import logging
 import os
+import re
 import signal
 import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
@@ -740,13 +741,18 @@ class Visitor(CSTTransformer):
             if node.value.startswith(quoting) and node.value.endswith(quoting):
                 inner_value = node.value[len(quoting) : -len(quoting)]
                 if quoting in inner_value:
-                    node = node.with_changes(
-                        value=quoting
-                        + inner_value.replace(quoting, f"\\{quoting}").replace(
-                            quoting + quote, f"{quoting}\\{quote}"
-                        )
-                        + quoting
+                    # Escape unescaped triple quotes
+                    pattern = re.compile(r"(?<!\\)(\\\\)*" + quoting)
+                    new_inner = pattern.sub(
+                        lambda m, quoting=quoting: m.group(0)[:-3] + "\\" + quoting,
+                        inner_value,
                     )
+                    # Handle four quotes in a row
+                    new_inner = new_inner.replace(
+                        quoting + quote, f"{quoting}\\{quote}"
+                    )
+                    if new_inner != inner_value:
+                        node = node.with_changes(value=quoting + new_inner + quoting)
                 break
         return node
 
@@ -833,12 +839,13 @@ class Visitor(CSTTransformer):
                     f'{original_node.prefix}"""{output}{ending}"""', " " * indent_level
                 ).lstrip()
                 updated_node = updated_node.with_changes(value=value)
+                updated_node = self._escape_quoting(updated_node)
             if self._last_assign:
                 self._last_assign = None
                 if assigned_object_name:
                     self._object_names.pop(-1)
                 self._object_type = old_object_type
-        return self._escape_quoting(updated_node)
+        return updated_node
 
     def visit_AssignTarget_target(self, node: AssignTarget) -> None:
         """Set the last assign node.

@@ -13,6 +13,7 @@
 **Fixed**
 
 - The rows of a ``csv-table`` directive are no longer merged into a single line.
+- Fixed ``IndexError`` occurring when formatting bodies with duplicate targets.
 
 ********************
  2.2.1 (2026/08/28)

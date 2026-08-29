@@ -112,7 +112,10 @@ class UnknownNodeTransformer(Transform):
 
         """
         for node in self.document.findall(nodes.system_message):
-            message = node.children[0].children[0].astext()
+            try:
+                message = node.children[0].children[0].astext()
+            except IndexError:
+                continue
             for regex, handler in unknown_handlers:
                 match = regex.match(message)
                 if match:
@@ -433,6 +436,23 @@ class Manager:
         doc.transformer.add_transform(UnknownNodeTransformer)
         doc.transformer.apply_transforms()
 
+    @staticmethod
+    def _get_error_message(error: nodes.system_message) -> str:
+        """Get the error message from a system_message node.
+
+        :param error: The system_message node.
+
+        :returns: The error message.
+
+        """
+        try:
+            return error.children[0].children[0].astext()  # type: ignore[attr]
+        except (IndexError, AttributeError):
+            try:
+                return error.children[0].astext()
+            except (IndexError, AttributeError):
+                return error.astext()
+
     def _pre_process(
         self,
         node: nodes.Node,
@@ -453,7 +473,7 @@ class Manager:
             for child in node.children
             if isinstance(child, nodes.system_message)
             and child.attributes["type"] != "INFO"  # type: ignore[attr]
-            and child.children[0].astext()
+            and self._get_error_message(child)
             not in IgnoreMessagesReporter.ignored_messages
         ]
         if errors:
@@ -469,7 +489,7 @@ class Manager:
                             else error.attributes.get("line", block_length)
                         )
                         + line_offset,
-                        error.children[0].children[0].astext(),  # type: ignore[attr]
+                        self._get_error_message(error),
                     )
                     for error in errors
                 ]
@@ -558,7 +578,10 @@ class Manager:
                 and hasattr(title_node, "line")
                 and title_node.line is not None
             ):
-                underline = input_lines[title_node.line - 1].strip()[0]
+                line = input_lines[title_node.line - 1].strip()
+                if not line:
+                    continue
+                underline = line[0]
                 overline_lineno = title_node.line - 3
                 overline = False
 
@@ -2150,7 +2173,10 @@ class Formatters:
         if node.children and node.children[0].tagname == "directive":  # type: ignore[attr-defined]
             body = node.children[0]
             _directive = body.attributes["directive"]  # type: ignore[attr-defined]
-            if _directive.options.get("alt") == node.attributes["names"][0]:
+            names = node.attributes.get("names", [])
+            if not names:
+                names = node.attributes.get("dupnames", [])
+            if names and _directive.options.get("alt") == names[0]:
                 del _directive.options["alt"]
         if directive in ["image", "unicode"]:
             children = chain(
@@ -2336,7 +2362,14 @@ class Formatters:
                 else ""
             )
 
-        name = "_" if node.attributes.get("anonymous") else node.attributes["names"][0]
+        if node.attributes.get("anonymous"):
+            name = "_"
+        else:
+            names = node.attributes.get("names") or node.attributes.get("dupnames")
+            if not names:
+                # A target without a name can't be expressed as valid rST.
+                return
+            name = names[0]
         yield f".. _{name}:{body}"
 
     def tbody(
