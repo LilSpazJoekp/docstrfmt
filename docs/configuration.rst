@@ -63,7 +63,9 @@ File Exclusions
 Default exclusions:
 
 .. literalinclude:: ../docstrfmt/const.py
-    :lines: 4-17
+    :language: python
+    :start-at: DEFAULT_EXCLUDE = [
+    :end-at: ]
 
 Docstring Formatting
 ====================

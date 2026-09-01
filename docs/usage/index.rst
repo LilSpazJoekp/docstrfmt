@@ -10,7 +10,7 @@ advanced features.
 
     command_line
     file_processing
-    python_integration
+    python_files
     daemon_mode
     editor_integration
 
@@ -56,17 +56,21 @@ docstrfmt can process various types of files:
 
 For detailed information about file processing, see :doc:`file_processing`.
 
-********************
- Python Integration
-********************
+###########################
+ Formatting Python Files
+###########################
 
-docstrfmt integrates seamlessly with Python projects, automatically detecting and
-formatting docstrings while preserving the rest of your code.
+docstrfmt automatically detects and formats docstrings in Python files while preserving
+the rest of your code.
 
-Key features: * Preserves Python code structure * Formats only docstrings * Integrates
-with Black for code formatting * Supports all Python docstring formats
+Key features:
 
-For more details, see :doc:`python_integration`.
+- Preserves Python code structure
+- Formats only docstrings
+- Integrates with Black for code formatting
+- Supports all Python docstring formats
+
+For more details, see :doc:`python_files`.
 
 *************
  Daemon Mode
@@ -75,8 +79,12 @@ For more details, see :doc:`python_integration`.
 For high-performance scenarios or editor integration, docstrfmt provides a daemon mode
 that runs as an HTTP server.
 
-Features: * Fast formatting via HTTP requests * Avoids startup overhead * Configurable
-host and port * Compatible with editor plugins
+Features:
+
+- Fast formatting via HTTP requests
+- Avoids startup overhead
+- Configurable host and port
+- Compatible with editor plugins
 
 For setup and usage, see :doc:`daemon_mode`.
 
@@ -87,7 +95,11 @@ For setup and usage, see :doc:`daemon_mode`.
 docstrfmt can be integrated with various editors and IDEs to provide real-time
 formatting.
 
-Supported editors: * PyCharm/IntelliJ IDEA * VS Code (via extensions) * Vim/Neovim *
-Emacs
+Supported editors:
+
+- PyCharm / IntelliJ IDEA
+- VS Code (via extensions)
+- Vim / Neovim
+- Emacs
 
 For detailed setup instructions, see :doc:`editor_integration`.

@@ -1,9 +1,10 @@
-####################
- Python Integration
-####################
+#########################
+ Formatting Python Files
+#########################
 
-docstrfmt provides seamless integration with Python projects, allowing you to format
-docstrings while preserving your code structure and integrating with other Python tools.
+docstrfmt formats docstrings in Python files, leaving the surrounding code untouched.
+This page covers how it detects docstrings, the formatting options that apply, and how
+to hook it into your dev tools.
 
 ******************************
  Basic Python File Formatting
@@ -16,9 +17,13 @@ To format Python files, simply pass them to docstrfmt:
     docstrfmt mymodule.py
     docstrfmt src/**/*.py
 
-docstrfmt will: * Parse the Python file using LibCST * Extract all docstrings * Format
-the docstrings as reStructuredText * Preserve all other code unchanged * Write the
-formatted file back
+docstrfmt will:
+
+- Parse the Python file using LibCST
+- Extract all docstrings
+- Format the docstrings as reStructuredText
+- Preserve all other code unchanged
+- Write the formatted file back
 
 *********************
  Docstring Detection
@@ -162,13 +167,13 @@ If docstrfmt encounters a Python syntax error, it will:
 3. Continue with other files
 4. Return a non-zero exit code
 
-.. code-block:: bash
+.. code-block:: text
 
-    Failed to format '/Users/jkpayne/Desktop/PythonProjects/docstrfmt/test.rst'
+    Failed to format 'src/mypackage/broken.py'
     SyntaxError: unterminated string literal (detected at line 6):
 
-    File "/Users/jkpayne/Desktop/PythonProjects/docstrfmt/docs/usage/python_integration.rst", line 122:
-        """This docstring won't have a trailing blank line."""
+    File "src/mypackage/broken.py", line 6:
+        """Docstring that never closes...
 
 Parse Errors
 ============

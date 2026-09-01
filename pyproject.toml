@@ -12,6 +12,7 @@ dev = [
 docs = [
   "furo",
   "sphinx-autobuild",
+  "sphinx-click"
 ]
 lint = [
   "pre-commit",
@@ -79,6 +80,7 @@ docstrfmt = "docstrfmt.main:main"
 docstrfmtd = "docstrfmt.server:main [d]"
 
 [project.urls]
+"Documentation" = "https://docstrfmt.readthedocs.io/"
 "Issue Tracker" = "https://github.com/LilSpazJoekp/docstrfmt/issues"
 "Source Code" = "https://github.com/LilSpazJoekp/docstrfmt"
 

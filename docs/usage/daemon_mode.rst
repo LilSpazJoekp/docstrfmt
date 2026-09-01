@@ -62,7 +62,9 @@ The daemon provides a simple HTTP API for formatting:
 
 **Request Body**: The content to format (as raw text)
 
-**Headers**: * ``X-Line-Length``: Optional line length override
+**Headers**:
+
+- ``X-Line-Length``: Optional line length override
 
 **Response**: The formatted content
 
@@ -171,8 +173,12 @@ Add to your ``.vimrc``:
 Startup Time
 ============
 
-The daemon avoids the overhead of: * Starting Python interpreter * Importing all
-dependencies * Parsing configuration * Initializing formatters
+The daemon avoids the overhead of:
+
+- Starting the Python interpreter
+- Importing all dependencies
+- Parsing configuration
+- Initializing formatters
 
 This makes it much faster for repeated formatting requests.
 
@@ -202,16 +208,15 @@ The daemon returns appropriate HTTP status codes:
 Error Response Format
 =====================
 
-Error responses include details about what went wrong:
+Errors are returned as plain-text HTTP responses. The response body is empty; the
+error message is placed in the HTTP status reason line. For example, a malformed
+request produces a ``400`` response whose reason is the underlying parser message:
 
-.. code-block:: json
+.. code-block:: text
 
-    {
-        "error": "Invalid reStructuredText syntax",
-        "line": 5,
-        "column": 10,
-        "file": "input.rst"
-    }
+    HTTP/1.1 400 <docutils system message text>
+
+Clients should read the status code and reason phrase to surface errors.
 
 *************************
  Security Considerations
@@ -230,8 +235,12 @@ consider:
 Resource Limits
 ===============
 
-Consider implementing: * Request rate limiting * Maximum request size limits * Timeout
-handling * Memory usage monitoring
+Consider implementing:
+
+- Request rate limiting
+- Maximum request size limits
+- Timeout handling
+- Memory usage monitoring
 
 ***********************
  Production Deployment
@@ -273,19 +282,15 @@ Create a Dockerfile:
 
     CMD ["docstrfmtd", "--bind-host", "0.0.0.0", "--bind-port", "5219"]
 
-Health Checks
-=============
-
-Implement health check endpoints:
-
-.. code-block:: bash
-
-    curl http://localhost:5219/health
-
 Monitoring
 ==========
 
-Monitor the daemon for: * Response times * Error rates * Memory usage * Request volume
+Monitor the daemon for:
+
+- Response times
+- Error rates
+- Memory usage
+- Request volume
 
 **********
  Examples

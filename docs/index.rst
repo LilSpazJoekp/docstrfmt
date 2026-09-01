@@ -6,19 +6,19 @@
 
 .. image:: https://img.shields.io/pypi/v/docstrfmt.svg
     :alt: Latest docstrfmt Version
-    :target: https://pypi.python.org/pypi/docstrfmt
+    :target: https://pypi.org/project/docstrfmt/
 
 .. image:: https://img.shields.io/pypi/pyversions/docstrfmt
     :alt: Supported Python Versions
-    :target: https://pypi.python.org/pypi/docstrfmt
+    :target: https://pypi.org/project/docstrfmt/
 
 .. image:: https://img.shields.io/pypi/dm/docstrfmt
     :alt: PyPI - Downloads - Monthly
-    :target: https://pypi.python.org/pypi/docstrfmt
+    :target: https://pypi.org/project/docstrfmt/
 
 .. image:: https://coveralls.io/repos/github/LilSpazJoekp/docstrfmt/badge.svg?branch=master
     :alt: Coveralls Coverage
-    :target: https://coveralls.io/github/LilSpazJoekp/docstrfmt?branch=master
+    :target: https://coveralls.io/github/LilSpazJoekp/docstrfmt
 
 .. image:: https://github.com/LilSpazJoekp/docstrfmt/workflows/CI/badge.svg
     :alt: Github Actions Coverage
@@ -60,7 +60,6 @@ wasting time on style discussions.
 ********************
 
 - :ref:`genindex`
-- :ref:`modindex`
 - :ref:`search`
 
 .. _black: https://github.com/psf/black

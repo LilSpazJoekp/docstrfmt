@@ -7,17 +7,15 @@ import re
 import string
 from collections import namedtuple
 from collections.abc import Iterable, Iterator
-from copy import copy, deepcopy
-from contextlib import contextmanager
+from copy import copy
 from dataclasses import dataclass
 from doctest import DocTestParser
 from math import floor
-from textwrap import indent
 from typing import (
     TYPE_CHECKING,
     Any,
     TypeVar,
-    cast, Generator,
+    cast,
 )
 
 import black
@@ -50,7 +48,9 @@ invalid_reference_id = re.compile("[-_.:+][-_.:+]")
 unknown_handlers = [
     (
         re.compile(r'Unknown directive type "([^"]+)".'),
-        lambda name: rst_extras.add_directive(name, Directive, raw=True, is_injected=True),
+        lambda name: rst_extras.add_directive(
+            name, Directive, raw=True, is_injected=True
+        ),
     ),
     (
         re.compile(r'Unknown interpreted text role "([^"]+)".'),
@@ -163,22 +163,21 @@ class FormatContext:
         :param kwargs: Additional keyword arguments.
 
         """
+        self.width = width
+        self.current_file = current_file
+        self.manager = manager
         self.black_config = black_config
+        self.starting_width = width
         self.bullet: str = "-"
         self.column_widths = []
-        self.current_file = current_file
-        self.current_indent = 0
         self.current_ordinal = 0
-        self.first_line_len = 0
-        self.is_docstring = False
+        self.first_line_len: int = 0
         self.line_block_depth = 0
-        self.manager = manager
         self.ordinal_format = "arabic"
         self.section_depth = 0
-        self.starting_width = width
         self.subsequent_indent = 0
         self.use_adornments = None
-        self.width = width
+        self.is_docstring = False
         for key, value in kwargs.items():
             setattr(self, key, value)
 
@@ -211,8 +210,7 @@ class FormatContext:
         """
         return self._replace(section_depth=self.section_depth + 1)
 
-    @contextmanager
-    def indent(self, spaces: int) -> Generator[FormatContext | Any, Any, None]:
+    def indent(self, spaces: int) -> FormatContext:
         """Return a context indented by the given number of spaces.
 
         :param spaces: Number of spaces to indent.
@@ -220,9 +218,7 @@ class FormatContext:
         :returns: New FormatContext with adjusted width.
 
         """
-        self.current_indent += spaces
-        yield self._replace(width=max(1, self.width - spaces))
-        self.current_indent -= spaces
+        return self._replace(width=max(1, self.width - spaces))
 
     def sub_indent(self, subsequent_indent: int) -> FormatContext:
         """Return a context with the given subsequent indent.
@@ -299,29 +295,30 @@ class FormatContext:
 class CodeFormatters:
     """Formatters for code blocks."""
 
+    code: str
     context: FormatContext
 
-    def python(self, code: str) -> str:
+    def python(self) -> str:
         """Format Python code.
 
         :returns: Formatted Python code.
 
         """
         if not self.context.manager.format_python_code_blocks:
-            return code
+            return self.code
         try:
             if self.context.black_config is not None:
-                code = black.format_str(
-                    code, mode=self.context.black_config
+                self.code = black.format_str(
+                    self.code, mode=self.context.black_config
                 ).rstrip()
         except (UserWarning, black.InvalidInput, TokenError):
             try:
-                compile(code, "<code-block>", mode="exec")
+                compile(self.code, "<code-block>", mode="exec")
             except SyntaxError as syntax_error:
                 self.context.manager.error_count += 1
                 document_line = self.context.manager.get_code_line(
-                    code, current_indent=self.context.current_indent
-                ) - len(code.splitlines())
+                    self.code, strict=True
+                ) - len(self.code.splitlines())
                 if self.context.manager.reporter:
                     pointer = (
                         " " * (syntax_error.offset - 1) + "^"
@@ -331,35 +328,34 @@ class CodeFormatters:
                     self.context.manager.reporter.error(
                         f"SyntaxError: {syntax_error.msg}:\n\nFile"
                         f' "{self.context.current_file}", line'
-                        f" {document_line + (syntax_error.lineno or 0)}:\n{syntax_error.text.rstrip()}\n{pointer}"
+                        f" {document_line + (syntax_error.lineno or 0)}:\n{syntax_error.text}\n{pointer}"
                     )
-        return code
+        return self.code
 
-    def rst(self, code) -> str:
+    def rst(self) -> str:
         """Format reStructuredText code.
 
         :returns: Formatted reStructuredText code.
 
         """
-manager = self.context.manager
-manager.original_text = self.code
+        manager = self.context.manager
+        manager.original_text = self.code
         try:
             document = manager.parse_string(
-                code, line_offset=manager.get_code_line(code) - 1
+                self.code, line_offset=manager.get_code_line(self.code) - 1
             )
             formatted = manager.format_node(
                 self.context.width,
                 document,
                 is_docstring=False,
             )
-            self.context.manager.error_count += manager.error_count
             return formatted.rstrip()
         except InvalidRstErrors as errors:  # pragma: no cover
-            self.context.manager.error_count += len(errors.errors)
+            manager.error_count += len(errors.errors)
             for error in errors.errors:
-                if self.context.manager.reporter:
-                    self.context.manager.reporter.error(str(error))
-            return code
+                if manager.reporter:
+                    manager.reporter.error(str(error))
+            return self.code
 
 
 class Manager:
@@ -575,7 +571,7 @@ class Manager:
                 section["adornment-character"] = underline
                 section["adornment-overline"] = overline
 
-    def get_code_line(self, code: str, strict: bool = False, current_indent=0) -> int:
+    def get_code_line(self, code: str, strict: bool = False) -> int:
         """Get the line number of the code in the file.
 
         :param code: Code string to find.
@@ -586,11 +582,6 @@ class Manager:
         :raises ValueError: If the code is not found.
 
         """
-        with open("code_searches.txt", "a") as f:
-            f.write(code)
-            f.write("-"*20)
-            f.write(self.original_text)
-            f.write("="*20)
         lines = self.original_text.splitlines()
         code_lines = code.splitlines()
         multiple = len([line for line in lines if code_lines[0] in line]) > 1
@@ -704,6 +695,19 @@ def _prepend_if_any(prefix: T, items: Iterator[T]) -> Iterator[T]:
     yield item
     yield from items
 
+
+def _with_spaces(space_count: int, lines: Iterable[str]) -> Iterator[str]:
+    """Yield lines with the given number of leading spaces.
+
+    :param space_count: Number of spaces to add.
+    :param lines: Iterable of lines to indent.
+
+    :returns: Iterator of indented lines.
+
+    """
+    spaces = " " * space_count
+    for line in lines:
+        yield spaces + line if line else line
 
 
 class Formatters:
@@ -924,16 +928,15 @@ class Formatters:
         """
         yield f".. {node.tagname}::"
         yield ""
-        with context.indent(4) as c:
-            yield from _with_spaces(
+        yield from _with_spaces(
             context.manager.indent_width,
-                _chain_with_line_separator(
-"",
-self._format_children(
-    node, context.indent(context.manager.indent_width)
-),
+            _chain_with_line_separator(
+                "",
+                self._format_children(
+                    node, context.indent(context.manager.indent_width)
                 ),
-            )
+            ),
+        )
 
     def admonition(
         self,
@@ -958,17 +961,17 @@ self._format_children(
             f" {''.join(_wrap_text(None, chain(self._format_children(title, context)), context, node.line))}"
         )
         yield ""
-        with context.indent(context.manager.indent_width) as c:
-            yield from _with_spaces(
+        context = context.indent(context.manager.indent_width)
+        yield from _with_spaces(
             context.manager.indent_width,
-                _chain_with_line_separator(
-                    "",
-                    (
-                        self.manager.perform_format(child, c)
-                        for child in node.children[1:]
-                    ),
+            _chain_with_line_separator(
+                "",
+                (
+                    self.manager.perform_format(child, context)
+                    for child in node.children[1:]
                 ),
-            )
+            ),
+        )
 
     def block_quote(
         self,
@@ -991,16 +994,15 @@ self._format_children(
                 Some quote
 
         """
-        with context.indent(4) as c:
-            yield from _with_spaces(
+        yield from _with_spaces(
             context.manager.indent_width,
-                _chain_with_line_separator(
-"",
-self._format_children(
-    node, context.indent(context.manager.indent_width)
-),
+            _chain_with_line_separator(
+                "",
+                self._format_children(
+                    node, context.indent(context.manager.indent_width)
                 ),
-            )
+            ),
+        )
 
     def bullet_list(
         self,
@@ -1111,13 +1113,12 @@ self._format_children(
             if isinstance(child, nodes.term):
                 yield from self.manager.perform_format(child, context)
             elif isinstance(child, nodes.definition):
-                with context.indent(4) as c:
-                    yield from _with_spaces(
-context.manager.indent_width,
-self.manager.perform_format(
-    child, context.indent(context.manager.indent_width)
-),
-                    )
+                yield from _with_spaces(
+                    context.manager.indent_width,
+                    self.manager.perform_format(
+                        child, context.indent(context.manager.indent_width)
+                    ),
+                )
 
     def directive(
         self, node: rst_extras.directive, context: FormatContext
@@ -1156,56 +1157,41 @@ self.manager.perform_format(
         if in_substitution:
             del parts[0]  # No need for the leading .. or the image:: part
 
-        if directive.name in [
-            "deprecated",
-            "versionadded",
-            "versionchanged",
-            "versionremoved",
-        ]:
-            yield " ".join(parts[:2]) # Yield the directive name and version argument
-            # if there's content after the version argument, move to directive content
-            if len(parts) > 2:
-                directive.content = StringList(parts[-1].splitlines())
-        else:
-            yield " ".join(parts)
+        yield " ".join(parts)
         # Just rely on the order being stable, hopefully.
         leading_space = "" if in_substitution else " " * context.manager.indent_width
         for k, v in directive.options.items():
             yield f"{leading_space}:{k}:" if v is None else f"{leading_space}:{k}: {v}"
 
-        with context.indent(4) as c:
-            if is_code_block:
-                text = "\n".join(directive.content.data)
-                if directive.arguments:
-                    language = directive.arguments[0]
-                    try:
-                        func = getattr(CodeFormatters(c), language)
-                        text = func(text)
-                    except (AttributeError, TypeError):
-                        pass
-                yield ""
+        if is_code_block:
+            text = "\n".join(directive.content.data)
+            if directive.arguments:
+                language = directive.arguments[0]
+                try:
+                    func = getattr(CodeFormatters(text, context), language)
+                    text = func()
+                except (AttributeError, TypeError):
+                    pass
+            yield ""
             yield from _with_spaces(context.manager.indent_width, text.splitlines())
-            elif directive.raw:
+        elif directive.raw:
             yield from _prepend_if_any(
                 "", _with_spaces(context.manager.indent_width, directive.content)
             )
-            else:
-                manager = deepcopy(self.manager)
-                sub_doc = manager.parse_string(
-                    "\n".join(directive.content),
-                    self.manager.current_offset + directive.content_offset,
-                    file=context.current_file,
+        else:
+            sub_doc = self.manager.parse_string(
+                "\n".join(directive.content),
+                self.manager.current_offset + directive.content_offset,
+                file=context.current_file,
+            )
+            if sub_doc.children:
+                yield ""
+                yield from _with_spaces(
+                    context.manager.indent_width,
+                    self.manager.perform_format(
+                        sub_doc, context.indent(context.manager.indent_width)
+                    ),
                 )
-                if sub_doc.children:
-                    yield ""
-                    with context.indent(4) as c:
-                        yield from _with_spaces(
-context.manager.indent_width,
-self.manager.perform_format(
-    sub_doc, context.indent(context.manager.indent_width)
-),
-                        )
-                self.manager.error_count += manager.error_count
 
     def doctest_block(
         self,
@@ -1236,22 +1222,10 @@ self.manager.perform_format(
                 f"Invalid doctest block: {e}",
             ) from None
         doctest_blocks = []
-for example in parsed:
-    formatted = CodeFormatters(example.source.strip(), context).python()
+        for example in parsed:
+            formatted = CodeFormatters(example.source.strip(), context).python()
             doctest_blocks.append((formatted, example.want.strip()))
-current_block = ""
-while parsed:
-    example = parsed.pop(0)
-    if example.want:
-        current_block += example.source.strip()
-        formatted = CodeFormatters(current_block, context).python()
-        doctest_blocks.append((formatted, ""))
-    else:  # pragma: no cover
-        current_block += example.source.strip() + "\n"
-if current_block:
-    # If there's any remaining code, format it as well.
-    formatted = CodeFormatters(current_block, context).python()
-    doctest_blocks.append((formatted, ""))
+
         if not doctest_blocks:
             raise InvalidRstError(
                 context.current_file,
@@ -1407,18 +1381,16 @@ if current_block:
             Description of the field.
 
         """
-        with context.indent(4) as c:
-            yield from _chain_with_line_separator(
-                "",
-                self._format_children(
-                    node,
-context.indent(context.manager.indent_width).wrap_first_at(
-    column_width(f":{node.parent.children[0].astext()}: ")
-    - context.manager.indent_width
-)
-                    ),
+        yield from _chain_with_line_separator(
+            "",
+            self._format_children(
+                node,
+                context.indent(context.manager.indent_width).wrap_first_at(
+                    column_width(f":{node.parent.children[0].astext()}: ")
+                    - context.manager.indent_width
                 ),
-            )
+            ),
+        )
 
     def field_list(
         self,
@@ -1618,33 +1590,34 @@ context.indent(context.manager.indent_width).wrap_first_at(
 
         """
         prefix = ".."
-        with context.indent(4) as c:
-            children = _wrap_text(
-(
-    context.width - context.manager.indent_width
-    if context.width is not None
-    else None
-),
-chain(
-    self._format_children(
-        node, context.indent(context.manager.indent_width)
-    )
-),
-context.wrap_first_at(
-    column_width(prefix) - context.manager.indent_width
-).indent(context.manager.indent_width)
-                node.line,
-            )
-            footnote_name = (
-                [f"[#{''.join(node.attributes['names'])}]"]
-                if node.attributes.get("auto", False)
-                else []
-            )
-            child = next(children)
-            yield " ".join([prefix, *footnote_name, child])
-            remaining = list(children)
-            if remaining:
+        children = _wrap_text(
+            (
+                context.width - context.manager.indent_width
+                if context.width is not None
+                else None
+            ),
+            chain(
+                self._format_children(
+                    node, context.indent(context.manager.indent_width)
+                )
+            ),
+            context.wrap_first_at(
+                column_width(prefix) - context.manager.indent_width
+            ).indent(context.manager.indent_width),
+            node.line,
+        )
+        footnote_name = (
+            [f"[#{''.join(node.attributes['names'])}]"]
+            if node.attributes.get("auto", False)
+            else []
+        )
+        child = next(children)
+        yield " ".join([prefix, *footnote_name, child])
+        remaining = list(children)
+        if remaining:
             yield from _with_spaces(context.manager.indent_width, remaining)
+
+    citation = footnote
 
     @staticmethod
     def footnote_reference(
@@ -1719,18 +1692,18 @@ context.wrap_first_at(
             return
 
         indent = context.manager.indent_width * context.line_block_depth
-        with context.indent(indent) as c:
-            prefix1 = f"|{' ' * (indent - 1)}"
-            prefix2 = " " * indent
-            for first, line in _enum_first(
-                _wrap_text(
-                    c.width,
-                    chain(self._format_children(node, c)),
-                    c,
-                    node.line,
-                )
-            ):
-                yield (prefix1 if first else prefix2) + line
+        context = context.indent(indent)
+        prefix1 = f"|{' ' * (indent - 1)}"
+        prefix2 = " " * indent
+        for first, line in _enum_first(
+            _wrap_text(
+                context.width,
+                chain(self._format_children(node, context)),
+                context,
+                node.line,
+            )
+        ):
+            yield (prefix1 if first else prefix2) + line
 
     def line_block(
         self,
@@ -1775,12 +1748,12 @@ context.wrap_first_at(
         width = len(context.bullet) + 1
         bullet = f"{context.bullet} "
         spaces = " " * width
-        with context.indent(width) as c:
-            c.bullet = ""
-            for first, child in _enum_first(
-                _chain_with_line_separator("", self._format_children(node, c))
-            ):
-                yield ((bullet if first else spaces) if child else "") + child
+        context = context.indent(width)
+        context.bullet = ""
+        for first, child in _enum_first(
+            _chain_with_line_separator("", self._format_children(node, context))
+        ):
+            yield ((bullet if first else spaces) if child else "") + child
 
     def literal(
         self,
@@ -1846,8 +1819,8 @@ context.wrap_first_at(
             language = node.attributes["classes"][1]
             text = node.rawsource
             try:
-                func = getattr(CodeFormatters(context), language)
-                text = func(text)
+                func = getattr(CodeFormatters(text, context), language)
+                text = func()
             except (AttributeError, TypeError):
                 pass
             yield ""
@@ -1879,7 +1852,7 @@ context.wrap_first_at(
             settings.
 
         """
-        wrap_text_context = context
+        wrap_text_context = context.sub_indent(context.subsequent_indent)
         if context.is_docstring:
             context.is_docstring = False
             wrap_text_context.is_docstring = False
@@ -1888,7 +1861,7 @@ context.wrap_first_at(
             context.width,
             chain(
                 self._format_children(
-                    node, context
+                    node, context.sub_indent(context.subsequent_indent)
                 )
             ),
             wrap_text_context,
@@ -2126,32 +2099,33 @@ context.wrap_first_at(
             _directive = body.attributes["directive"]  # type: ignore[attr-defined]
             if _directive.options.get("alt") == node.attributes["names"][0]:
                 del _directive.options["alt"]
-        with context.indent(4) as c:
-            if directive in ["image", "unicode"]:
-children = chain(
-    self._format_children(
-        node, context.indent(context.manager.indent_width)
-    )
-)
-            else:  # for date and replace
-                children = _wrap_text(
-(
-    context.width - context.manager.indent_width
-    if context.width is not None
-    else None
-),
-chain(
-    self._format_children(node, context.indent(context.manager.indent_width))
-),
-context.wrap_first_at(
-    column_width(prefix) - context.manager.indent_width
-).indent(context.manager.indent_width),
-                    node.line,
+        if directive in ["image", "unicode"]:
+            children = chain(
+                self._format_children(
+                    node, context.indent(context.manager.indent_width)
                 )
-            next_child = next(children)
-            yield f"{prefix} {next_child}"
-            remaining = list(children)
-            if remaining:
+            )
+        else:  # for date and replace
+            children = _wrap_text(
+                (
+                    context.width - context.manager.indent_width
+                    if context.width is not None
+                    else None
+                ),
+                chain(
+                    self._format_children(
+                        node, context.indent(context.manager.indent_width)
+                    )
+                ),
+                context.wrap_first_at(
+                    column_width(prefix) - context.manager.indent_width
+                ).indent(context.manager.indent_width),
+                node.line,
+            )
+        next_child = next(children)
+        yield f"{prefix} {next_child}"
+        remaining = list(children)
+        if remaining:
             yield from _with_spaces(context.manager.indent_width, remaining)
 
     def substitution_reference(
@@ -2542,6 +2516,9 @@ def _wrap_text(
         Wraps inline text content to fit within the specified line width.
 
     """
+    if width is not None and width <= 0:
+        msg = f'Invalid starting width {context.starting_width} in File "{context.current_file}", line {current_line or "unknown"}'
+        raise ValueError(msg)
     raw_words = []
     for item in list(items):
         new_words = []
@@ -2625,16 +2602,3 @@ def _wrap_text(
         current_line_length = next_line_len
     if words:
         yield " ".join(words)
-
-def _with_spaces(space_count: int, lines: Iterable[str]) -> Iterator[str]:
-    """Yield lines with the given number of leading spaces.
-
-    :param space_count: Number of spaces to add.
-    :param lines: Iterable of lines to indent.
-
-    :returns: Iterator of indented lines.
-
-    """
-    spaces = " " * space_count
-    for line in lines:
-        yield spaces + line if line else line

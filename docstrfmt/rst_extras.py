@@ -8,6 +8,7 @@ about what they would normally expand to.
 
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from docutils import nodes, utils
@@ -68,9 +69,12 @@ def add_directive(
     if is_injected:
         namespace["final_argument_whitespace"] = True
         namespace["optional_arguments"] = 1
-    directives.register_directive(
-        name, type(f"docstrfmt_{cls.__name__}", (cls,), namespace)
-    )
+    subclass_name = f"docstrfmt_{cls.__name__}"
+    subclass = getattr(sys.modules[__name__], subclass_name, None)
+    if subclass is None:
+        subclass = type(subclass_name, (cls,), namespace)
+        setattr(sys.modules[__name__], subclass_name, subclass)
+    directives.register_directive(name, subclass)
 
 
 def generic_role(r: str, rawtext: str, text: str, *_: Any, **__: Any) -> Any:
@@ -151,7 +155,9 @@ def register() -> None:
 
     for d in set(_subclasses(autodoc.Documenter)):
         if d.objtype != "object":
-            add_directive(f"auto{d.objtype}", sphinx_directive.AutodocDirective, raw=False)
+            add_directive(
+                f"auto{d.objtype}", sphinx_directive.AutodocDirective, raw=False
+            )
 
     try:  # pragma: no cover
         import sphinxarg.ext  # noqa: PLC0415

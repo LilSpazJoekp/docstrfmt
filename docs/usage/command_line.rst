@@ -2,144 +2,51 @@
  Command Line Options
 ######################
 
-This page documents all available command-line options for docstrfmt.
+This page documents every option accepted by the ``docstrfmt`` and ``docstrfmtd``
+commands. The reference below is generated directly from the click definitions in
+``docstrfmt.main`` and ``docstrfmt.server``, so it always matches the installed
+version.
 
 .. note::
 
-    All options can also be set in ``pyproject.toml`` under the ``[tool.docstrfmt]``
-    section. Command-line options take precedence over configuration file settings.
+    Most formatting options can also be set in ``pyproject.toml`` under the
+    ``[tool.docstrfmt]`` section. Command-line options take precedence over
+    configuration file settings. See :doc:`/configuration` for details.
 
-***************
- Basic Options
-***************
+**********
+ docstrfmt
+**********
 
-.. option:: -h, --help
+.. click:: docstrfmt.main:main
+    :prog: docstrfmt
+    :nested: full
 
-    Show the help message and exit.
+Line length resolution
+======================
 
-.. option:: --version
+When ``--line-length`` is not passed on the command line, docstrfmt resolves the
+effective line length in the following order:
 
-    Show the version number and exit.
+1. ``--line-length`` on the command line
+2. ``tool.docstrfmt.line-length`` in the ``pyproject.toml`` specified via
+   ``--pyproject-config``
+3. ``tool.black.line-length`` in the ``pyproject.toml`` specified via
+   ``--pyproject-config``
+4. ``tool.docstrfmt.line-length`` in an auto-discovered ``pyproject.toml``
+5. ``tool.black.line-length`` in an auto-discovered ``pyproject.toml``
+6. Black's default line length
 
-.. option:: -v, --verbose
+***********
+ docstrfmtd
+***********
 
-    Increase verbosity level. Can be specified multiple times for different levels of
-    verbosity.
+The daemon exposes the same formatter over HTTP. Install the ``d`` extra
+(``pip install "docstrfmt[d]"``) to pull in the ``aiohttp`` dependency, then
+start the server:
 
-    - ``-v``: Basic debugging information
-    - ``-vv``: More detailed debugging information
-    - ``-vvv``: Maximum verbosity
+.. click:: docstrfmt.server:main
+    :prog: docstrfmtd
+    :nested: full
 
-.. option:: -q, --quiet
-
-    Don't emit non-error messages to stderr. Errors are still emitted; silence those
-    with ``2>/dev/null``. Overrides ``--verbose``.
-
-*************************
- File Processing Options
-*************************
-
-.. option:: -c, --check
-
-    Check files and return a non-zero exit code if files are not formatted correctly.
-    Useful for linting. Ignored if ``--raw-input``, ``--raw-output``, or stdin is used.
-
-.. option:: -r, --raw-input TEXT
-
-    Format the text passed in as a string. Formatted text will be output to stdout.
-
-.. option:: -o, --raw-output
-
-    Output the formatted text to stdout instead of modifying files in place.
-
-.. option:: -t, --file-type {py,rst}
-
-    Specify the raw input file type. Can only be used with ``--raw-input`` or stdin.
-
-    Default: ``rst``
-
-.. option:: -T, --include-txt
-
-    Interpret ``*.txt`` files as reStructuredText and format them.
-
-********************
- Formatting Options
-********************
-
-.. option:: -l, --line-length LENGTH
-
-    Wrap lines to the given line length where possible. Takes precedence over
-    ``line-length`` set in ``pyproject.toml`` if set. Defaults to the length provided to
-    Black if not set.
-
-    Minimum value: 4
-
-    .. note::
-
-        Line length is resolved in the following order:
-
-        1. Command-line option
-        2. ``tool.docstrfmt.line-length`` in specified pyproject.toml
-        3. ``tool.black.line-length`` in specified pyproject.toml
-        4. ``tool.docstrfmt.line-length`` in auto-detected pyproject.toml
-        5. ``tool.black.line-length`` in auto-detected pyproject.toml
-        6. Black's default line length
-
-.. option:: --docstring-trailing-line / --no-docstring-trailing-line
-
-    Whether to add a blank line at the end of docstrings.
-
-    Default: ``--docstring-trailing-line``
-
-.. option:: --format-python-code-blocks / --no-format-python-code-blocks
-
-    Whether to format Python code blocks within reStructuredText.
-
-    Default: ``--format-python-code-blocks``
-
-.. option:: -s, --section-adornments CHARS
-
-    Define adornments for part/chapter/section headers. It defines a sequence of
-    adornments to use for each individual section depth. The list must be composed of at
-    least N **distinct** characters for documents with N section depths. Provide more if
-    unsure. If the special character ``|`` (pipe) is used, then it defines sections
-    (left portion) that will have overlines besides underlines only (right portion).
-    Overrides ``--preserve-adornments``.
-
-    Default:
-
-    .. literalinclude:: ../../docstrfmt/const.py
-        :lines: 23
-
-.. option:: -pA, --preserve-adornments
-
-    Preserve existing section adornments instead of applying the default ones.
-
-*******************
- Exclusion Options
-*******************
-
-.. option:: -e, --exclude PATH
-
-    Path(s) to directories/files to exclude in formatting. Supports glob patterns. Can
-    be specified multiple times.
-
-    Default: ``["build/", "dist/", "*.egg-info/", ".git/", ".tox/", ".venv/", "venv/",
-    ".mypy_cache/", ".pytest_cache/", ".ruff_cache/"]``
-
-.. option:: -x, --extend-exclude PATH
-
-    Path(s) to directories/files to exclude in addition to the default excludes in
-    formatting. Supports glob patterns. Can be specified multiple times.
-
-***********************
- Configuration Options
-***********************
-
-.. option:: -p, --pyproject-config PATH
-
-    Path to ``pyproject.toml``. Used to load settings.
-
-.. option:: -i, --ignore-cache
-
-    Ignore the cache. Useful for testing.
+See :doc:`/usage/daemon_mode` for the request format and client integration
+examples.

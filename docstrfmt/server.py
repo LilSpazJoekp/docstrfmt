@@ -46,9 +46,6 @@ async def handler(request: web.Request) -> web.Response:
     return resp
 
 
-rst_extras.register()
-
-
 @click.command()
 @click.option(
     "-h",
@@ -57,6 +54,7 @@ rst_extras.register()
     type=str,
     default="localhost",
     show_default=True,
+    help="Host interface to bind the daemon to.",
 )
 @click.option(
     "-p",
@@ -65,14 +63,11 @@ rst_extras.register()
     type=int,
     default=5219,
     show_default=True,
+    help="TCP port to listen on.",
 )
 def main(bind_host: str, bind_port: int) -> None:
-    """Start the docstrfmt server.
-
-    :param bind_host: Host to bind the server to.
-    :param bind_port: Port to bind the server to.
-
-    """
+    """Start the docstrfmt server."""
+    rst_extras.register()
     app = web.Application()
     app.add_routes([web.post("/", handler)])
     web.run_app(app, host=bind_host, port=bind_port)

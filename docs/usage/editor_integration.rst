@@ -9,8 +9,8 @@ formatting and seamless workflow integration.
  PyCharm
 *********
 
-Instructions derived from `black documentation
-<https://black.readthedocs.io/en/stable/editor_integration.html#pycharm-intellij-idea>`_
+Instructions derived from `Black's editor integration docs
+<https://black.readthedocs.io/en/stable/integrations/editors.html#pycharm-intellij-idea>`_.
 
 1. Install.
 
@@ -90,8 +90,20 @@ Instructions derived from `black documentation
         rev: stable # Replace by any tag/version: https://github.com/LilSpazJoekp/docstrfmt/tags
         hooks:
           - id: docstrfmt
-            language_version: python3
-            types_or: [python, rst, txt] # only needed if you want to include txt files.
+
+To also include ``.txt`` files, extend ``types_or`` and pass ``--include-txt`` in
+``args`` (both are required — the hook's file-type filter and docstrfmt's own file
+discovery are separate):
+
+.. code-block:: yaml
+
+    repos:
+      - repo: https://github.com/LilSpazJoekp/docstrfmt
+        rev: stable
+        hooks:
+          - id: docstrfmt
+            types_or: [python, rst, txt]
+            args: [--include-txt]
 
 **********************
  Custom Configuration
@@ -106,9 +118,8 @@ You can customize the pre-commit hook:
         rev: stable
         hooks:
           - id: docstrfmt
-            language_version: python3
             types_or: [python, rst, txt]
-            args: [--line-length, "72", --check]
+            args: [--include-txt, --line-length, "72", --check]
 
 ###################
  CI/CD Integration

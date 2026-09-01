@@ -963,7 +963,7 @@ class Visitor(CSTTransformer):
 @click.option(
     "-T",
     "--include-txt",
-    help="Interpret *.txt files as reStructuredText and format them.",
+    help="Interpret .txt files as reStructuredText and format them.",
     is_flag=True,
 )
 @click.option(
@@ -1098,33 +1098,7 @@ def main(
     verbose: int,
     files: list[str],
 ) -> None:
-    """Format reStructuredText and Python files.
-
-    :param context: Click context containing command parameters.
-    :param bullet_list_marker: Bullet character to use for unordered lists.
-    :param center_section_titles: Whether to center section titles with overlines.
-    :param check: Whether to check formatting without modifying files.
-    :param docstring_trailing_line: Whether to add trailing line to docstrings.
-    :param exclude: List of paths to exclude from formatting.
-    :param extend_exclude: Additional paths to exclude from formatting.
-    :param file_type: Type of files to process ('py' or 'rst').
-    :param format_python_code_blocks: Whether to format Python code blocks.
-    :param ignore_cache: Whether to ignore the cache.
-    :param include_txt: Whether to include .txt files.
-    :param indent_width: Number of spaces per indentation level.
-    :param keep_blanks: Keep blank lines between sections as appear in source.
-    :param line_length: Maximum line length.
-    :param ordered_marker: Marker style for ordered (enumerated) lists.
-    :param preserve_adornments: Whether to preserve existing section adornments.
-    :param mode: Black formatting mode.
-    :param quiet: Whether to suppress non-error output.
-    :param raw_input: Raw input string to format.
-    :param raw_output: Whether to output raw formatted text.
-    :param section_adornments: Section adornment configuration.
-    :param verbose: Verbosity level.
-    :param files: List of files to format.
-
-    """
+    """Format reStructuredText and Python files."""
     reporter.level = verbose
     if "-" in files and len(files) > 1:
         reporter.error("ValueError: stdin can not be used with other paths")

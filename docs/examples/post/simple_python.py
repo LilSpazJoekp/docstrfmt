@@ -1,5 +1,6 @@
 """This is a module docstring that will be formatted by docstrfmt."""
 
+
 class MyClass:
     """This is a class docstring that will be formatted by docstrfmt."""
 
