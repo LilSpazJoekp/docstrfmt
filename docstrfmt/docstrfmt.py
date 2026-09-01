@@ -371,6 +371,8 @@ class Manager:
         black_config: Mode | None = None,
         center_section_titles: bool = True,
         bullet_list_marker: str = "-",
+        custom_directives: list[rst_extras.CustomDirectiveSpec] | None = None,
+        custom_roles: list[str] | None = None,
         docstring_trailing_line: bool = True,
         format_python_code_blocks: bool = True,
         indent_width: int = 4,
@@ -387,6 +389,9 @@ class Manager:
         :param center_section_titles: Whether to center section titles with overlines by
             adding a leading space.
         :param bullet_list_marker: Bullet character to use for unordered lists.
+        :param custom_directives: User-supplied directives to register. See
+            :func:`docstrfmt.rst_extras.register_custom`.
+        :param custom_roles: User-supplied role names to register as generic roles.
         :param docstring_trailing_line: Whether to add trailing line to docstrings.
         :param format_python_code_blocks: Whether to format Python code blocks.
         :param indent_width: Number of spaces per indentation level.
@@ -396,6 +401,7 @@ class Manager:
 
         """
         rst_extras.register()
+        rst_extras.register_custom(custom_directives, custom_roles)
         self.current_file = current_file
         self.black_config = black_config
         self.center_section_titles = center_section_titles

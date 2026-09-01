@@ -121,6 +121,53 @@ to avoid the cost of starting and importing everything on every run.
     # a nonzero status code if there are errors.
     curl -fsS http://locahost:5219 --data-binary @/dev/stdin
 
+Custom Directives and Roles
+===========================
+
+Unknown directives and roles are auto-registered on first sight so formatting
+never fails on custom markup. To register them explicitly (which lets you
+opt out of the default "raw" treatment so the directive body is formatted, or
+tune the argument spec), use the CLI or a ``pyproject.toml`` entry.
+
+From the command line, repeat ``--custom-directive`` and ``--custom-role`` as
+needed:
+
+.. code-block:: sh
+
+    docstrfmt --custom-directive mydirective --custom-role mycolor path/
+
+In ``pyproject.toml``, a plain list registers each name with the same behavior
+as the fallback (body preserved verbatim, one optional whitespace argument):
+
+.. code-block:: toml
+
+    [tool.docstrfmt]
+    custom_directives = ["mydirective"]
+    custom_roles = ["mycolor", "mystyle"]
+
+For richer control, use a table with any of ``raw``, ``has_content``,
+``required_arguments``, ``optional_arguments``, and ``final_argument_whitespace``.
+Setting ``raw = false`` opts the directive body into being reformatted as reST:
+
+.. code-block:: toml
+
+    [tool.docstrfmt]
+    custom_directives = [
+        "mydirective",
+        { name = "callout", raw = false, has_content = true },
+    ]
+
+Names are matched case-insensitively, as in docutils. When the same name appears
+in both ``pyproject.toml`` and on the command line, the ``pyproject.toml`` entry
+wins, so a plain ``--custom-directive`` flag never overrides a richer table.
+
+.. note::
+
+    Registration modifies docutils' global directive and role registries, so it
+    persists for the lifetime of the process. This matters when using docstrfmt as
+    a library or through the daemon: names registered for one run remain registered
+    for later runs in the same process, and a later run cannot unregister them.
+
 With Editors
 ============
 

@@ -9,11 +9,17 @@
 **Added**
 
 - Added support for missing docutils roles and directives.
+- Added ``--custom-directive`` and ``--custom-role`` command-line options (and matching
+  ``custom_directives`` / ``custom_roles`` keys in ``[tool.docstrfmt]``) so end users
+  can explicitly register custom directives and roles. Directive entries may be plain
+  names or tables that opt out of the default raw handling (``raw = false``) so the
+  body is reformatted as reST.
 
 **Fixed**
 
 - The rows of a ``csv-table`` directive are no longer merged into a single line.
 - Fixed ``IndexError`` occurring when formatting bodies with duplicate targets.
+
 
 ********************
  2.2.1 (2026/08/28)
