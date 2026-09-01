@@ -5,13 +5,32 @@ import pytest
 from docutils import nodes
 from docutils.utils import new_document
 
-from docstrfmt.docstrfmt import FormatContext, UnknownNodeTransformer
+from docstrfmt.docstrfmt import (
+    FormatContext,
+    Formatters,
+    UnknownNodeTransformer,
+    _clip_to_width,
+)
 
 from docstrfmt import Manager
 from docstrfmt.rst_extras import register_custom
 from tests import node_eq
 
 test_lengths = [8, 13, 34, 55, 89, 144, 72]
+
+
+def _span_attributes(doc):
+    """Return the (morerows, morecols) pair of every table entry in the document."""
+    return [
+        (entry.get("morerows", 0), entry.get("morecols", 0))
+        for entry in doc.findall(nodes.entry)
+    ]
+
+
+def _entry(text, **attrs):
+    node = nodes.entry("", nodes.paragraph(text=text))
+    node.attributes.update(attrs)
+    return node
 
 
 @pytest.mark.parametrize("length", test_lengths)
@@ -25,6 +44,68 @@ def test_formatting(manager, length):
     output2 = manager.format_node(length, doc2)
     assert node_eq(doc, doc2)
     assert output == output2
+
+
+@pytest.mark.parametrize("length", test_lengths)
+def test_grid_table_spans(manager, length):
+    """Grid tables with rowspan/colspan round-trip through the formatter."""
+    file = "tests/test_files/span_tables.rst"
+    with open(file, encoding="utf-8") as f:
+        test_string = f.read()
+    doc = manager.parse_string(test_string, file=file)
+    output = manager.format_node(length, doc)
+    doc2 = manager.parse_string(output, file=file)
+    output2 = manager.format_node(length, doc2)
+    assert node_eq(doc, doc2)
+    assert output == output2
+    # node_eq ignores span attributes, so check the geometry survived explicitly.
+    spans = _span_attributes(doc)
+    assert any(morerows or morecols for morerows, morecols in spans)
+    assert _span_attributes(doc2) == spans
+
+
+def test_clip_to_width():
+    """Clipping counts display columns, not code points."""
+    assert _clip_to_width("abc", 5) == "abc"
+    assert _clip_to_width("abcdef", 3) == "abc"
+    assert _clip_to_width("中文中文", 5) == "中文"
+    assert _clip_to_width("e\u0301x", 1) == "e\u0301"
+
+
+def test_grid_table_malformed_spans(manager):
+    """A grid table whose spans or entry counts don't fit the grid still renders."""
+    rows = [
+        nodes.row("", _entry("A", morecols=5), nodes.comment("", "ignored")),
+        nodes.row("", _entry("B", morerows=5), _entry("C"), _entry("extra")),
+    ]
+    context = FormatContext(30, "<test_file>", manager)
+    formatters = Formatters(manager)
+    lines = list(formatters._render_grid_table(context, rows, 2, 0))
+    assert lines == [
+        "+-------+",
+        "| A     |",
+        "+---+---+",
+        "| B | C |",
+        "+---+---+",
+    ]
+
+
+def test_grid_table_overlapping_spans(manager):
+    """A colspan that would overwrite an earlier rowspan is shrunk to fit."""
+    rows = [
+        nodes.row("", _entry("A"), _entry("B", morerows=1), _entry("C")),
+        nodes.row("", _entry("D", morecols=2), _entry("E")),
+    ]
+    context = FormatContext(30, "<test_file>", manager)
+    formatters = Formatters(manager)
+    lines = list(formatters._render_grid_table(context, rows, 3, 0))
+    assert lines == [
+        "+---+---+---+",
+        "| A | B | C |",
+        "+---+   +---+",
+        "| D |   | E |",
+        "+---+---+---+",
+    ]
 
 
 def test_unknown_node_transformer_skips_empty_system_message(manager):
@@ -266,3 +347,21 @@ def test_custom_directive_names_are_case_insensitive():
     src = ".. mixedcase::\n\n   -   one\n\n.. MIXEDCASE::\n\n   -   two\n"
     output = manager.format_node(80, manager.parse_string(src))
     assert output == ".. mixedcase::\n\n    - one\n\n.. MIXEDCASE::\n\n    - two\n"
+
+
+def test_grid_table_combining_characters(manager):
+    """Combining marks ride on the preceding character instead of taking a slot."""
+    rows = [
+        nodes.row("", _entry("A"), _entry("B")),
+        nodes.row("", _entry("e\u0301 x", morecols=1)),
+    ]
+    context = FormatContext(30, "<test_file>", manager)
+    formatters = Formatters(manager)
+    lines = list(formatters._render_grid_table(context, rows, 2, 0))
+    assert lines == [
+        "+---+---+",
+        "| A | B |",
+        "+---+---+",
+        "| e\u0301 x   |",
+        "+-------+",
+    ]

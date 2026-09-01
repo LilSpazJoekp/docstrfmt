@@ -311,6 +311,7 @@ def register() -> None:
     add_directive("rubric", body.Rubric, raw=False)
     add_directive("sectnum", parts.Sectnum)
     add_directive("sidebar", body.Sidebar, raw=False)
+    add_directive("table", tables.RSTTable, raw=False)
     add_directive("target-notes", references.TargetNotes)
     add_directive("topic", body.Topic, raw=False)
     add_directive("unicode", misc.Unicode)

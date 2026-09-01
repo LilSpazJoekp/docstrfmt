@@ -913,6 +913,261 @@ class Formatters:
             for row in rows
         ]
 
+    def _grid_cell_wrapped_lines(
+        self,
+        entry: nodes.entry,
+        context: FormatContext,
+        width: int,
+    ) -> list[str]:
+        """Return wrapped content lines for a table entry at a given width.
+
+        Block-level children (paragraphs, lists, etc.) are separated by a blank
+        line so the cell body still parses as the same structure on the round
+        trip.
+        """
+        return list(
+            _chain_with_line_separator(
+                "", self._format_children(entry, context.with_width(width=width))
+            )
+        )
+
+    def _grid_cell_max_line_width(
+        self,
+        entry: nodes.entry,
+        context: FormatContext,
+        width: int,
+    ) -> int:
+        """Return the widest wrapped-line width for a table entry at a given width."""
+        return max(
+            (
+                column_width(line)
+                for line in self._grid_cell_wrapped_lines(entry, context, width)
+            ),
+            default=0,
+        )
+
+    def _render_grid_table(
+        self,
+        context: FormatContext,
+        all_rows: list[nodes.row],
+        col_count: int,
+        header_row_count: int,
+    ) -> line_iterator:
+        """Render a table with rowspan/colspan support as a grid table."""
+        row_count = len(all_rows)
+        # Build occupancy grid; each grid[r][c] is the entry that owns (r, c).
+        grid: list[list[nodes.entry | None]] = [
+            [None] * col_count for _ in range(row_count)
+        ]
+        cells: list[tuple[int, int, int, int, nodes.entry]] = []
+        for r, row in enumerate(all_rows):
+            c = 0
+            entries = [e for e in row.children if isinstance(e, nodes.entry)]
+            for entry in entries:
+                while c < col_count and grid[r][c] is not None:
+                    c += 1
+                if c >= col_count:
+                    break
+                # Clamp spans so a malformed table can't index outside the grid or
+                # overwrite cells already claimed by an earlier span. Rows are
+                # filled top-down and spans are contiguous rectangles, so the
+                # rectangle is free exactly when its top row is free.
+                rowspan = min(
+                    int(entry.attributes.get("morerows", 0)) + 1, row_count - r
+                )
+                colspan = min(
+                    int(entry.attributes.get("morecols", 0)) + 1, col_count - c
+                )
+                free_end = c + 1
+                while free_end < c + colspan and grid[r][free_end] is None:
+                    free_end += 1
+                colspan = free_end - c
+                for dr in range(rowspan):
+                    for dc in range(colspan):
+                        grid[r + dr][c + dc] = entry
+                cells.append((r, c, rowspan, colspan, entry))
+                c += colspan
+
+        # ``col_widths[c]`` is the number of dash characters between two ``+``
+        # intersections for column ``c``. Cell content is placed with a 1-char
+        # padding on each side, so ``content_width = col_widths[c] - 2`` for a
+        # single-column cell, or ``sum(col_widths[c:c+cs]) + (cs - 1) - 2`` for a
+        # cell spanning ``cs`` columns (the interior ``+``s become content area).
+        padding = 2
+        total_border_chars = col_count + 1
+        # Clamp to at least 1 so tiny line lengths never produce a non-positive
+        # wrap width; the table simply overflows in that case.
+        available = (
+            max(1, context.width - total_border_chars)
+            if context.width is not None
+            else None
+        )
+
+        # Per-cell min/max content widths (unpadded).
+        cell_min: dict[tuple[int, int], int] = {}
+        cell_max: dict[tuple[int, int], int] = {}
+        for r, c, _rs, _cs, entry in cells:
+            cell_min[(r, c)] = self._grid_cell_max_line_width(entry, context, 1)
+            cell_max[(r, c)] = self._grid_cell_max_line_width(
+                entry, context, 10_000 if available is None else available
+            )
+
+        # Column widths from single-column cells (add padding), then expanded for
+        # spanned cells.
+        col_min = [padding + 1] * col_count
+        col_max = [padding + 1] * col_count
+        for r, c, _rs, cs, _entry in cells:
+            if cs == 1:
+                col_min[c] = max(col_min[c], cell_min[(r, c)] + padding)
+                col_max[c] = max(col_max[c], cell_max[(r, c)] + padding)
+        for r, c, _rs, cs, _entry in cells:
+            if cs > 1:
+                needed_min = cell_min[(r, c)] + padding
+                span_min = sum(col_min[c : c + cs]) + (cs - 1)
+                if needed_min > span_min:
+                    for i, extra in enumerate(
+                        _divide_evenly(needed_min - span_min, cs)
+                    ):
+                        col_min[c + i] += extra
+                needed_max = cell_max[(r, c)] + padding
+                span_max = sum(col_max[c : c + cs]) + (cs - 1)
+                if needed_max > span_max:
+                    for i, extra in enumerate(
+                        _divide_evenly(needed_max - span_max, cs)
+                    ):
+                        col_max[c + i] += extra
+
+        # Fit into available width.
+        if available is None or sum(col_max) <= available:
+            col_widths = list(col_max)
+        else:
+            col_widths = list(col_min)
+            slack = available - sum(col_min)
+            desired = [col_max[i] - col_min[i] for i in range(col_count)]
+            total_desired = sum(desired)
+            if slack > 0 and total_desired > 0:
+                shares = [slack * desired[i] for i in range(col_count)]
+                for i in range(col_count):
+                    col_widths[i] += shares[i] // total_desired
+                # Hand out the rounding leftover by largest remainder, so only
+                # columns that still want growth are widened.
+                leftover = available - sum(col_widths)
+                by_remainder = sorted(
+                    (i for i in range(col_count) if desired[i] > 0),
+                    key=lambda i: shares[i] % total_desired,
+                    reverse=True,
+                )
+                for i in by_remainder[:leftover]:
+                    col_widths[i] += 1
+
+        # Re-wrap each cell at its final effective content width.
+        cell_lines: dict[tuple[int, int], list[str]] = {}
+        for r, c, _rs, cs, entry in cells:
+            eff_width = sum(col_widths[c : c + cs]) + (cs - 1) - padding
+            cell_lines[(r, c)] = self._grid_cell_wrapped_lines(
+                entry, context, max(1, eff_width)
+            )
+
+        # Row heights (single-row cells first, then expand for rowspan).
+        row_heights = [1] * row_count
+        for r, c, rs, _cs, _entry in cells:
+            if rs == 1:
+                row_heights[r] = max(row_heights[r], len(cell_lines[(r, c)]) or 1)
+        for r, c, rs, _cs, _entry in cells:
+            if rs > 1:
+                required = len(cell_lines[(r, c)])
+                available_h = sum(row_heights[r : r + rs]) + (rs - 1)
+                if required > available_h:
+                    for i, extra in enumerate(
+                        _divide_evenly(required - available_h, rs)
+                    ):
+                        row_heights[r + i] += extra
+
+        # Character-buffer coordinates.
+        row_y = [0]
+        for h in row_heights:
+            row_y.append(row_y[-1] + h + 1)
+        col_x = [0]
+        for w in col_widths:
+            col_x.append(col_x[-1] + w + 1)
+        total_h = row_y[-1] + 1
+        total_w = col_x[-1] + 1
+        buf: list[list[str]] = [[" "] * total_w for _ in range(total_h)]
+
+        def horizontal_border(rb: int, c: int) -> bool:
+            # Row boundary rb (0..row_count), single column c (0..col_count-1).
+            if rb in (0, row_count):
+                return True
+            return grid[rb - 1][c] is not grid[rb][c]
+
+        def vertical_border(r: int, cb: int) -> bool:
+            # Column boundary cb (0..col_count), single row r (0..row_count-1).
+            if cb in (0, col_count):
+                return True
+            return grid[r][cb - 1] is not grid[r][cb]
+
+        def sep_char(rb: int) -> str:
+            return "=" if header_row_count and header_row_count == rb else "-"
+
+        # Draw horizontal borders.
+        for rb in range(row_count + 1):
+            y = row_y[rb]
+            ch = sep_char(rb)
+            for c in range(col_count):
+                if horizontal_border(rb, c):
+                    for x in range(col_x[c] + 1, col_x[c + 1]):
+                        buf[y][x] = ch
+        # Draw vertical borders.
+        for cb in range(col_count + 1):
+            x = col_x[cb]
+            for r in range(row_count):
+                if vertical_border(r, cb):
+                    for y in range(row_y[r] + 1, row_y[r + 1]):
+                        buf[y][x] = "|"
+        # Draw intersections.
+        for rb in range(row_count + 1):
+            for cb in range(col_count + 1):
+                y = row_y[rb]
+                x = col_x[cb]
+                has_h_left = cb > 0 and horizontal_border(rb, cb - 1)
+                has_h_right = col_count > cb and horizontal_border(rb, cb)
+                has_v_up = rb > 0 and vertical_border(rb - 1, cb)
+                has_v_down = row_count > rb and vertical_border(rb, cb)
+                has_h = has_h_left or has_h_right
+                has_v = has_v_up or has_v_down
+                if has_h and has_v:
+                    buf[y][x] = "+"
+                elif has_v:
+                    buf[y][x] = "|"
+                elif has_h:
+                    buf[y][x] = sep_char(rb)
+
+        # Draw cell content into cell interiors, with a 1-char left padding after
+        # the ``|`` border. Content is clipped at the cell's right border minus 1
+        # and placed by display column so wide (e.g. CJK) and combining
+        # characters keep the borders aligned.
+        for r, c, rs, cs, _entry in cells:
+            lines = cell_lines[(r, c)]
+            top = row_y[r] + 1
+            bottom = row_y[r + rs]
+            left = col_x[c] + 2
+            right = col_x[c + cs] - 1
+            for i, line in enumerate(lines[: bottom - top]):
+                x = left
+                for ch in _clip_to_width(line, right - left):
+                    width = column_width(ch)
+                    if width == 0:
+                        # Combining character: attach it to the preceding slot.
+                        buf[top + i][x - 1] += ch
+                    else:
+                        buf[top + i][x] = ch
+                        # A wide character takes extra slots, which stay empty.
+                        buf[top + i][x + 1 : x + width] = [""] * (width - 1)
+                        x += width
+
+        for row_buf in buf:
+            yield "".join(row_buf).rstrip()
+
     def _list(self, node: nodes.Node, context: FormatContext) -> line_iterator:
         """Format a list node.
 
@@ -2248,6 +2503,36 @@ class Formatters:
             ===== =====
 
         """
+        # If any cell spans multiple rows/columns, render as a grid table.
+        tgroup = next((c for c in node.children if isinstance(c, nodes.tgroup)), None)
+        if tgroup is not None:
+            thead = next(
+                (c for c in tgroup.children if isinstance(c, nodes.thead)), None
+            )
+            tbody = next(
+                (c for c in tgroup.children if isinstance(c, nodes.tbody)), None
+            )
+            all_rows: list[nodes.row] = []
+            header_row_count = 0
+            if thead is not None:
+                thead_rows = [c for c in thead.children if isinstance(c, nodes.row)]
+                all_rows.extend(thead_rows)
+                header_row_count = len(thead_rows)
+            if tbody is not None:
+                all_rows.extend(c for c in tbody.children if isinstance(c, nodes.row))
+            has_spans = any(
+                entry.attributes.get("morerows", 0)
+                or entry.attributes.get("morecols", 0)
+                for row in all_rows
+                for entry in row.children
+                if isinstance(entry, nodes.entry)
+            )
+            if has_spans:
+                yield from self._render_grid_table(
+                    context, all_rows, int(tgroup["cols"]), header_row_count
+                )
+                return
+
         rows = []
         rows_to_check = []
         for row in node.findall(nodes.row):
@@ -2261,15 +2546,6 @@ class Formatters:
         for row in rows_to_check:
             current_row = []
             for column in row.findall(nodes.entry):
-                if column.attributes.get("morerows", False) or column.attributes.get(
-                    "morecols", False
-                ):
-                    msg = (
-                        "Tables with cells that span multiple cells are not supported."
-                        " Consider using the 'include' directive to include the table"
-                        " from another file."
-                    )
-                    raise NotImplementedError(msg)
                 current_row.append(column)
             for table in list(row.findall(nodes.table)):
                 for entry in table.findall(nodes.entry):
@@ -2565,6 +2841,23 @@ def _chain_with_line_separator(
             yield separator
         first = False
         yield from item
+
+
+def _clip_to_width(text: str, width: int) -> str:
+    """Truncate text to at most ``width`` display columns.
+
+    :param text: Text to clip.
+    :param width: Maximum display width in columns.
+
+    :returns: The longest prefix of ``text`` that fits within ``width`` columns.
+
+    """
+    used = 0
+    for i, char in enumerate(text):
+        used += column_width(char)
+        if used > width:
+            return text[:i]
+    return text
 
 
 def _divide_evenly(width: int, column_count: int) -> list[int]:

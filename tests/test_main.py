@@ -16,6 +16,7 @@ except ImportError:  # pragma: no cover
     import tomli as toml
 from black import DEFAULT_LINE_LENGTH
 from docutils.core import publish_doctree
+from docutils.utils import column_width
 
 from docstrfmt.main import _format_file, main
 
@@ -678,16 +679,131 @@ def test_invalid_sphinx_metadata_rst(runner):
     )
 
 
-def test_invalid_table(runner):
-    file = "tests/test_files/error_files/test_invalid_table.rst"
-    result = runner.invoke(main, args=[file])
-    assert result.exit_code == 1
-    assert result.output == (
-        "NotImplementedError: Tables with cells that span multiple cells are not"
-        " supported. Consider using the 'include' directive to include the table from"
-        f" another file.\nFailed to format '{os.path.abspath(file)}'\n1 file was"
-        " checked.\nDone, but 1 error occurred ❌💥❌\n"
+def test_grid_table_spans_tiny_line_length(runner):
+    """A spanned grid table with more columns than the line length still renders."""
+    source = (
+        "+-+-+-+-+-+-+-+-+-+-+\n"
+        "|a|b|c|d|e|f|g|h|i|j|\n"
+        "+-+-+-+-+-+-+-+-+-+-+\n"
+        "|span               |\n"
+        "+-------------------+\n"
     )
+    expected = (
+        "+---+---+---+---+---+---+---+---+---+---+\n"
+        "| a | b | c | d | e | f | g | h | i | j |\n"
+        "+---+---+---+---+---+---+---+---+---+---+\n"
+        "| span                                  |\n"
+        "+---------------------------------------+\n"
+    )
+
+    result = runner.invoke(main, args=["-l", "4", "-"], input=source)
+    assert result.exit_code == 0
+    assert result.output == expected
+
+
+def test_captioned_grid_table_respects_line_length(runner):
+    """A captioned table keeps its options and is laid out for the indented width."""
+    source = (
+        ".. table:: Caption\n"
+        "    :name: my-table\n"
+        "    :class: fancy\n"
+        "    :align: center\n"
+        "    :width: 80%\n"
+        "    :widths: 10 20\n"
+        "\n"
+        "    +-------------------------------+-------------------------------+\n"
+        "    | first column with some words  | second column with some words |\n"
+        "    +-------------------------------+-------------------------------+\n"
+        "    | a spanning cell with a fairly long sentence inside it to wrap |\n"
+        "    +---------------------------------------------------------------+\n"
+    )
+    expected = (
+        ".. table:: Caption\n"
+        "    :name: my-table\n"
+        "    :class: fancy\n"
+        "    :align: center\n"
+        "    :width: 80%\n"
+        "    :widths: 10 20\n"
+        "\n"
+        "    +----------------+-----------------+\n"
+        "    | first column   | second column   |\n"
+        "    | with some      | with some words |\n"
+        "    | words          |                 |\n"
+        "    +----------------+-----------------+\n"
+        "    | a spanning cell with a fairly    |\n"
+        "    | long sentence inside it to wrap  |\n"
+        "    +----------------------------------+\n"
+    )
+
+    result = runner.invoke(main, args=["-l", "40", "-"], input=source)
+    assert result.exit_code == 0
+    assert result.output == expected
+    assert all(len(line) <= 40 for line in result.output.splitlines())
+
+
+def test_captioned_table_inline_markup(runner):
+    """Inline markup in a table caption is preserved on the directive line."""
+    source = (
+        ".. table:: A caption with *emphasis* and ``literal``\n"
+        "\n"
+        "    +---+---+\n"
+        "    | A | B |\n"
+        "    +---+---+\n"
+        "    | C span|\n"
+        "    +-------+\n"
+    )
+    expected = (
+        ".. table:: A caption with *emphasis* and ``literal``\n"
+        "\n"
+        "    +---+----+\n"
+        "    | A | B  |\n"
+        "    +---+----+\n"
+        "    | C span |\n"
+        "    +--------+\n"
+    )
+
+    result = runner.invoke(main, args=["-"], input=source)
+    assert result.exit_code == 0
+    assert result.output == expected
+
+
+def test_grid_table_spans_wide_characters(runner):
+    """Wide characters in spanned cells keep the borders aligned."""
+    source = (
+        "+------+-----+\n"
+        "| 中文 | abc |\n"
+        "+------+-----+\n"
+        "| 中文中文   |\n"
+        "+------------+\n"
+    )
+
+    result = runner.invoke(main, args=["-"], input=source)
+    assert result.exit_code == 0
+    assert result.output == source
+    assert len({column_width(line) for line in result.output.splitlines()}) == 1
+
+
+def test_grid_table_leftover_width_goes_to_growing_columns(runner):
+    """Rounding leftovers widen columns that can use the space, not fixed ones."""
+    source = (
+        "+----+------+------+\n"
+        "| ab | ab c | de f |\n"
+        "+----+------+------+\n"
+        "| span across all  |\n"
+        "+------------------+\n"
+    )
+    expected = (
+        "+----+------+-----+\n"
+        "| ab | ab c | de  |\n"
+        "|    |      | f   |\n"
+        "+----+------+-----+\n"
+        "| span across all |\n"
+        "+-----------------+\n"
+    )
+
+    result = runner.invoke(main, args=["-l", "19", "-"], input=source)
+    assert result.exit_code == 0
+    assert result.output == expected
 
 
 def test_simple_table_cjk_width(runner):
