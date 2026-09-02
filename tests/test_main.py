@@ -31,7 +31,8 @@ NON_NATIVE_NEWLINE = "\r\n" if os.linesep == "\n" else "\n"
 
 
 @pytest.mark.parametrize(
-    "file", ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"]
+    "file",
+    ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"],
 )
 def test_call(file):
     args = ["-c", "-l", "80", file]
@@ -110,14 +111,15 @@ def test_changes(runner, file, expected):
 
 
 @pytest.mark.parametrize(
-    "file", ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"]
+    "file",
+    ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"],
 )
 def test_check(runner, file):
     args = ["-c", "-l", 80, os.path.abspath(file)]
     result = runner.invoke(main, args=args)
     assert result.exit_code == 1
     assert result.output.endswith(
-        "could be reformatted.\n1 out of 1 file could be reformatted.\nDone! 🎉\n"
+        "could be reformatted.\n1 out of 1 file could be reformatted.\nDone! 🎉\n",
     )
 
 
@@ -226,32 +228,38 @@ def test_bullet_list_marker_default(runner):
 
 
 def test_ordered_marker_hash_rewrites_numbers(runner):
-    """With "--ordered-marker #" a plain arabic list starting at 1 is rewritten to
-    use the "#" auto-enumerator, and an existing "#" list is kept as-is."""
+    """With "--ordered-marker #" a plain arabic list starting at 1 is rewritten to use the "#" auto-enumerator, and an existing "#" list is kept as-is."""
     result = runner.invoke(
-        main, args=["--ordered-marker", "#", "-"], input="1. Foo\n2. Bar\n"
+        main,
+        args=["--ordered-marker", "#", "-"],
+        input="1. Foo\n2. Bar\n",
     )
     assert result.exit_code == 0
     assert result.output == "#. Foo\n#. Bar\n"
 
     kept = runner.invoke(
-        main, args=["--ordered-marker", "#", "-"], input="#. One\n#. Two\n"
+        main,
+        args=["--ordered-marker", "#", "-"],
+        input="#. One\n#. Two\n",
     )
     assert kept.exit_code == 0
     assert kept.output == "#. One\n#. Two\n"
 
 
 def test_ordered_marker_hash_preserves_non_default_lists(runner):
-    """A "#" auto-enumerator always restarts at 1, so lists that cannot be
-    reproduced by it (a non-1 start, or a lettered sequence) keep their markers."""
+    """A "#" auto-enumerator always restarts at 1, so lists that cannot be reproduced by it (a non-1 start, or a lettered sequence) keep their markers."""
     non_one_start = runner.invoke(
-        main, args=["--ordered-marker", "#", "-"], input="3. Foo\n4. Bar\n"
+        main,
+        args=["--ordered-marker", "#", "-"],
+        input="3. Foo\n4. Bar\n",
     )
     assert non_one_start.exit_code == 0
     assert non_one_start.output == "3. Foo\n4. Bar\n"
 
     lettered = runner.invoke(
-        main, args=["--ordered-marker", "#", "-"], input="a. Foo\nb. Bar\n"
+        main,
+        args=["--ordered-marker", "#", "-"],
+        input="a. Foo\nb. Bar\n",
     )
     assert lettered.exit_code == 0
     assert lettered.output == "a. Foo\nb. Bar\n"
@@ -329,9 +337,14 @@ def test_keep_blanks_multiple_blanks_before_section(runner):
     # are preserved with --keep-blanks.
     source = "text\n\n\nHeader\n======\n"
     args = ["--keep-blanks", "-pA", "--no-center-section-titles", "-"]
-    assert runner.invoke(
-        main, args=["-pA", "--no-center-section-titles", "-"], input=source
-    ).output == ("text\n\nHeader\n======\n")
+    assert (
+        runner.invoke(
+            main,
+            args=["-pA", "--no-center-section-titles", "-"],
+            input=source,
+        ).output
+        == "text\n\nHeader\n======\n"
+    )
     result = runner.invoke(main, args=args, input=source)
     assert result.exit_code == 0
     assert result.output == source
@@ -379,9 +392,10 @@ def test_keep_blanks_default(runner):
 def test_nested_bullet_in_enumerated_list_preserves_bullets(runner):
     """A bullet list nested inside an enumerated list must stay bulleted.
 
-    Regression: previously the inherited ``current_ordinal`` from the outer
-    enumerated list leaked into the nested bullet list, causing each ``-``
-    item to be rewritten as a continuing numeric enumerator.
+    Regression: previously the inherited ``current_ordinal`` from the outer enumerated
+    list leaked into the nested bullet list, causing each ``-`` item to be rewritten as
+    a continuing numeric enumerator.
+
     """
     source = (
         "1. First item\n"
@@ -602,7 +616,8 @@ def test_invalid_duplicate_types_py(runner):
 
 
 @pytest.mark.parametrize(
-    "file", ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"]
+    "file",
+    ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"],
 )
 def test_invalid_line_length(runner, file):
     args = ["-l", 3, file]
@@ -689,7 +704,8 @@ def test_simple_table_cjk_width(runner):
 
 @pytest.mark.parametrize("length", test_line_length)
 @pytest.mark.parametrize(
-    "file", ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"]
+    "file",
+    ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"],
 )
 def test_line_length(runner, length, file):
     args = ["-l", length, file]
@@ -713,7 +729,8 @@ def test_line_length_resolution__black_docstrfmt_set(runner):
     with open(args[1], "rb") as f:
         toml_config = toml.load(f)
     result = runner.invoke(
-        main, args=args + ["-l", toml_config["tool"]["docstrfmt"]["line-length"]]
+        main,
+        args=args + ["-l", toml_config["tool"]["docstrfmt"]["line-length"]],
     )
     assert result.exit_code == 0
     assert result.output == "1 file was checked.\nDone! 🎉\n"
@@ -729,7 +746,8 @@ def test_line_length_resolution__black_set(runner):
         toml_config = toml.load(f)
     # should not reformat again
     result = runner.invoke(
-        main, args=args + ["-l", toml_config["tool"]["black"]["line-length"]]
+        main,
+        args=args + ["-l", toml_config["tool"]["black"]["line-length"]],
     )
     assert result.exit_code == 0
     assert result.output == "1 file was checked.\nDone! 🎉\n"
@@ -755,7 +773,8 @@ def test_line_length_resolution__docstrfmt_set(runner):
     with open(args[1], "rb") as f:
         toml_config = toml.load(f)
     result = runner.invoke(
-        main, args=args + ["-l", toml_config["tool"]["docstrfmt"]["line-length"]]
+        main,
+        args=args + ["-l", toml_config["tool"]["docstrfmt"]["line-length"]],
     )
     assert result.exit_code == 0
     assert result.output == "1 file was checked.\nDone! 🎉\n"
@@ -835,7 +854,7 @@ def test_raw_input_rst_errors_py(runner):
     assert result.exit_code == 1
     assert result.output.startswith(
         'ERROR: File "<raw_input>", line 50:\nMalformed table.\nText in column margin'
-        " in table line 2.\n"
+        " in table line 2.\n",
     )
 
 
@@ -853,7 +872,8 @@ def test_raw_input_rst_warning(runner):
 
 
 @pytest.mark.parametrize(
-    "file", ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"]
+    "file",
+    ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"],
 )
 def test_raw_output(runner, file):
     args = ["-o", file]
@@ -866,7 +886,7 @@ def test_raw_output(runner, file):
             "    :keywords: rSt, formatter, test\n"
             "\n"
             "###########################\n"
-            " A ReStructuredText Primer"
+            " A ReStructuredText Primer",
         )
     elif file.endswith("py"):
         assert result.output.startswith('"""This is an example python file"""')
@@ -929,7 +949,8 @@ def test_stdin(runner, file, file_type):
 
 
 @pytest.mark.parametrize(
-    "file", ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"]
+    "file",
+    ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"],
 )
 def test_too_small_line_length(runner, file):
     args = ["-l", 4, file]
@@ -957,7 +978,8 @@ def test_type_replaced(runner, tmp_path):
 
 @pytest.mark.parametrize("verbose", ["-v", "-vv", "-vvv"])
 @pytest.mark.parametrize(
-    "file", ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"]
+    "file",
+    ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"],
 )
 def test_verbose(runner, verbose, file):
     args = [verbose, file]
@@ -987,7 +1009,7 @@ def test_verbose(runner, verbose, file):
                 " document"
             ),
             suffix,
-        )
+        ),
     )
     level = verbose.count("v")
     startswith, endswith = results[level - 1]
@@ -996,7 +1018,8 @@ def test_verbose(runner, verbose, file):
 
 
 @pytest.mark.parametrize(
-    "file", ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"]
+    "file",
+    ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"],
 )
 @pytest.mark.parametrize("newline", [os.linesep, NON_NATIVE_NEWLINE])
 def test_newline_preserved(runner, tmp_path, file, newline):
@@ -1343,58 +1366,60 @@ def test_section_reformatting_python_adornments(runner):
         (
             "tests/test_files/pyproject-section-adornments.toml",
             """
-            =====
-             One
-            =====
+                =====
+                 One
+                =====
 
-            -----
-             Two
-            -----
+                -----
+                 Two
+                -----
 
-            Three
-            ~~~~~
+                Three
+                ~~~~~
 
-            Four
-            ++++
+                Four
+                ++++
 
-            Five
-            ....
+                Five
+                ....
 
-            -----------
-             Two again
-            -----------
+                -----------
+                 Two again
+                -----------
 
-            Some content.
-            """,
+                Some content.
+                """,
         ),
         (
             "tests/test_files/pyproject-section-adornments_no_overline.toml",
             """
-            One
-            ===
+                One
+                ===
 
-            Two
-            ---
+                Two
+                ---
 
-            Three
-            ~~~~~
+                Three
+                ~~~~~
 
-            Four
-            ++++
+                Four
+                ++++
 
-            Five
-            ....
+                Five
+                ....
 
-            Two again
-            ---------
+                Two again
+                ---------
 
-            Some content.
-            """,
+                Some content.
+                """,
         ),
     ],
 )
 def test_section_reformatting_adornments__from_pyproject(
-    runner, pyproject_toml_file, fixed
+    runner,
+    pyproject_toml_file,
+    fixed,
 ):
     file = """
         #####
@@ -1796,3 +1821,131 @@ def test_docstring_reformatting_with_quotes(runner):
     result = runner.invoke(main, args=args)
     assert result.exit_code == 0
     assert result.output == fixed
+
+
+def test_block_quote_attribution(runner):
+    source = "Text before.\n\n    A block quote.\n\n    -- Somebody Quotable\n"
+    result = runner.invoke(main, args=["-"], input=source)
+    assert result.exit_code == 0
+    assert result.output == source
+
+
+def test_option_list(runner):
+    source = (
+        "-a            Output all.\n"
+        "-b file       Take input from *file*.\n"
+        "-c, --count   Short and long form together.\n"
+        "--input=FILE  A long option with an argument.\n"
+        "\n"
+        "    It has two paragraphs.\n"
+        "\n"
+        "/V            A DOS/VMS-style option.\n"
+    )
+    expected = (
+        "-a\n"
+        "    Output all.\n"
+        "\n"
+        "-b file\n"
+        "    Take input from *file*.\n"
+        "\n"
+        "-c, --count\n"
+        "    Short and long form together.\n"
+        "\n"
+        "--input=FILE\n"
+        "    A long option with an argument.\n"
+        "\n"
+        "    It has two paragraphs.\n"
+        "\n"
+        "/V\n"
+        "    A DOS/VMS-style option.\n"
+    )
+    result = runner.invoke(main, args=["-"], input=source)
+    assert result.exit_code == 0
+    assert result.output == expected
+    # The formatted output is stable.
+    result = runner.invoke(main, args=["-"], input=expected)
+    assert result.exit_code == 0
+    assert result.output == expected
+
+
+def test_raw_role(runner):
+    source = (
+        ".. role:: raw-html(raw)\n"
+        "    :format: html\n"
+        "\n"
+        "A raw role: :raw-html:`<b>bold</b>` here.\n"
+    )
+    result = runner.invoke(main, args=["-"], input=source)
+    assert result.exit_code == 0
+    assert result.output.endswith("A raw role: :raw-html:`<b>bold</b>` here.\n")
+
+
+@pytest.mark.parametrize(
+    "source,expected",
+    [
+        (
+            ".. sectnum::\n    :depth: 2\n",
+            ".. sectnum::\n    :depth: 2\n",
+        ),
+        (
+            ".. header::\n\n    Page header text\n",
+            ".. header::\n\n    Page header text\n",
+        ),
+        (
+            ".. footer::\n\n    Page footer text\n",
+            ".. footer::\n\n    Page footer text\n",
+        ),
+        (
+            ".. topic:: A Topic\n\n    The topic   directive creates a mini-section.\n",
+            ".. topic:: A Topic\n\n    The topic directive creates a mini-section.\n",
+        ),
+        (
+            ".. sidebar:: A Sidebar\n    :subtitle: with a subtitle\n\n    Sidebars   float.\n",
+            ".. sidebar:: A Sidebar\n    :subtitle: with a subtitle\n\n    Sidebars float.\n",
+        ),
+        (
+            ".. epigraph::\n\n    An apposite   quotation.\n\n    -- Somebody Quotable\n",
+            ".. epigraph::\n\n    An apposite quotation.\n\n    -- Somebody Quotable\n",
+        ),
+        (
+            ".. highlights::\n\n    A   summary.\n",
+            ".. highlights::\n\n    A summary.\n",
+        ),
+        (
+            ".. pull-quote::\n\n    Pull-quotes   attract attention.\n",
+            ".. pull-quote::\n\n    Pull-quotes attract attention.\n",
+        ),
+        (
+            ".. compound::\n\n    Several elements::\n\n        member\n\n    and closing   text.\n",
+            ".. compound::\n\n    Several elements:\n\n    ::\n\n        member\n\n    and closing text.\n",
+        ),
+        (
+            ".. container:: custom-container\n\n    A generic   wrapper.\n",
+            ".. container:: custom-container\n\n    A generic wrapper.\n",
+        ),
+        (
+            ".. class:: special-paragraph\n\nA   classed paragraph.\n",
+            ".. class:: special-paragraph\n\nA classed paragraph.\n",
+        ),
+        (
+            ".. code:: python\n\n    x=1\n",
+            ".. code-block:: python\n\n    x = 1\n",
+        ),
+        (
+            '.. csv-table:: Frozen Delights!\n    :header: "Treat", "Quantity"\n    :widths: 15, 10\n\n    "Albatross", 2.99\n    "Crunchy Frog", 1.49\n',
+            '.. csv-table:: Frozen Delights!\n    :header: "Treat", "Quantity"\n    :widths: 15, 10\n\n    "Albatross", 2.99\n    "Crunchy Frog", 1.49\n',
+        ),
+        (
+            "See the `Docutils home page`_.\n\n.. _docutils home page: https://docutils.sourceforge.io/\n\n.. target-notes::\n",
+            "See the `Docutils home page`_.\n\n.. _docutils home page: https://docutils.sourceforge.io/\n\n.. target-notes::\n",
+        ),
+    ],
+)
+def test_docutils_directives(runner, source, expected):
+    result = runner.invoke(main, args=["-"], input=source)
+    assert result.exit_code == 0
+    assert result.output == expected
+    # The formatted output is stable.
+    result = runner.invoke(main, args=["-"], input=expected)
+    assert result.exit_code == 0
+    assert result.output == expected

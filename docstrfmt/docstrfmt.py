@@ -381,8 +381,8 @@ class Manager:
         :param current_file: The current file being processed.
         :param reporter: utils.Reporter instance for logging.
         :param black_config: Black formatting configuration.
-        :param center_section_titles: Whether to center section titles with overlines
-            by adding a leading space.
+        :param center_section_titles: Whether to center section titles with overlines by
+            adding a leading space.
         :param bullet_list_marker: Bullet character to use for unordered lists.
         :param docstring_trailing_line: Whether to add trailing line to docstrings.
         :param format_python_code_blocks: Whether to format Python code blocks.
@@ -747,10 +747,10 @@ class Formatters:
         """Return the 1-indexed source line where a block node starts.
 
         For most nodes this is simply ``node.line``. Sections are special: their
-        ``line`` (the title's ``line``) points at the underline adornment, so we
-        back up over the title text and the optional overline. Directives are
-        special too: their ``line`` points past the directive (into or after the
-        content), so the directive instance's reliable ``lineno`` is used.
+        ``line`` (the title's ``line``) points at the underline adornment, so we back up
+        over the title text and the optional overline. Directives are special too: their
+        ``line`` points past the directive (into or after the content), so the directive
+        instance's reliable ``lineno`` is used.
 
         :param node: The node whose first source line is wanted.
         :param lines: The source lines of the document being formatted.
@@ -781,9 +781,9 @@ class Formatters:
 
         :param node: The node to look above.
 
-        :returns: The number of consecutive blank (empty or whitespace-only)
-            source lines directly above the node, or ``None`` if the source or
-            the node's position can't be determined.
+        :returns: The number of consecutive blank (empty or whitespace-only) source
+            lines directly above the node, or ``None`` if the source or the node's
+            position can't be determined.
 
         """
         lines = getattr(node.document, "docstrfmt_source_lines", None)
@@ -807,15 +807,14 @@ class Formatters:
     ) -> line_iterator:
         """Format children, separating them with source-preserved blank lines.
 
-        When ``keep_blanks`` is disabled this behaves exactly like joining the
-        children with ``default_blanks`` blank lines between them. When enabled,
-        the number of blank lines found in the source between siblings is used
-        instead.
+        When ``keep_blanks`` is disabled this behaves exactly like joining the children
+        with ``default_blanks`` blank lines between them. When enabled, the number of
+        blank lines found in the source between siblings is used instead.
 
         :param node: The parent node whose children to format.
         :param context: Formatting context.
-        :param default_blanks: Blank lines to use between children when not
-            keeping source blanks (or when the source position is unknown).
+        :param default_blanks: Blank lines to use between children when not keeping
+            source blanks (or when the source position is unknown).
 
         :returns: Iterator of formatted lines.
 
@@ -972,6 +971,15 @@ class Formatters:
                 ),
             ),
         )
+
+    def attribution(
+        self,
+        node: nodes.attribution,
+        context: FormatContext,
+    ) -> line_iterator:
+        """Format a block-quote attribution node."""
+        text = "".join(chain(self._format_children(node, context)))
+        yield f"-- {text}"
 
     def block_quote(
         self,
@@ -1805,32 +1813,62 @@ class Formatters:
                 This is a literal block
                 with preformatted text.
 
-            .. code-block:: python
-
-                print("Hello, world!")
-
         """
-        if len(node.attributes["classes"]) > 1 and node.attributes["classes"][0] in [
-            "code",
-            "code-block",
-        ]:
-            args = "".join([f" {arg}" for arg in node.attributes["classes"][1:]])
-            yield f".. code-block::{args}"
-            language = node.attributes["classes"][1]
-            text = node.rawsource
-            try:
-                func = getattr(CodeFormatters(text, context), language)
-                text = func()
-            except (AttributeError, TypeError):
-                pass
-            yield ""
-            yield from _with_spaces(context.manager.indent_width, text.splitlines())
-            return
-        else:
-            yield "::"
+        yield "::"
         yield from _prepend_if_any(
             "", _with_spaces(context.manager.indent_width, node.rawsource.splitlines())
         )
+
+    def option_list(
+        self,
+        node: nodes.option_list,
+        context: FormatContext,
+    ) -> line_iterator:
+        """Format an option list node.
+
+        Example:
+
+        .. code-block:: rst
+
+            -a
+                Output all.
+
+            -b file
+                Take input from *file*.
+
+        """
+        yield from _chain_with_line_separator("", self._format_children(node, context))
+
+    def option_list_item(
+        self,
+        node: nodes.option_list_item,
+        context: FormatContext,
+    ) -> line_iterator:
+        """Format an option list item node."""
+        group, description = node.children[0], node.children[1]
+        yield from self.manager.perform_format(group, context)
+        yield from _with_spaces(
+            context.manager.indent_width,
+            self.manager.perform_format(
+                description, context.indent(context.manager.indent_width)
+            ),
+        )
+
+    @staticmethod
+    def option_group(
+        node: nodes.option_group,
+        _: FormatContext,
+    ) -> inline_iterator:
+        """Format an option group node (comma-separated options)."""
+        yield ", ".join(option.astext() for option in node.children)
+
+    def description(
+        self,
+        node: nodes.description,
+        context: FormatContext,
+    ) -> line_iterator:
+        """Format an option list description node."""
+        yield from _chain_with_line_separator("", self._format_children(node, context))
 
     def paragraph(
         self,
@@ -1895,6 +1933,21 @@ class Formatters:
 
         """
         yield from chain(self._format_children(node, context))
+
+    @staticmethod
+    def raw(
+        node: nodes.raw,
+        _: FormatContext,
+    ) -> inline_iterator:
+        """Format an inline raw node produced by a ``:raw-*:`` role invocation.
+
+        The role's declared name is carried on ``node['classes']`` (docutils'
+        ``.. role::`` directive sets ``class`` to the new role name); the payload is
+        the node's text.
+
+        """
+        role_name = node["classes"][0] if node["classes"] else "raw"
+        yield inline_markup(f":{role_name}:`{node.astext()}`")
 
     @staticmethod
     def ref_role(

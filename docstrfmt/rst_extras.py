@@ -12,7 +12,15 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 from docutils import nodes, utils
 from docutils.parsers.rst import Directive, directives, roles
-from docutils.parsers.rst.directives import body, images, misc, parts, tables
+from docutils.parsers.rst.directives import (
+    body,
+    images,
+    misc,
+    parts,
+    references,
+    tables,
+)
+from docutils.parsers.rst.states import Body
 from sphinx import domains, util
 from sphinx.directives import code, other
 from sphinx.domains.std import ProductionList
@@ -90,8 +98,44 @@ def generic_role(r: str, rawtext: str, text: str, *_: Any, **__: Any) -> Any:
     return [role(rawtext, text=text, role=r)], []
 
 
+def _patch_run_directive() -> None:
+    """Backfill ``.line`` on nodes returned by directives that don't set it.
+
+    Docutils' ``Body.run_directive`` knows the source line where each directive was
+    invoked (``lineno``) but doesn't propagate it to the returned nodes. Directives that
+    hand-construct nodes in ``run()`` (e.g. ``Sectnum``/``Contents``/``Meta`` producing
+    ``pending`` nodes) therefore reach the formatter with ``.line is None``, making
+    error messages report ``line None``. Wrap ``run_directive`` once to fill in
+    ``.line`` from the directive's own ``lineno``.
+
+    """
+    if getattr(Body.run_directive, "_docstrfmt_patched", False):
+        return
+    original = Body.run_directive
+
+    def run_directive(
+        self: Body,
+        directive: type[Directive],
+        match: Any,
+        type_name: str,
+        option_presets: Any,
+    ) -> Any:
+        lineno = self.state_machine.abs_line_number()
+        result, blank_finish = original(
+            self, directive, match, type_name, option_presets
+        )
+        for node in result:
+            if node.line is None:
+                node.line = lineno
+        return result, blank_finish
+
+    run_directive._docstrfmt_patched = True  # type: ignore[attr-defined]
+    Body.run_directive = run_directive  # type: ignore[method-assign]
+
+
 def register() -> None:
     """Register the custom directives and roles."""
+    _patch_run_directive()
     for r in [
         # Standard roles (https://docutils.sourceforge.io/docs/ref/rst/roles.html) that don't have
         # equivalent non-role-based markup.
@@ -121,19 +165,32 @@ def register() -> None:
         roles.register_local_role(name, generic_role)
 
     # docutils directives
+    add_directive("class", misc.Class)
+    add_directive("code", body.CodeBlock)
+    add_directive("compound", body.Compound, raw=False)
+    add_directive("container", body.Container, raw=False)
     add_directive("contents", parts.Contents)
+    add_directive("csv-table", tables.CSVTable)
+    add_directive("epigraph", body.Epigraph, raw=False)
     add_directive("figure", images.Figure, raw=False)
+    add_directive("footer", parts.Footer)
+    add_directive("header", parts.Header)
+    add_directive("highlights", body.Highlights, raw=False)
     add_directive("image", images.Image)
     add_directive("include", misc.Include)
-    add_directive("unicode", misc.Unicode)
     add_directive("list-table", tables.ListTable, raw=False)
-    add_directive("csv-table", tables.CSVTable, raw=False)
-    add_directive("rst-table", tables.RSTTable, raw=False)
-    add_directive("rst-class", misc.Class)
     add_directive("math", body.MathBlock)
     add_directive("meta", misc.Meta)  # type: ignore[attr]
+    add_directive("pull-quote", body.PullQuote, raw=False)
     add_directive("raw", misc.Raw)
+    add_directive("rst-class", misc.Class)
+    add_directive("rst-table", tables.RSTTable, raw=False)
     add_directive("rubric", body.Rubric, raw=False)
+    add_directive("sectnum", parts.Sectnum)
+    add_directive("sidebar", body.Sidebar, raw=False)
+    add_directive("target-notes", references.TargetNotes)
+    add_directive("topic", body.Topic, raw=False)
+    add_directive("unicode", misc.Unicode)
 
     # sphinx directives
     add_directive("autosummary", autosummary.Autosummary)

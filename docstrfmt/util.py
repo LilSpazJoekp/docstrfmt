@@ -106,9 +106,9 @@ class FileCache:
     def _get_cache_filename(self) -> Path:
         """Get the cache filename.
 
-        The filename incorporates every parameter that affects formatting output
-        (e.g., ``section_adornments``, ``bullet_list_marker``) so that changing any
-        of them invalidates previously cached results.
+        The filename incorporates every parameter that affects formatting output (e.g.,
+        ``section_adornments``, ``bullet_list_marker``) so that changing any of them
+        invalidates previously cached results.
 
         :returns: Path to the cache file.
 
