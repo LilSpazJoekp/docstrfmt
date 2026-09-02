@@ -41,6 +41,7 @@ from . import ROLE_ALIASES
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+CustomDirectiveSpec = str | dict[str, Any]
 T = TypeVar("T")
 
 
@@ -79,6 +80,128 @@ def add_directive(
     directives.register_directive(
         name, type(f"docstrfmt_{cls.__name__}", (cls,), namespace)
     )
+
+
+def register_custom(
+    custom_directives: list[CustomDirectiveSpec] | None = None,
+    custom_roles: list[str] | None = None,
+) -> None:
+    """Register user-supplied directives and roles.
+
+    :param custom_directives: Directives to register. Each entry is either a name
+        string (registered as a raw directive that accepts arbitrary content, matching
+        the fallback docstrfmt uses for unknown directives) or a mapping with keys:
+        ``name`` (required), ``raw`` (default ``True``), ``has_content``
+        (default ``True``), ``required_arguments`` (default ``0``),
+        ``optional_arguments`` (default ``1``), and ``final_argument_whitespace``
+        (default ``True``).
+    :param custom_roles: Names of roles to register as generic (contents are
+        preserved verbatim on round-trip).
+
+    """
+    for name, options in validate_custom(custom_directives, custom_roles):
+        cls = type(
+            f"docstrfmt_custom_{name}",
+            (Directive,),
+            {
+                "has_content": options["has_content"],
+                "required_arguments": options["required_arguments"],
+                "optional_arguments": options["optional_arguments"],
+                "final_argument_whitespace": options["final_argument_whitespace"],
+            },
+        )
+        add_directive(name, cls, raw=options["raw"])
+    for name in custom_roles or []:
+        roles.register_local_role(name, generic_role)
+
+
+def validate_custom(
+    custom_directives: list[CustomDirectiveSpec] | None = None,
+    custom_roles: list[str] | None = None,
+) -> list[tuple[str, dict[str, Any]]]:
+    """Validate user-supplied directive and role configuration.
+
+    :param custom_directives: Directive specs as accepted by :func:`register_custom`.
+    :param custom_roles: Role names as accepted by :func:`register_custom`.
+
+    :returns: The normalized ``(name, options)`` tuple for every directive spec.
+
+    :raises ValueError: If either argument is not a list/tuple, or if any directive
+        spec or role name is invalid.
+
+    """
+    for label, value in (
+        ("custom_directives", custom_directives),
+        ("custom_roles", custom_roles),
+    ):
+        if value is not None and not isinstance(value, (list, tuple)):
+            msg = f"{label} must be a list, got {value!r}"
+            raise ValueError(msg)
+    normalized = [_normalize_directive_spec(spec) for spec in custom_directives or []]
+    for name in custom_roles or []:
+        if not isinstance(name, str) or not name:
+            msg = f"custom role names must be non-empty strings, got {name!r}"
+            raise ValueError(msg)
+    return normalized
+
+
+def _normalize_directive_spec(
+    spec: CustomDirectiveSpec,
+) -> tuple[str, dict[str, Any]]:
+    """Normalize a user-provided directive spec into a (name, options) tuple.
+
+    :param spec: Either the directive name or a mapping of options.
+
+    :returns: The directive name (lowercased, since docutils looks directives up
+        case-insensitively) and a fully populated options mapping.
+
+    :raises ValueError: If the spec is missing a name, has an unsupported shape, or
+        contains options with invalid types or unknown keys.
+
+    """
+    defaults = {
+        "raw": True,
+        "has_content": True,
+        "required_arguments": 0,
+        "optional_arguments": 1,
+        "final_argument_whitespace": True,
+    }
+    if isinstance(spec, str):
+        if not spec:
+            msg = "custom directive names must be non-empty strings"
+            raise ValueError(msg)
+        return spec.lower(), dict(defaults)
+    if isinstance(spec, dict):
+        name = spec.get("name")
+        if not isinstance(name, str) or not name:
+            msg = "custom directive entries must include a non-empty 'name'"
+            raise ValueError(msg)
+        options = {key: spec.get(key, default) for key, default in defaults.items()}
+        for key in ("raw", "has_content", "final_argument_whitespace"):
+            if not isinstance(options[key], bool):
+                msg = (
+                    f"custom directive {name!r}: {key!r} must be a boolean, got"
+                    f" {options[key]!r}"
+                )
+                raise ValueError(msg)
+        for key in ("required_arguments", "optional_arguments"):
+            value = options[key]
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                msg = (
+                    f"custom directive {name!r}: {key!r} must be a non-negative"
+                    f" integer, got {value!r}"
+                )
+                raise ValueError(msg)
+        unknown = set(spec) - {"name", *defaults}
+        if unknown:
+            msg = (
+                f"custom directive {name!r}: unknown option(s)"
+                f" {', '.join(sorted(map(repr, unknown)))}"
+            )
+            raise ValueError(msg)
+        return name.lower(), options
+    msg = f"unsupported custom directive spec: {spec!r}"
+    raise ValueError(msg)
 
 
 def generic_role(r: str, rawtext: str, text: str, *_: Any, **__: Any) -> Any:

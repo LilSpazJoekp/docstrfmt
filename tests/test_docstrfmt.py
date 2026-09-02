@@ -1,9 +1,14 @@
+import logging
+
+import black
 import pytest
 from docutils import nodes
 from docutils.utils import new_document
 
 from docstrfmt.docstrfmt import FormatContext, UnknownNodeTransformer
 
+from docstrfmt import Manager
+from docstrfmt.rst_extras import register_custom
 from tests import node_eq
 
 test_lengths = [8, 13, 34, 55, 89, 144, 72]
@@ -175,3 +180,89 @@ def test_duplicate_targets_roundtrip(manager):
     output2 = manager.format_node(120, doc2)
     assert node_eq(doc, doc2)
     assert output == output2
+
+
+def test_manager_registers_custom_directives_and_roles():
+    manager = Manager(
+        current_file="<in>",
+        black_config=black.Mode(),
+        reporter=logging.getLogger(__name__),
+        custom_directives=[
+            "raw_default",
+            {"name": "formatted_body", "raw": False, "has_content": True},
+        ],
+        custom_roles=["mycolor"],
+    )
+    src = (
+        ".. raw_default:: arg\n"
+        "   :opt: val\n"
+        "\n"
+        "   raw body\n"
+        "\n"
+        ".. formatted_body::\n"
+        "\n"
+        "   -   item one\n"
+        "   -   item two\n"
+        "\n"
+        "Text with :mycolor:`red` in it.\n"
+    )
+    output = manager.format_node(80, manager.parse_string(src))
+    assert output == (
+        ".. raw_default:: arg\n"
+        "    :opt: val\n"
+        "\n"
+        "    raw body\n"
+        "\n"
+        ".. formatted_body::\n"
+        "\n"
+        "    - item one\n"
+        "    - item two\n"
+        "\n"
+        "Text with :mycolor:`red` in it.\n"
+    )
+
+
+def test_register_custom_rejects_bad_spec():
+    with pytest.raises(ValueError, match="non-empty 'name'"):
+        register_custom(custom_directives=[{}])
+    with pytest.raises(ValueError, match="unsupported custom directive spec"):
+        register_custom(custom_directives=[42])
+    with pytest.raises(ValueError, match="names must be non-empty strings"):
+        register_custom(custom_directives=[""])
+    with pytest.raises(ValueError, match="'raw' must be a boolean"):
+        register_custom(custom_directives=[{"name": "d", "raw": "no"}])
+    with pytest.raises(ValueError, match="'required_arguments' must be a non-negative"):
+        register_custom(custom_directives=[{"name": "d", "required_arguments": "2"}])
+    with pytest.raises(ValueError, match="'optional_arguments' must be a non-negative"):
+        register_custom(custom_directives=[{"name": "d", "optional_arguments": -1}])
+    with pytest.raises(ValueError, match="unknown option"):
+        register_custom(custom_directives=[{"name": "d", "bogus": 1}])
+    with pytest.raises(ValueError, match="custom role names must be non-empty"):
+        register_custom(custom_roles=[""])
+    with pytest.raises(ValueError, match="custom role names must be non-empty"):
+        register_custom(custom_roles=[{"name": "r"}])
+    # A bare string must not be iterated character by character.
+    with pytest.raises(ValueError, match="custom_directives must be a list"):
+        register_custom(custom_directives="dir")
+    with pytest.raises(ValueError, match="custom_roles must be a list"):
+        register_custom(custom_roles="role")
+    with pytest.raises(ValueError, match="custom_roles must be a list"):
+        Manager(
+            current_file="<in>",
+            black_config=black.Mode(),
+            reporter=logging.getLogger(__name__),
+            custom_roles="role",
+        )
+
+
+def test_custom_directive_names_are_case_insensitive():
+    """docutils looks directives up lowercased, so ``MyDir`` must still register."""
+    manager = Manager(
+        current_file="<in>",
+        black_config=black.Mode(),
+        reporter=logging.getLogger(__name__),
+        custom_directives=[{"name": "MixedCase", "raw": False}],
+    )
+    src = ".. mixedcase::\n\n   -   one\n\n.. MIXEDCASE::\n\n   -   two\n"
+    output = manager.format_node(80, manager.parse_string(src))
+    assert output == ".. mixedcase::\n\n    - one\n\n.. MIXEDCASE::\n\n    - two\n"

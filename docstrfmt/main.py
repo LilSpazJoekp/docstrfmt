@@ -40,7 +40,7 @@ from click import Context
 from libcst import CSTTransformer, Expr
 from libcst.metadata import ParentNodeProvider, PositionProvider
 
-from . import DEFAULT_EXCLUDE, SECTION_CHARS, Manager, __version__
+from . import DEFAULT_EXCLUDE, SECTION_CHARS, Manager, __version__, rst_extras
 from .debug import dump_node
 from .exceptions import InvalidRstErrors
 from .util import FileCache, LineResolver, plural
@@ -72,6 +72,8 @@ def _format_file(
     indent_width: int = 4,
     keep_blanks: bool = False,
     ordered_marker: str = "1",
+    custom_directives: list[Any] | None = None,
+    custom_roles: list[str] | None = None,
 ):
     """Format a single file with the given parameters.
 
@@ -91,25 +93,36 @@ def _format_file(
     :param indent_width: Number of spaces to use per indentation level.
     :param keep_blanks: Keep blank lines between sections as appear in source.
     :param ordered_marker: Marker style for ordered (enumerated) lists.
+    :param custom_directives: User-supplied custom directives to register.
+    :param custom_roles: User-supplied custom role names to register.
 
     :returns: A tuple containing a boolean indicating if the file was misformatted and
         the number of errors.
 
     """
     error_count = 0
-    manager = Manager(
-        current_file=file.name,
-        black_config=mode,
-        bullet_list_marker=bullet_list_marker,
-        center_section_titles=center_section_titles,
-        docstring_trailing_line=docstring_trailing_line,
-        format_python_code_blocks=format_python_code_blocks,
-        indent_width=indent_width,
-        keep_blanks=keep_blanks,
-        ordered_marker=ordered_marker,
-        reporter=reporter,
-        section_adornments=section_adornments,
-    )
+    try:
+        manager = Manager(
+            current_file=file.name,
+            black_config=mode,
+            bullet_list_marker=bullet_list_marker,
+            center_section_titles=center_section_titles,
+            custom_directives=custom_directives,
+            custom_roles=custom_roles,
+            docstring_trailing_line=docstring_trailing_line,
+            format_python_code_blocks=format_python_code_blocks,
+            indent_width=indent_width,
+            keep_blanks=keep_blanks,
+            ordered_marker=ordered_marker,
+            reporter=reporter,
+            section_adornments=section_adornments,
+        )
+    except Exception as error:  # noqa: BLE001
+        # Invalid custom directive/role configuration is caught up front in
+        # main(); this keeps direct callers on the same error path as below.
+        reporter.error(f"{error.__class__.__name__}: {error}")
+        reporter.print(f"Failed to format '{str(file)}'")
+        return False, 1
     if file.name == "-":
         raw_output = True
     reporter.print(f"Checking {file}", 2)
@@ -193,10 +206,22 @@ def _parse_pyproject_config(
             ) from None
 
         if config:
-            for key in ["exclude", "extend_exclude", "files"]:
+            for key in [
+                "exclude",
+                "extend_exclude",
+                "files",
+                "custom_directives",
+                "custom_roles",
+            ]:
                 config_value = config.get(key)
                 if config_value is not None and not isinstance(config_value, list):
                     raise click.BadOptionUsage(key, f"Config key {key} must be a list")
+            # custom_directives entries may be tables (custom_roles is a plain list
+            # of names); click's option validation would reject tables, so stash
+            # both on the context and merge with CLI values in main() instead.
+            context.ensure_object(dict)
+            context.obj["custom_directives"] = config.pop("custom_directives", [])
+            context.obj["custom_roles"] = config.pop("custom_roles", [])
             # Expose config values through the default map only; writing them
             # directly into context.params conflicts with how click >=8.4
             # arbitrates which parameter owns a value slot.
@@ -439,6 +464,8 @@ async def _run_formatter(
     indent_width: int = 4,
     keep_blanks: bool = False,
     ordered_marker: str = "1",
+    custom_directives: list[Any] | None = None,
+    custom_roles: list[str] | None = None,
 ):
     """Run the formatter on multiple files asynchronously.
 
@@ -492,6 +519,8 @@ async def _run_formatter(
                 indent_width,
                 keep_blanks,
                 ordered_marker,
+                custom_directives,
+                custom_roles,
             )
         ): file
         for file in sorted(todo)
@@ -893,6 +922,36 @@ class Visitor(CSTTransformer):
         return True
 
 
+def _merge_custom_entries(
+    configured: list[Any], from_cli: tuple[str, ...]
+) -> list[Any]:
+    """Merge custom directive/role entries from pyproject.toml and the CLI.
+
+    Entries from pyproject.toml take precedence: a CLI name is only added when no
+    configured entry already uses that name, so a plain ``--custom-directive name``
+    can never override a richer table (e.g. ``raw = false``) for the same name.
+    Duplicates within either source are dropped, keeping the first occurrence.
+    Names are compared case-insensitively, matching docutils' own lookup rules.
+
+    :param configured: Entries from pyproject.toml (names or tables).
+    :param from_cli: Names supplied on the command line.
+
+    :returns: The merged, de-duplicated list of entries.
+
+    """
+    merged: list[Any] = []
+    seen: set[str] = set()
+    for entry in list(configured) + list(from_cli):
+        name = entry.get("name") if isinstance(entry, dict) else entry
+        # Non-string names are kept so register_custom() can report them.
+        if isinstance(name, str):
+            if name.lower() in seen:
+                continue
+            seen.add(name.lower())
+        merged.append(entry)
+    return merged
+
+
 # noinspection PyUnusedLocal
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
 @click.option(
@@ -919,6 +978,27 @@ class Visitor(CSTTransformer):
     help=(
         "Check files and returns a non-zero code if files are not formatted correctly."
         " Useful for linting. Ignored if --raw-input, --raw-output, or stdin is used."
+    ),
+)
+@click.option(
+    "--custom-directive",
+    "custom_directives_cli",
+    multiple=True,
+    type=str,
+    help=(
+        "Register a custom directive by name. Can be repeated. The directive is"
+        " treated as raw (its body is preserved verbatim). For richer options (e.g."
+        " to format the body), use the 'custom_directives' key in pyproject.toml."
+    ),
+)
+@click.option(
+    "--custom-role",
+    "custom_roles_cli",
+    multiple=True,
+    type=str,
+    help=(
+        "Register a custom role by name. Can be repeated. Also configurable via the"
+        " 'custom_roles' key in pyproject.toml."
     ),
 )
 @click.option(
@@ -1085,6 +1165,8 @@ def main(
     bullet_list_marker: str,
     center_section_titles: bool,
     check: bool,
+    custom_directives_cli: tuple[str, ...],
+    custom_roles_cli: tuple[str, ...],
     docstring_trailing_line: bool,
     exclude: list[str],
     extend_exclude: list[str],
@@ -1111,6 +1193,8 @@ def main(
     :param bullet_list_marker: Bullet character to use for unordered lists.
     :param center_section_titles: Whether to center section titles with overlines.
     :param check: Whether to check formatting without modifying files.
+    :param custom_directives_cli: Custom directive names supplied via ``--custom-directive``.
+    :param custom_roles_cli: Custom role names supplied via ``--custom-role``.
     :param docstring_trailing_line: Whether to add trailing line to docstrings.
     :param exclude: List of paths to exclude from formatting.
     :param extend_exclude: Additional paths to exclude from formatting.
@@ -1132,7 +1216,19 @@ def main(
     :param files: List of files to format.
 
     """
+    pyproject_custom = context.obj if isinstance(context.obj, dict) else {}
+    custom_directives = _merge_custom_entries(
+        pyproject_custom.get("custom_directives", []), custom_directives_cli
+    )
+    custom_roles = _merge_custom_entries(
+        pyproject_custom.get("custom_roles", []), custom_roles_cli
+    )
     reporter.level = verbose
+    try:
+        rst_extras.validate_custom(custom_directives, custom_roles)
+    except ValueError as error:
+        reporter.error(f"ValueError: {error}")
+        context.exit(2)
     if "-" in files and len(files) > 1:
         reporter.error("ValueError: stdin can not be used with other paths")
         context.exit(2)
@@ -1157,6 +1253,8 @@ def main(
             black_config=mode,
             bullet_list_marker=bullet_list_marker,
             center_section_titles=center_section_titles,
+            custom_directives=custom_directives,
+            custom_roles=custom_roles,
             docstring_trailing_line=docstring_trailing_line,
             format_python_code_blocks=format_python_code_blocks,
             indent_width=indent_width,
@@ -1213,6 +1311,8 @@ def main(
                 indent_width,
                 keep_blanks,
                 ordered_marker,
+                custom_directives,
+                custom_roles,
             )
             if misformatted:
                 misformatted_files.add(file)
@@ -1263,6 +1363,8 @@ def main(
                     indent_width,
                     keep_blanks,
                     ordered_marker,
+                    custom_directives,
+                    custom_roles,
                 )
             )
         finally:

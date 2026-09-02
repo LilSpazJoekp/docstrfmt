@@ -3,6 +3,8 @@ import os
 import subprocess
 import sys
 import textwrap
+
+import black
 from pathlib import Path
 
 import pytest
@@ -15,7 +17,7 @@ except ImportError:  # pragma: no cover
 from black import DEFAULT_LINE_LENGTH
 from docutils.core import publish_doctree
 
-from docstrfmt.main import main
+from docstrfmt.main import _format_file, main
 
 test_files = [
     "tests/test_files",
@@ -360,7 +362,7 @@ def test_keep_blanks_only_adds_blanks(runner):
     assert kept == default
 
 
-def test_keep_blanks_only_adds_blanks(runner):
+def test_keep_blanks_only_adds_blanks_secondary(runner):
     # --keep-blanks must never collapse blank lines below what the default
     # formatter produces between sibling blocks.
     source = ".. option:: BS\n\n   .. TODO\n\n   Warns\n\n.. option:: CA\n"
@@ -1949,3 +1951,208 @@ def test_docutils_directives(runner, source, expected):
     result = runner.invoke(main, args=["-"], input=expected)
     assert result.exit_code == 0
     assert result.output == expected
+
+
+def test_custom_directive_and_role_from_cli(runner):
+    src = ".. mydirective:: arg\n   :opt: val\n\n   raw body\n\nHello :mycolor:`red`.\n"
+    args = [
+        "--custom-directive",
+        "mydirective",
+        "--custom-role",
+        "mycolor",
+        "-",
+    ]
+    result = runner.invoke(main, args=args, input=src)
+    assert result.exit_code == 0
+    assert result.output == (
+        ".. mydirective:: arg\n    :opt: val\n\n    raw body\n\nHello :mycolor:`red`.\n"
+    )
+
+
+def test_custom_directive_non_raw_formats_body(tmp_path, runner):
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        textwrap.dedent(
+            """
+            [tool.docstrfmt]
+            custom_directives = [
+                { name = "wrapme", raw = false, has_content = true },
+            ]
+            """
+        ).lstrip(),
+        encoding="utf-8",
+    )
+    src = ".. wrapme::\n\n   -   item one\n   -   item two\n"
+    args = ["-p", str(pyproject), "-"]
+    result = runner.invoke(main, args=args, input=src)
+    assert result.exit_code == 0
+    # The inner bullet list is reformatted (extra spaces after "-" collapse).
+    assert result.output == ".. wrapme::\n\n    - item one\n    - item two\n"
+
+
+def test_custom_directive_and_role_from_pyproject(tmp_path, runner):
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        textwrap.dedent(
+            """
+            [tool.docstrfmt]
+            custom_directives = ["fromtoml"]
+            custom_roles = ["colored"]
+            """
+        ).lstrip(),
+        encoding="utf-8",
+    )
+    src = ".. fromtoml:: arg\n\n   body\n\nSee :colored:`this`.\n"
+    args = ["-p", str(pyproject), "-"]
+    result = runner.invoke(main, args=args, input=src)
+    assert result.exit_code == 0
+    assert result.output == (".. fromtoml:: arg\n\n    body\n\nSee :colored:`this`.\n")
+
+
+def test_custom_directive_not_configured_stays_raw(runner):
+    """Without a ``custom_directives`` entry, the raw fallback keeps the body
+    verbatim. The paired positive test
+    (``test_custom_directive_non_raw_formats_body``) proves that ``raw = false``
+    is what unlocks body reformatting -- so if the CLI/pyproject config is
+    forgotten, the behavior silently reverts to raw. Uses a fresh directive
+    name to avoid picking up module-global registrations left by other tests.
+
+    """
+    src = ".. unregdir::\n\n   -   spacey item\n   -   another\n"
+    result = runner.invoke(main, args=["-"], input=src)
+    assert result.exit_code == 0
+    # Odd whitespace after "-" is preserved because the fallback treats the
+    # body as raw. Contrast with test_custom_directive_non_raw_formats_body,
+    # where the same shape collapses to "    - item one".
+    assert result.output == (".. unregdir::\n\n    -   spacey item\n    -   another\n")
+
+
+def test_custom_directives_rejects_non_list_in_pyproject(tmp_path, runner):
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        textwrap.dedent(
+            """
+            [tool.docstrfmt]
+            custom_directives = "notalist"
+            """
+        ).lstrip(),
+        encoding="utf-8",
+    )
+    result = runner.invoke(main, args=["-p", str(pyproject), "-"], input=".\n")
+    assert result.exit_code != 0
+    assert "custom_directives" in result.output
+
+
+def test_custom_directive_cli_does_not_override_pyproject(tmp_path, runner):
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        textwrap.dedent(
+            """
+            [tool.docstrfmt]
+            custom_directives = [
+                { name = "wrapme", raw = false, has_content = true },
+            ]
+            custom_roles = ["colored", "colored"]
+            """
+        ).lstrip(),
+        encoding="utf-8",
+    )
+    src = ".. wrapme::\n\n   -   item one\n\nSee :colored:`this`.\n"
+    # A plain CLI name for the same directive must not downgrade the pyproject
+    # table back to a raw directive (even if it differs only by case, since
+    # docutils matches names case-insensitively); duplicate roles must not error.
+    args = [
+        "-p",
+        str(pyproject),
+        "--custom-directive",
+        "WrapMe",
+        "--custom-role",
+        "Colored",
+        "-",
+    ]
+    result = runner.invoke(main, args=args, input=src)
+    assert result.exit_code == 0
+    assert result.output == ".. wrapme::\n\n    - item one\n\nSee :colored:`this`.\n"
+
+
+def test_custom_directive_rejects_bad_option_types_in_pyproject(tmp_path, runner):
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        textwrap.dedent(
+            """
+            [tool.docstrfmt]
+            custom_directives = [
+                { name = "wrapme", raw = "no" },
+            ]
+            """
+        ).lstrip(),
+        encoding="utf-8",
+    )
+    result = runner.invoke(main, args=["-p", str(pyproject), "-"], input=".\n")
+    assert result.exit_code == 2
+    assert "ValueError: custom directive 'wrapme': 'raw' must be a boolean" in (
+        result.output
+    )
+
+
+def test_custom_roles_rejects_non_string_in_pyproject(tmp_path, runner):
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        textwrap.dedent(
+            """
+            [tool.docstrfmt]
+            custom_roles = [1]
+            """
+        ).lstrip(),
+        encoding="utf-8",
+    )
+    result = runner.invoke(main, args=["-p", str(pyproject), "-"], input=".\n")
+    assert result.exit_code == 2
+    assert "ValueError: custom role names must be non-empty strings" in result.output
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["--custom-directive", "", "-"],
+        ["--custom-role", "", "-"],
+    ],
+)
+def test_custom_empty_name_rejected(runner, args):
+    result = runner.invoke(main, args=args, input=".\n")
+    assert result.exit_code == 2
+    assert "must be non-empty strings" in result.output
+
+
+def test_custom_invalid_config_single_file(tmp_path, runner):
+    """A real file path (not stdin) must fail cleanly, not with a traceback."""
+    rst = tmp_path / "doc.rst"
+    rst.write_text("Title\n=====\n", encoding="utf-8")
+    result = runner.invoke(main, args=["--custom-role", "", str(rst)])
+    assert result.exit_code == 2
+    assert result.exception is None or isinstance(result.exception, SystemExit)
+    assert "ValueError: custom role names must be non-empty strings" in result.output
+
+
+def test_format_file_reports_manager_errors(tmp_path, capsys):
+    """Direct callers of _format_file get an error result, not an exception."""
+    rst = tmp_path / "doc.rst"
+    rst.write_text("Title\n=====\n", encoding="utf-8")
+    misformatted, error_count = _format_file(
+        check=True,
+        file=rst,
+        file_type="rst",
+        include_txt=False,
+        line_length=88,
+        mode=black.Mode(),
+        docstring_trailing_line=True,
+        format_python_code_blocks=False,
+        section_adornments=None,
+        raw_output=False,
+        lock=None,
+        custom_roles=[""],
+    )
+    assert (misformatted, error_count) == (False, 1)
+    assert "ValueError: custom role names must be non-empty strings" in (
+        capsys.readouterr().err
+    )
