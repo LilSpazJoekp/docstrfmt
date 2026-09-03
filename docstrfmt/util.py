@@ -17,46 +17,6 @@ if TYPE_CHECKING:
     import click
 
 
-# Modified from docutils.parsers.rst.states.Body
-def make_enumerator(ordinal: int, sequence: str, fmt: tuple[str, str]) -> str:
-    """Construct and return the next enumerated list item marker, and an auto-enumerator ("#" instead of the regular enumerator).
-
-    :param ordinal: The ordinal number.
-    :param sequence: The sequence type (arabic, alpha, roman, etc.).
-    :param fmt: Format tuple for the enumerator.
-
-    :returns: The formatted enumerator string or None for invalid ordinals.
-
-    """
-    if sequence == "#":
-        enumerator = "#"
-    elif sequence == "arabic":
-        enumerator = str(ordinal)
-    else:
-        if sequence.endswith("alpha"):
-            if ordinal > 26:  # pragma: no cover
-                msg = "alphabetic enumerators support only up to 26 items"
-                raise ParserError(msg) from None
-            enumerator = chr(ordinal + ord("a") - 1)
-        elif sequence.endswith("roman"):
-            try:
-                enumerator = roman.toRoman(ordinal)
-            except roman.RomanError:  # pragma: no cover
-                msg = "invalid roman numeric enumerator"
-                raise ParserError(msg) from None
-        else:  # pragma: no cover
-            msg = f'unknown enumerator sequence: "{sequence}"'
-            raise ParserError(msg)
-        if sequence.startswith("lower"):
-            enumerator = enumerator.lower()
-        elif sequence.startswith("upper"):
-            enumerator = enumerator.upper()
-        else:  # pragma: no cover
-            msg = f'unknown enumerator sequence: "{sequence}"'
-            raise ParserError(msg) from None
-    return fmt[0] + enumerator + fmt[1]
-
-
 class FileCache:
     """A class to manage the cache of files."""
 
@@ -171,13 +131,13 @@ class FileCache:
         """
         cache_file = self._get_cache_filename()
         try:
-            self.cache_dir.mkdir(parents=True, exist_ok=True)
+            self.cache_dir.mkdir(exist_ok=True, parents=True)
             new_cache = {
                 **self.cache,
                 **{str(file.resolve()): self._get_file_info(file) for file in files},
             }
             with tempfile.NamedTemporaryFile(
-                dir=str(cache_file.parent), delete=False
+                delete=False, dir=str(cache_file.parent)
             ) as f:
                 pickle.dump(new_cache, f, protocol=4)  # type: ignore[call-arg]
             Path(f.name).replace(cache_file)
@@ -249,3 +209,43 @@ class plural:  # noqa: N801
 
         """
         self.value: int = value
+
+
+# Modified from docutils.parsers.rst.states.Body
+def make_enumerator(ordinal: int, sequence: str, fmt: tuple[str, str]) -> str:
+    """Construct and return the next enumerated list item marker, and an auto-enumerator ("#" instead of the regular enumerator).
+
+    :param ordinal: The ordinal number.
+    :param sequence: The sequence type (arabic, alpha, roman, etc.).
+    :param fmt: Format tuple for the enumerator.
+
+    :returns: The formatted enumerator string or None for invalid ordinals.
+
+    """
+    if sequence == "#":
+        enumerator = "#"
+    elif sequence == "arabic":
+        enumerator = str(ordinal)
+    else:
+        if sequence.endswith("alpha"):
+            if ordinal > 26:  # pragma: no cover
+                msg = "alphabetic enumerators support only up to 26 items"
+                raise ParserError(msg) from None
+            enumerator = chr(ordinal + ord("a") - 1)
+        elif sequence.endswith("roman"):
+            try:
+                enumerator = roman.toRoman(ordinal)
+            except roman.RomanError:  # pragma: no cover
+                msg = "invalid roman numeric enumerator"
+                raise ParserError(msg) from None
+        else:  # pragma: no cover
+            msg = f'unknown enumerator sequence: "{sequence}"'
+            raise ParserError(msg)
+        if sequence.startswith("lower"):
+            enumerator = enumerator.lower()
+        elif sequence.startswith("upper"):
+            enumerator = enumerator.upper()
+        else:  # pragma: no cover
+            msg = f'unknown enumerator sequence: "{sequence}"'
+            raise ParserError(msg) from None
+    return fmt[0] + enumerator + fmt[1]

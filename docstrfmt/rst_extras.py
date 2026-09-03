@@ -41,108 +41,44 @@ from . import ROLE_ALIASES
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-CustomDirectiveSpec = str | dict[str, Any]
 T = TypeVar("T")
+CustomDirectiveSpec = str | dict[str, Any]
 
 
-def add_directive(
-    name: str,
-    cls: type[Directive],
-    *,
-    raw: bool = True,
-    is_injected: bool = False,
-) -> None:
-    """Add a directive to the parser.
+class ReferenceRole(util.docutils.ReferenceRole):
+    """Role that doesn't do anything."""
 
-    :param name: Name of the directive to add.
-    :param cls: Directive class to register.
-    :param raw: Whether the directive is raw.
-    :param is_injected: Whether the directive is injected.
+    def run(
+        self,
+    ) -> tuple[list[nodes.Node], list[nodes.system_message]]:
+        """Run the role.
 
-    """
-    # We create a new class inheriting from the given directive class to automatically pick up the
-    # argument counts and most of the other attributes that define how the directive is parsed, so
-    # parsing can happen as normal. The things we change are:
-    #
-    # - Relax the option spec so an incorrect name doesn't stop formatting and every option comes
-    #   through unchanged.
-    # - Override the run method to just stick the directive into the tree.
-    # - Add a `raw` attribute to inform formatting later on.
-    namespace = {
-        "option_spec": sphinx_directive.DummyOptionSpec(),
-        "run": lambda self: [directive(directive=self)],
-        "raw": raw,
-        "has_content": True if is_injected else cls.has_content,
-    }
-    if is_injected:
-        namespace["final_argument_whitespace"] = True
-        namespace["optional_arguments"] = 1
-    directives.register_directive(
-        name, type(f"docstrfmt_{cls.__name__}", (cls,), namespace)
-    )
+        :returns: Tuple containing list of nodes and empty list of system messages.
 
-
-def register_custom(
-    custom_directives: list[CustomDirectiveSpec] | None = None,
-    custom_roles: list[str] | None = None,
-) -> None:
-    """Register user-supplied directives and roles.
-
-    :param custom_directives: Directives to register. Each entry is either a name
-        string (registered as a raw directive that accepts arbitrary content, matching
-        the fallback docstrfmt uses for unknown directives) or a mapping with keys:
-        ``name`` (required), ``raw`` (default ``True``), ``has_content``
-        (default ``True``), ``required_arguments`` (default ``0``),
-        ``optional_arguments`` (default ``1``), and ``final_argument_whitespace``
-        (default ``True``).
-    :param custom_roles: Names of roles to register as generic (contents are
-        preserved verbatim on round-trip).
-
-    """
-    for name, options in validate_custom(custom_directives, custom_roles):
-        cls = type(
-            f"docstrfmt_custom_{name}",
-            (Directive,),
-            {
-                "has_content": options["has_content"],
-                "required_arguments": options["required_arguments"],
-                "optional_arguments": options["optional_arguments"],
-                "final_argument_whitespace": options["final_argument_whitespace"],
-            },
+        """
+        node = ref_role(
+            self.rawtext,
+            has_explicit_title=self.has_explicit_title,
+            name=self.name,
+            target=self.target,
+            title=self.title,
         )
-        add_directive(name, cls, raw=options["raw"])
-    for name in custom_roles or []:
-        roles.register_local_role(name, generic_role)
+        return [node], []
 
 
-def validate_custom(
-    custom_directives: list[CustomDirectiveSpec] | None = None,
-    custom_roles: list[str] | None = None,
-) -> list[tuple[str, dict[str, Any]]]:
-    """Validate user-supplied directive and role configuration.
+# noinspection PyPep8Naming
+class directive(nodes.Element, nodes.Inline):
+    """A directive that doesn't do anything."""
 
-    :param custom_directives: Directive specs as accepted by :func:`register_custom`.
-    :param custom_roles: Role names as accepted by :func:`register_custom`.
 
-    :returns: The normalized ``(name, options)`` tuple for every directive spec.
+# noinspection PyPep8Naming
+class ref_role(nodes.Element):
+    """A role that doesn't do anything."""
 
-    :raises ValueError: If either argument is not a list/tuple, or if any directive
-        spec or role name is invalid.
 
-    """
-    for label, value in (
-        ("custom_directives", custom_directives),
-        ("custom_roles", custom_roles),
-    ):
-        if value is not None and not isinstance(value, (list, tuple)):
-            msg = f"{label} must be a list, got {value!r}"
-            raise ValueError(msg)
-    normalized = [_normalize_directive_spec(spec) for spec in custom_directives or []]
-    for name in custom_roles or []:
-        if not isinstance(name, str) or not name:
-            msg = f"custom role names must be non-empty strings, got {name!r}"
-            raise ValueError(msg)
-    return normalized
+# noinspection PyPep8Naming
+class role(nodes.Element):
+    """A role that doesn't do anything."""
 
 
 def _normalize_directive_spec(
@@ -160,11 +96,11 @@ def _normalize_directive_spec(
 
     """
     defaults = {
-        "raw": True,
-        "has_content": True,
-        "required_arguments": 0,
-        "optional_arguments": 1,
         "final_argument_whitespace": True,
+        "has_content": True,
+        "optional_arguments": 1,
+        "raw": True,
+        "required_arguments": 0,
     }
     if isinstance(spec, str):
         if not spec:
@@ -204,23 +140,6 @@ def _normalize_directive_spec(
     raise ValueError(msg)
 
 
-def generic_role(r: str, rawtext: str, text: str, *_: Any, **__: Any) -> Any:
-    """Provide a generic role that doesn't do anything.
-
-    :param r: Role name.
-    :param rawtext: Raw text of the role.
-    :param text: Text content of the role.
-    :param _: Unused positional arguments.
-    :param __: Unused keyword arguments.
-
-    :returns: List containing the role node and empty list.
-
-    """
-    r = ROLE_ALIASES.get(r.lower(), r)
-    text = utils.unescape(text, restore_backslashes=True)
-    return [role(rawtext, text=text, role=r)], []
-
-
 def _patch_run_directive() -> None:
     """Backfill ``.line`` on nodes returned by directives that don't set it.
 
@@ -254,6 +173,73 @@ def _patch_run_directive() -> None:
 
     run_directive._docstrfmt_patched = True  # type: ignore[attr-defined]
     Body.run_directive = run_directive  # type: ignore[method-assign]
+
+
+def _subclasses(cls: type[T]) -> Iterator[type[T]]:
+    """Get all subclasses of a class recursively.
+
+    :param cls: The class to get subclasses for.
+
+    :returns: Iterator of all subclasses.
+
+    """
+    for subclass in cls.__subclasses__():
+        yield subclass
+        yield from _subclasses(subclass)
+
+
+def add_directive(
+    name: str,
+    cls: type[Directive],
+    *,
+    is_injected: bool = False,
+    raw: bool = True,
+) -> None:
+    """Add a directive to the parser.
+
+    :param name: Name of the directive to add.
+    :param cls: Directive class to register.
+    :param raw: Whether the directive is raw.
+    :param is_injected: Whether the directive is injected.
+
+    """
+    # We create a new class inheriting from the given directive class to automatically pick up the
+    # argument counts and most of the other attributes that define how the directive is parsed, so
+    # parsing can happen as normal. The things we change are:
+    #
+    # - Relax the option spec so an incorrect name doesn't stop formatting and every option comes
+    #   through unchanged.
+    # - Override the run method to just stick the directive into the tree.
+    # - Add a `raw` attribute to inform formatting later on.
+    namespace = {
+        "has_content": True if is_injected else cls.has_content,
+        "option_spec": sphinx_directive.DummyOptionSpec(),
+        "raw": raw,
+        "run": lambda self: [directive(directive=self)],
+    }
+    if is_injected:
+        namespace["final_argument_whitespace"] = True
+        namespace["optional_arguments"] = 1
+    directives.register_directive(
+        name, type(f"docstrfmt_{cls.__name__}", (cls,), namespace)
+    )
+
+
+def generic_role(r: str, rawtext: str, text: str, *_: Any, **__: Any) -> Any:
+    """Provide a generic role that doesn't do anything.
+
+    :param r: Role name.
+    :param rawtext: Raw text of the role.
+    :param text: Text content of the role.
+    :param _: Unused positional arguments.
+    :param __: Unused keyword arguments.
+
+    :returns: List containing the role node and empty list.
+
+    """
+    r = ROLE_ALIASES.get(r.lower(), r)
+    text = utils.unescape(text, restore_backslashes=True)
+    return [role(rawtext, role=r, text=text)], []
 
 
 def register() -> None:
@@ -344,50 +330,64 @@ def register() -> None:
         pass
 
 
-class ReferenceRole(util.docutils.ReferenceRole):
-    """Role that doesn't do anything."""
+def register_custom(
+    custom_directives: list[CustomDirectiveSpec] | None = None,
+    custom_roles: list[str] | None = None,
+) -> None:
+    """Register user-supplied directives and roles.
 
-    def run(
-        self,
-    ) -> tuple[list[nodes.Node], list[nodes.system_message]]:
-        """Run the role.
-
-        :returns: Tuple containing list of nodes and empty list of system messages.
-
-        """
-        node = ref_role(
-            self.rawtext,
-            name=self.name,
-            has_explicit_title=self.has_explicit_title,
-            target=self.target,
-            title=self.title,
-        )
-        return [node], []
-
-
-# noinspection PyPep8Naming
-class directive(nodes.Element, nodes.Inline):
-    """A directive that doesn't do anything."""
-
-
-# noinspection PyPep8Naming
-class ref_role(nodes.Element):
-    """A role that doesn't do anything."""
-
-
-# noinspection PyPep8Naming
-class role(nodes.Element):
-    """A role that doesn't do anything."""
-
-
-def _subclasses(cls: type[T]) -> Iterator[type[T]]:
-    """Get all subclasses of a class recursively.
-
-    :param cls: The class to get subclasses for.
-
-    :returns: Iterator of all subclasses.
+    :param custom_directives: Directives to register. Each entry is either a name
+        string (registered as a raw directive that accepts arbitrary content, matching
+        the fallback docstrfmt uses for unknown directives) or a mapping with keys:
+        ``name`` (required), ``raw`` (default ``True``), ``has_content``
+        (default ``True``), ``required_arguments`` (default ``0``),
+        ``optional_arguments`` (default ``1``), and ``final_argument_whitespace``
+        (default ``True``).
+    :param custom_roles: Names of roles to register as generic (contents are
+        preserved verbatim on round-trip).
 
     """
-    for subclass in cls.__subclasses__():
-        yield subclass
-        yield from _subclasses(subclass)
+    for name, options in validate_custom(custom_directives, custom_roles):
+        cls = type(
+            f"docstrfmt_custom_{name}",
+            (Directive,),
+            {
+                "final_argument_whitespace": options["final_argument_whitespace"],
+                "has_content": options["has_content"],
+                "optional_arguments": options["optional_arguments"],
+                "required_arguments": options["required_arguments"],
+            },
+        )
+        add_directive(name, cls, raw=options["raw"])
+    for name in custom_roles or []:
+        roles.register_local_role(name, generic_role)
+
+
+def validate_custom(
+    custom_directives: list[CustomDirectiveSpec] | None = None,
+    custom_roles: list[str] | None = None,
+) -> list[tuple[str, dict[str, Any]]]:
+    """Validate user-supplied directive and role configuration.
+
+    :param custom_directives: Directive specs as accepted by :func:`register_custom`.
+    :param custom_roles: Role names as accepted by :func:`register_custom`.
+
+    :returns: The normalized ``(name, options)`` tuple for every directive spec.
+
+    :raises ValueError: If either argument is not a list/tuple, or if any directive
+        spec or role name is invalid.
+
+    """
+    for label, value in (
+        ("custom_directives", custom_directives),
+        ("custom_roles", custom_roles),
+    ):
+        if value is not None and not isinstance(value, (list, tuple)):
+            msg = f"{label} must be a list, got {value!r}"
+            raise ValueError(msg)
+    normalized = [_normalize_directive_spec(spec) for spec in custom_directives or []]
+    for name in custom_roles or []:
+        if not isinstance(name, str) or not name:
+            msg = f"custom role names must be non-empty strings, got {name!r}"
+            raise ValueError(msg)
+    return normalized

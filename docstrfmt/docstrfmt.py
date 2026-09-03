@@ -41,15 +41,22 @@ if TYPE_CHECKING:
 
 T = TypeVar("T")
 
+chain = itertools.chain.from_iterable
 directive_first_line_attribute = re.compile(r"^\.\. (\w+):: +\S+\n")
-valid_reference_id = re.compile(r"^[-_.:+a-zA-Z0-9]+$")
 invalid_reference_id = re.compile("[-_.:+][-_.:+]")
+
+line_iterator = Iterator[str]
+
+# https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#inline-markup-recognition-rules
+space_chars = set(string.whitespace)
+post_markup_break_chars = space_chars | set("-.,:;!?\\/'\")]}>")
+pre_markup_break_chars = space_chars | set("-:/'\"<([{")
 
 unknown_handlers = [
     (
         re.compile(r'Unknown directive type "([^"]+)".'),
         lambda name: rst_extras.add_directive(
-            name, Directive, raw=True, is_injected=True
+            name, Directive, is_injected=True, raw=True
         ),
     ),
     (
@@ -58,92 +65,81 @@ unknown_handlers = [
     ),
 ]
 
-# https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#inline-markup-recognition-rules
-space_chars = set(string.whitespace)
-pre_markup_break_chars = space_chars | set("-:/'\"<([{")
-post_markup_break_chars = space_chars | set("-.,:;!?\\/'\")]}>")
 
-chain = itertools.chain.from_iterable
+valid_reference_id = re.compile(r"^[-_.:+a-zA-Z0-9]+$")
 
-
-class IgnoreMessagesReporter(utils.Reporter):
-    """A Docutils error reporter that ignores some messages.
-
-    We want to handle most system messages normally, but it's useful to ignore some (and
-    just doing it by level would be too coarse). In particular, having too short a title
-    line leads to a warning but parses just fine; ignoring that message means we can
-    automatically fix lengths whether they're too short or too long (though they do have
-    to be at least four characters to be parsed correctly in the first place).
-
-    """
-
-    ignored_messages = {"Title overline too short.", "Title underline too short."}
-
-    def system_message(
-        self, level: int, message: str, *children: Any, **kwargs: Any
-    ) -> nodes.system_message:  # pragma: no cover
-        """Create a system message, possibly ignoring it.
-
-        :param level: Message level.
-        :param message: Message text.
-        :param children: Child nodes.
-        :param kwargs: Additional keyword arguments.
-
-        :returns: System message node.
-
-        """
-        orig_level = self.halt_level
-        if message in self.ignored_messages:
-            self.halt_level = utils.Reporter.SEVERE_LEVEL + 1
-        msg = super().system_message(level, message, *children, **kwargs)
-        self.halt_level = orig_level
-        return msg
-
-
-class UnknownNodeTransformer(Transform):
-    """Transform to handle unknown nodes."""
-
-    default_priority = 0
-
-    def apply(self, **_: Any):
-        """Apply the transform.
-
-        :param _: Unused keyword arguments.
-
-        """
-        for node in self.document.findall(nodes.system_message):
-            try:
-                message = node.children[0].children[0].astext()
-            except IndexError:
-                continue
-            for regex, handler in unknown_handlers:
-                match = regex.match(message)
-                if match:
-                    handler(match.group(1))
-                    break
-
-
-# noinspection PyPep8Naming
-class inline_markup:
-    """An inline markup block."""
-
-    def __init__(self, text: str) -> None:
-        """Initialize the inline markup block.
-
-        :param text: The text content of the markup.
-
-        """
-        self.text = text
-
-
-inline_item = str | inline_markup
-inline_iterator = Iterator[inline_item]
-line_iterator = Iterator[str]
 
 word_info = namedtuple(  # noqa: PYI024
     "word_info",
     ["text", "in_markup", "start_space", "end_space", "start_punct", "end_punct"],
 )
+
+
+@dataclass
+class CodeFormatters:
+    """Formatters for code blocks."""
+
+    code: str
+    context: FormatContext
+
+    def python(self) -> str:
+        """Format Python code.
+
+        :returns: Formatted Python code.
+
+        """
+        if not self.context.manager.format_python_code_blocks:
+            return self.code
+        try:
+            if self.context.black_config is not None:
+                self.code = black.format_str(
+                    self.code, mode=self.context.black_config
+                ).rstrip()
+        except (UserWarning, black.InvalidInput, TokenError):
+            try:
+                compile(self.code, "<code-block>", mode="exec")
+            except SyntaxError as syntax_error:
+                self.context.manager.error_count += 1
+                document_line = self.context.manager.get_code_line(
+                    self.code, strict=True
+                ) - len(self.code.splitlines())
+                if self.context.manager.reporter:
+                    pointer = (
+                        " " * (syntax_error.offset - 1) + "^"
+                        if syntax_error.offset
+                        else ""
+                    )
+                    self.context.manager.reporter.error(
+                        f"SyntaxError: {syntax_error.msg}:\n\nFile"
+                        f' "{self.context.current_file}", line'
+                        f" {document_line + (syntax_error.lineno or 0)}:\n{syntax_error.text}\n{pointer}"
+                    )
+        return self.code
+
+    def rst(self) -> str:
+        """Format reStructuredText code.
+
+        :returns: Formatted reStructuredText code.
+
+        """
+        manager = self.context.manager
+        manager.original_text = self.code
+        try:
+            document = manager.parse_string(
+                self.code, line_offset=manager.get_code_line(self.code) - 1
+            )
+            formatted = manager.format_node(
+                self.context.width,
+                document,
+                is_docstring=False,
+            )
+            return formatted.rstrip()
+        except InvalidRstErrors as errors:  # pragma: no cover
+            manager.error_count += len(errors.errors)
+            for error in errors.errors:
+                if manager.reporter:
+                    manager.reporter.error(str(error))
+            return self.code
 
 
 class FormatContext:
@@ -294,453 +290,185 @@ class FormatContext:
         return self._replace(first_line_len=width)
 
 
-@dataclass
-class CodeFormatters:
-    """Formatters for code blocks."""
-
-    code: str
-    context: FormatContext
-
-    def python(self) -> str:
-        """Format Python code.
-
-        :returns: Formatted Python code.
-
-        """
-        if not self.context.manager.format_python_code_blocks:
-            return self.code
-        try:
-            if self.context.black_config is not None:
-                self.code = black.format_str(
-                    self.code, mode=self.context.black_config
-                ).rstrip()
-        except (UserWarning, black.InvalidInput, TokenError):
-            try:
-                compile(self.code, "<code-block>", mode="exec")
-            except SyntaxError as syntax_error:
-                self.context.manager.error_count += 1
-                document_line = self.context.manager.get_code_line(
-                    self.code, strict=True
-                ) - len(self.code.splitlines())
-                if self.context.manager.reporter:
-                    pointer = (
-                        " " * (syntax_error.offset - 1) + "^"
-                        if syntax_error.offset
-                        else ""
-                    )
-                    self.context.manager.reporter.error(
-                        f"SyntaxError: {syntax_error.msg}:\n\nFile"
-                        f' "{self.context.current_file}", line'
-                        f" {document_line + (syntax_error.lineno or 0)}:\n{syntax_error.text}\n{pointer}"
-                    )
-        return self.code
-
-    def rst(self) -> str:
-        """Format reStructuredText code.
-
-        :returns: Formatted reStructuredText code.
-
-        """
-        manager = self.context.manager
-        manager.original_text = self.code
-        try:
-            document = manager.parse_string(
-                self.code, line_offset=manager.get_code_line(self.code) - 1
-            )
-            formatted = manager.format_node(
-                self.context.width,
-                document,
-                is_docstring=False,
-            )
-            return formatted.rstrip()
-        except InvalidRstErrors as errors:  # pragma: no cover
-            manager.error_count += len(errors.errors)
-            for error in errors.errors:
-                if manager.reporter:
-                    manager.reporter.error(str(error))
-            return self.code
-
-
-class Manager:
-    """Manager for formatting reStructuredText."""
-
-    def __init__(
-        self,
-        *,
-        current_file: Path | str,
-        black_config: Mode | None = None,
-        center_section_titles: bool = True,
-        bullet_list_marker: str = "-",
-        custom_directives: list[rst_extras.CustomDirectiveSpec] | None = None,
-        custom_roles: list[str] | None = None,
-        docstring_trailing_line: bool = True,
-        format_python_code_blocks: bool = True,
-        indent_width: int = 4,
-        keep_blanks: bool = False,
-        ordered_marker: str = "1",
-        reporter: Reporter | utils.Reporter | logging.Logger,
-        section_adornments: list[tuple[str, bool]] | None = None,
-    ):
-        """Initialize the manager.
-
-        :param current_file: The current file being processed.
-        :param reporter: utils.Reporter instance for logging.
-        :param black_config: Black formatting configuration.
-        :param center_section_titles: Whether to center section titles with overlines by
-            adding a leading space.
-        :param bullet_list_marker: Bullet character to use for unordered lists.
-        :param custom_directives: User-supplied directives to register. See
-            :func:`docstrfmt.rst_extras.register_custom`.
-        :param custom_roles: User-supplied role names to register as generic roles.
-        :param docstring_trailing_line: Whether to add trailing line to docstrings.
-        :param format_python_code_blocks: Whether to format Python code blocks.
-        :param indent_width: Number of spaces per indentation level.
-        :param keep_blanks: Keep blank lines between sections as appear in source.
-        :param ordered_marker: Marker style for ordered (enumerated) lists, 1 or #.
-        :param section_adornments: Section adornment configuration.
-
-        """
-        rst_extras.register()
-        rst_extras.register_custom(custom_directives, custom_roles)
-        self.current_file = current_file
-        self.black_config = black_config
-        self.center_section_titles = center_section_titles
-        self.bullet_list_marker = bullet_list_marker
-        self.ordered_marker = ordered_marker
-        self.current_offset = 0
-        self.error_count = 0
-        self.reporter = reporter
-        self.settings = OptionParser(components=[rst.Parser]).get_default_values()
-        self.settings.smart_quotes = True
-        self.settings.report_level = 5
-        self.settings.halt_level = 5
-        self.settings.file_insertion_enabled = False
-        self.settings.tab_width = 8
-        self.formatters = Formatters(self)
-        self.original_text = ""
-        self.docstring_trailing_line = docstring_trailing_line
-        self.format_python_code_blocks = format_python_code_blocks
-        self.indent_width = indent_width
-        self.keep_blanks = keep_blanks
-        self._in_docstring = False  # for resolving line numbers in code blocks
-        self.section_adornments = section_adornments
-
-    def _patch_unknown_directives(self, text: str) -> None:
-        """Patch unknown directives and roles into the parser.
-
-        :param text: Text to parse for unknown directives.
-
-        """
-        doc = new_document(str(self.current_file), self.settings)
-        parser = rst.Parser()
-        doc.reporter = IgnoreMessagesReporter(
-            "",
-            utils.Reporter.SEVERE_LEVEL,
-            utils.Reporter.SEVERE_LEVEL,
-        )
-        parser.parse(text, doc)
-        doc.transformer.add_transform(UnknownNodeTransformer)
-        doc.transformer.apply_transforms()
-
-    @staticmethod
-    def _get_error_message(error: nodes.system_message) -> str:
-        """Get the error message from a system_message node.
-
-        :param error: The system_message node.
-
-        :returns: The error message.
-
-        """
-        try:
-            return error.children[0].children[0].astext()  # type: ignore[attr]
-        except (IndexError, AttributeError):
-            try:
-                return error.children[0].astext()
-            except (IndexError, AttributeError):
-                return error.astext()
-
-    def _pre_process(
-        self,
-        node: nodes.Node,
-        line_offset: int,
-        block_length: int,
-    ) -> None:
-        """Preprocess nodes.
-
-        This does some preprocessing to all nodes that is generic across node types and
-        is therefore most convenient to do as a simple recursive function rather than as
-        part of the big dispatcher class.
-
-        """
-        # Strip all system_message nodes. (Just formatting them with no markup isn't enough, since that
-        # could lead to extra spaces or empty lines between other elements.)
-        errors = [
-            child
-            for child in node.children
-            if isinstance(child, nodes.system_message)
-            and child.attributes["type"] != "INFO"  # type: ignore[attr]
-            and self._get_error_message(child)
-            not in IgnoreMessagesReporter.ignored_messages
-        ]
-        if errors:
-            self.error_count += len(errors)
-            raise InvalidRstErrors(
-                [
-                    InvalidRstError(
-                        self.current_file,
-                        error.attributes["type"],
-                        (
-                            error.line
-                            if error.line is not None
-                            else error.attributes.get("line", block_length)
-                        )
-                        + line_offset,
-                        self._get_error_message(error),
-                    )
-                    for error in errors
-                ]
-            )
-        node.children = [
-            child
-            for child in node.children
-            if not isinstance(child, nodes.system_message)
-        ]
-
-        # Match references to targets, which helps later with distinguishing whether they're anonymous.
-        for reference, target in pairwise(node.children):
-            if isinstance(reference, nodes.reference) and isinstance(
-                target, nodes.target
-            ):
-                reference.attributes["target"] = target
-        start = None
-        for i, child in enumerate(itertools.chain(node.children, [None])):  # type: ignore[attr]
-            in_run = start is not None
-            is_target = isinstance(child, nodes.target)
-            if in_run and not is_target:
-                # Anonymous targets have a value of `[]` for "names", which will sort to the top. Also,
-                # it's important here that `sorted` is stable, or anonymous targets could break.
-                node.children[start:i] = sorted(  # type: ignore[arg-type]
-                    node.children[start:i],
-                    key=lambda t: t.attributes["names"],  # type: ignore[arg-type]
-                )
-                start = None
-            elif not in_run and is_target:
-                start = i
-
-        # Recurse.
-        for child in node.children:
-            self._pre_process(child, line_offset, block_length)
-
-    def format_node(
-        self,
-        width: int,
-        node: nodes.Node,
-        is_docstring: bool = False,
-    ) -> str:
-        """Format a node.
-
-        :param width: Maximum line width for formatting.
-        :param node: The node to format.
-        :param is_docstring: Whether this is formatting a docstring.
-
-        :returns: Formatted string representation of the node.
-
-        """
-        self._in_docstring = is_docstring
-        formatted_node = "\n".join(
-            self.perform_format(
-                node,
-                FormatContext(
-                    width,
-                    current_file=self.current_file,
-                    manager=self,
-                    black_config=self.black_config,
-                    is_docstring=is_docstring,
-                ),
-            )
-        )
-        return f"{formatted_node}\n"
-
-    @staticmethod
-    def _register_adornments(input_lines: list[str], document: nodes.document) -> None:
-        """Register adornments from source text on all individual sections.
-
-        This method will parse the document tree and original text to-be-formatted, and
-        will register, at the document tree, the current document configuration
-        representing the adornments for parts, chapters and sections on each level of
-        the document. In particular, it will install an attribute called
-        ``adornment-character`` with the character used for underline or overlining the
-        section, and ``adornment-overline``, if the section should be overlined or not.
-
-        :param input_lines: The lines of input (split by newline), that we must format.
-        :param document: The pre-parsed document tree, that will be modified with new
-            section attributes as described above.
-
-        """
-        for section in document.findall(nodes.section):
-            title_node = section.next_node(nodes.title)
-            if (
-                title_node
-                and hasattr(title_node, "line")
-                and title_node.line is not None
-            ):
-                line = input_lines[title_node.line - 1].strip()
-                if not line:
-                    continue
-                underline = line[0]
-                overline_lineno = title_node.line - 3
-                overline = False
-
-                if overline_lineno >= 0:
-                    candidate_overline = input_lines[overline_lineno].strip()
-                    if candidate_overline and candidate_overline[0] == underline:
-                        overline = True
-
-                # Store this information in the document tree
-                section["adornment-character"] = underline
-                section["adornment-overline"] = overline
-
-    def get_code_line(self, code: str, strict: bool = False) -> int:
-        """Get the line number of the code in the file.
-
-        :param code: Code string to find.
-        :param strict: Whether to use strict mode.
-
-        :returns: Line number of the code in the file.
-
-        :raises ValueError: If the code is not found.
-
-        """
-        lines = self.original_text.splitlines()
-        code_lines = code.splitlines()
-        multiple = len([line for line in lines if code_lines[0] in line]) > 1
-        code_offset = self.current_offset - (1 if self._in_docstring else 0)
-        for line_number, line in enumerate(lines, 1):  # noqa: RET503
-            if line.endswith(code_lines[0]) if strict else code_lines[0] in line:
-                if multiple:
-                    current_offset = 0
-                    for offset, sub_line in enumerate(code_lines):
-                        current_offset = offset
-                        if not (
-                            lines[line_number - 1 + offset].endswith(sub_line)
-                            if strict
-                            else sub_line in lines[line_number - 1 + offset]
-                        ):
-                            break
-                    else:
-                        return line_number + current_offset + code_offset
-                else:
-                    return line_number + code_offset
-        msg = f"Code not found in {self.current_file}:\n{code}"  # pragma: no cover
-        raise ValueError(msg)  # pragma: no cover
-
-    def parse_string(
-        self,
-        text: str,
-        line_offset: int = 0,
-        *,
-        file: Path | str | None = None,
-    ) -> nodes.document:
-        """Parse a string of reStructuredText.
-
-        :param file: Name of the file being parsed.
-        :param text: Text content to parse.
-        :param line_offset: Line offset for error reporting.
-
-        :returns: Parsed document node.
-
-        """
-        if file:
-            self.current_file = file
-        self.current_offset = line_offset
-        self.original_text = text
-        self._patch_unknown_directives(text)
-        doc = new_document(str(self.current_file), self.settings)
-        parser = rst.Parser()
-        doc.reporter = IgnoreMessagesReporter(
-            "",
-            self.settings.report_level,  # type: ignore[arg-type]
-            self.settings.halt_level,  # type: ignore[arg-type]
-        )
-        parser.parse(text, doc)
-        input_lines = text.splitlines()
-        self._pre_process(doc, line_offset, len(input_lines))
-        self._register_adornments(input_lines, doc)
-        # Stash the source lines on the document for keep-blanks
-        doc.docstrfmt_source_lines = input_lines
-        return doc
-
-    def perform_format(
-        self,
-        node: nodes.Node,
-        context: FormatContext,
-    ) -> Iterator[str]:
-        """Format a node.
-
-        :param node: The node to format.
-        :param context: Formatting context.
-
-        :returns: Iterator of formatted lines.
-
-        :raises ValueError: If the node type is unknown.
-
-        """
-        try:
-            name = type(node).__name__
-            func = getattr(self.formatters, NODE_MAPPING.get(name, name))
-        except AttributeError:  # pragma: no cover
-            msg = f'Unknown node type {type(node).__name__} at File "{context.current_file}", line {node.line}'
-            raise ValueError(msg) from None
-        return func(node, context)
-
-
-def pairwise(items: Iterable[T]) -> Iterator[tuple[T, T]]:
-    """Return pairs of adjacent items from the iterable.
-
-    :param items: Iterable of items to pair.
-
-    :returns: Iterator of adjacent item pairs.
-
-    """
-    a, b = itertools.tee(items)
-    next(b, None)
-    return zip(a, b, strict=False)
-
-
-def _prepend_if_any(prefix: T, items: Iterator[T]) -> Iterator[T]:
-    """Prepend a prefix if there are any items.
-
-    :param prefix: Prefix to add to the first item.
-    :param items: Iterator of items.
-
-    :returns: Iterator with prefix prepended to first item if any items exist.
-
-    """
-    try:
-        item = next(items)
-    except StopIteration:
-        return
-    yield prefix
-    yield item
-    yield from items
-
-
-def _with_spaces(space_count: int, lines: Iterable[str]) -> Iterator[str]:
-    """Yield lines with the given number of leading spaces.
-
-    :param space_count: Number of spaces to add.
-    :param lines: Iterable of lines to indent.
-
-    :returns: Iterator of indented lines.
-
-    """
-    spaces = " " * space_count
-    for line in lines:
-        yield spaces + line if line else line
-
-
 class Formatters:
     """Formatters for reStructuredText nodes."""
+
+    @staticmethod
+    def footnote_reference(
+        node: nodes.footnote_reference,
+        _: FormatContext,
+    ):
+        """Format a footnote reference node.
+
+        Example:
+
+        .. code-block:: rst
+
+            This is a reference [1]_ to a footnote.
+
+        """
+        footnote_name = "#" if node.attributes.get("auto", False) else ""
+        yield inline_markup(f"[{footnote_name}{node.attributes.get('refname', '')}]_")
+
+    citation_reference = footnote_reference
+
+    @staticmethod
+    def literal_block(
+        node: nodes.literal_block,
+        context: FormatContext,
+    ) -> line_iterator:
+        """Format a literal block node.
+
+        Example:
+
+        .. code-block:: rst
+
+            ::
+
+                This is a literal block
+                with preformatted text.
+
+        """
+        yield "::"
+        yield from _prepend_if_any(
+            "", _with_spaces(context.manager.indent_width, node.rawsource.splitlines())
+        )
+
+    @staticmethod
+    def option_group(
+        node: nodes.option_group,
+        _: FormatContext,
+    ) -> inline_iterator:
+        """Format an option group node (comma-separated options)."""
+        yield ", ".join(option.astext() for option in node.children)
+
+    @staticmethod
+    def raw(
+        node: nodes.raw,
+        _: FormatContext,
+    ) -> inline_iterator:
+        """Format an inline raw node produced by a ``:raw-*:`` role invocation.
+
+        The role's declared name is carried on ``node['classes']`` (docutils'
+        ``.. role::`` directive sets ``class`` to the new role name); the payload is
+        the node's text.
+
+        """
+        role_name = node["classes"][0] if node["classes"] else "raw"
+        yield inline_markup(f":{role_name}:`{node.astext()}`")
+
+    @staticmethod
+    def ref_role(
+        node: rst_extras.ref_role,
+        _: FormatContext,
+    ) -> inline_iterator:
+        """Format a ref_role node.
+
+        Example:
+
+        .. code-block:: rst
+
+            :ref:`Link text <target>`
+
+        """
+
+        # docutils delivers the title and target with backslash escapes already
+        # consumed, so any literal backslashes and backticks must be re-escaped
+        def escape(value: str) -> str:
+            return value.replace("\\", "\\\\").replace("`", r"\`")
+
+        attributes = node.attributes
+        target = escape(attributes["target"])
+        if attributes["has_explicit_title"]:
+            title = escape(attributes["title"]).replace("<", r"\<")
+            text = f"{title} <{target}>"
+        else:
+            text = target
+        yield inline_markup(f":{attributes['name']}:`{text}`")
+
+    @staticmethod
+    def role(
+        node: rst_extras.role,
+        _: FormatContext,
+    ) -> inline_iterator:
+        """Format a role node.
+
+        Example:
+
+        .. code-block:: rst
+
+            :guilabel:`Button Text`
+
+        """
+        yield inline_markup(f":{node.attributes['role']}:`{node.attributes['text']}`")
+
+    @staticmethod
+    def target(
+        node: nodes.target,
+        _: FormatContext,
+    ) -> line_iterator:
+        """Format a target node.
+
+        Example:
+
+        .. code-block:: rst
+
+            .. _target-name: https://example.com
+
+        """
+        if not isinstance(node.parent, (nodes.document, nodes.section)):
+            return
+        try:
+            body = f" {node.attributes['refuri']}"
+        except KeyError:
+            body = (
+                f" {node.attributes['refname']}_"
+                if "refname" in node.attributes
+                else ""
+            )
+
+        if node.attributes.get("anonymous"):
+            name = "_"
+        else:
+            names = node.attributes.get("names") or node.attributes.get("dupnames")
+            if not names:
+                # A target without a name can't be expressed as valid rST.
+                return
+            name = names[0]
+        yield f".. _{name}:{body}"
+
+    @staticmethod
+    def text(node: nodes.Text, _: FormatContext) -> inline_iterator:
+        """Format a text node.
+
+        Example:
+
+        .. code-block:: rst
+
+            Plain text content.
+
+        """
+        yield unescape(node, restore_backslashes=True).replace(r"\ ", "")
+
+    @staticmethod
+    def transition(
+        _: nodes.transition,
+        __: FormatContext,
+    ) -> line_iterator:
+        """Format a transition node.
+
+        Example:
+
+        .. code-block:: rst
+
+            Some text before the transition.
+
+            ----
+
+            Some text after the transition.
+
+        """
+        yield "----"
 
     def __init__(self, manager: Manager):
         """Initialize the formatters.
@@ -750,27 +478,28 @@ class Formatters:
         """
         self.manager = manager
 
-    def _format_children(
-        self,
-        node: nodes.Node,
-        context: FormatContext,
-    ) -> Iterator[Iterator[str]]:
-        """Format the children of a node.
+    def _blanks_before(self, node: nodes.Node) -> int | None:
+        """Count blank source lines immediately preceding a block node.
 
-        :param node: The node whose children to format.
-        :param context: Formatting context.
+        :param node: The node to look above.
 
-        :returns: Iterator of formatted child content.
+        :returns: The number of consecutive blank (empty or whitespace-only) source
+            lines directly above the node, or ``None`` if the source or the node's
+            position can't be determined.
 
         """
-        return (
-            (
-                self.manager.perform_format(child, context)
-                if index == 0
-                else self.manager.perform_format(child, context.wrap_first_at(0))
-            )
-            for index, child in enumerate(node.children)  # type: ignore[attr]
-        )
+        lines = getattr(node.document, "docstrfmt_source_lines", None)
+        if lines is None:
+            return None  # pragma: no cover
+        top = self._block_top_line(node, lines)
+        if not top or top < 1:
+            return None  # pragma: no cover
+        count = 0
+        index = top - 1  # 1-indexed source line directly above ``top``
+        while 1 <= index <= len(lines) and not lines[index - 1].strip():
+            count += 1
+            index -= 1
+        return count
 
     def _block_top_line(self, node: nodes.Node, lines: list[str]) -> int | None:
         """Return the 1-indexed source line where a block node starts.
@@ -805,29 +534,6 @@ class Formatters:
                 return lineno
         return getattr(node, "line", None)
 
-    def _blanks_before(self, node: nodes.Node) -> int | None:
-        """Count blank source lines immediately preceding a block node.
-
-        :param node: The node to look above.
-
-        :returns: The number of consecutive blank (empty or whitespace-only) source
-            lines directly above the node, or ``None`` if the source or the node's
-            position can't be determined.
-
-        """
-        lines = getattr(node.document, "docstrfmt_source_lines", None)
-        if lines is None:
-            return None  # pragma: no cover
-        top = self._block_top_line(node, lines)
-        if not top or top < 1:
-            return None  # pragma: no cover
-        count = 0
-        index = top - 1  # 1-indexed source line directly above ``top``
-        while 1 <= index <= len(lines) and not lines[index - 1].strip():
-            count += 1
-            index -= 1
-        return count
-
     def _chain_children_keeping_blanks(
         self,
         node: nodes.Node,
@@ -861,6 +567,28 @@ class Formatters:
                     yield ""
             child_context = context if index == 0 else context.wrap_first_at(0)
             yield from self.manager.perform_format(child, child_context)
+
+    def _format_children(
+        self,
+        node: nodes.Node,
+        context: FormatContext,
+    ) -> Iterator[Iterator[str]]:
+        """Format the children of a node.
+
+        :param node: The node whose children to format.
+        :param context: Formatting context.
+
+        :returns: Iterator of formatted child content.
+
+        """
+        return (
+            (
+                self.manager.perform_format(child, context)
+                if index == 0
+                else self.manager.perform_format(child, context.wrap_first_at(0))
+            )
+            for index, child in enumerate(node.children)  # type: ignore[attr]
+        )
 
     def _generate_table_matrix(
         self,
@@ -913,6 +641,21 @@ class Formatters:
             for row in rows
         ]
 
+    def _grid_cell_max_line_width(
+        self,
+        entry: nodes.entry,
+        context: FormatContext,
+        width: int,
+    ) -> int:
+        """Return the widest wrapped-line width for a table entry at a given width."""
+        return max(
+            (
+                column_width(line)
+                for line in self._grid_cell_wrapped_lines(entry, context, width)
+            ),
+            default=0,
+        )
+
     def _grid_cell_wrapped_lines(
         self,
         entry: nodes.entry,
@@ -931,20 +674,30 @@ class Formatters:
             )
         )
 
-    def _grid_cell_max_line_width(
-        self,
-        entry: nodes.entry,
-        context: FormatContext,
-        width: int,
-    ) -> int:
-        """Return the widest wrapped-line width for a table entry at a given width."""
-        return max(
-            (
-                column_width(line)
-                for line in self._grid_cell_wrapped_lines(entry, context, width)
-            ),
-            default=0,
-        )
+    def _list(self, node: nodes.Node, context: FormatContext) -> line_iterator:
+        """Format a list node.
+
+        :param node: The list node to format.
+        :param context: Formatting context.
+
+        :returns: Iterator of formatted list lines.
+
+        """
+        children = node.children  # type: ignore[attr]
+        sub_children = []
+        for child_index, child in enumerate(children, 1):
+            item = list(self.manager.perform_format(child, context))
+            if child_index != len(children):
+                default = 1 if len(child.children) > 1 else 0  # type: ignore[attr]
+                if self.manager.keep_blanks:
+                    found = self._blanks_before(children[child_index])
+                    blanks = default if found is None else max(default, found)
+                else:
+                    blanks = default
+                item += [""] * blanks
+            sub_children.append(item)
+
+        yield from chain(sub_children)
 
     def _render_grid_table(
         self,
@@ -1168,31 +921,6 @@ class Formatters:
         for row_buf in buf:
             yield "".join(row_buf).rstrip()
 
-    def _list(self, node: nodes.Node, context: FormatContext) -> line_iterator:
-        """Format a list node.
-
-        :param node: The list node to format.
-        :param context: Formatting context.
-
-        :returns: Iterator of formatted list lines.
-
-        """
-        children = node.children  # type: ignore[attr]
-        sub_children = []
-        for child_index, child in enumerate(children, 1):
-            item = list(self.manager.perform_format(child, context))
-            if child_index != len(children):
-                default = 1 if len(child.children) > 1 else 0  # type: ignore[attr]
-                if self.manager.keep_blanks:
-                    found = self._blanks_before(children[child_index])
-                    blanks = default if found is None else max(default, found)
-                else:
-                    blanks = default
-                item += [""] * blanks
-            sub_children.append(item)
-
-        yield from chain(sub_children)
-
     def _sub_admonition(
         self,
         node: nodes.admonition,
@@ -1411,6 +1139,14 @@ class Formatters:
                         child, context.indent(context.manager.indent_width)
                     ),
                 )
+
+    def description(
+        self,
+        node: nodes.description,
+        context: FormatContext,
+    ) -> line_iterator:
+        """Format an option list description node."""
+        yield from _chain_with_line_separator("", self._format_children(node, context))
 
     def directive(
         self, node: rst_extras.directive, context: FormatContext
@@ -1711,26 +1447,26 @@ class Formatters:
         other_fields = []
         field_types_mapping = {
             "param": param_fields,
-            "var": var_fields,
+            "raises": raises_fields,
             "returns": returns_fields,
             "rtype": rtype_fields,
-            "raises": raises_fields,
+            "var": var_fields,
         }
         field_name_mapping = {
             "arg": "param",
             "argument": "param",
+            "cvar": "var",
+            "except": "raises",
+            "exception": "raises",
+            "ivar": "var",
             "key": "param",
             "keyword": "param",
             "param": "param",
             "parameter": "param",
-            "return": "returns",
-            "returns": "returns",
-            "except": "raises",
-            "exception": "raises",
             "raise": "raises",
             "raises": "raises",
-            "cvar": "var",
-            "ivar": "var",
+            "return": "returns",
+            "returns": "returns",
             "var": "var",
         }
         already_typed = []
@@ -1911,25 +1647,6 @@ class Formatters:
 
     citation = footnote
 
-    @staticmethod
-    def footnote_reference(
-        node: nodes.footnote_reference,
-        _: FormatContext,
-    ):
-        """Format a footnote reference node.
-
-        Example:
-
-        .. code-block:: rst
-
-            This is a reference [1]_ to a footnote.
-
-        """
-        footnote_name = "#" if node.attributes.get("auto", False) else ""
-        yield inline_markup(f"[{footnote_name}{node.attributes.get('refname', '')}]_")
-
-    citation_reference = footnote_reference
-
     def inline(
         self,
         node: nodes.inline,
@@ -2081,28 +1798,6 @@ class Formatters:
             f"``{''.join(chain(self._format_children(node, context)))}``"
         )
 
-    @staticmethod
-    def literal_block(
-        node: nodes.literal_block,
-        context: FormatContext,
-    ) -> line_iterator:
-        """Format a literal block node.
-
-        Example:
-
-        .. code-block:: rst
-
-            ::
-
-                This is a literal block
-                with preformatted text.
-
-        """
-        yield "::"
-        yield from _prepend_if_any(
-            "", _with_spaces(context.manager.indent_width, node.rawsource.splitlines())
-        )
-
     def option_list(
         self,
         node: nodes.option_list,
@@ -2137,22 +1832,6 @@ class Formatters:
                 description, context.indent(context.manager.indent_width)
             ),
         )
-
-    @staticmethod
-    def option_group(
-        node: nodes.option_group,
-        _: FormatContext,
-    ) -> inline_iterator:
-        """Format an option group node (comma-separated options)."""
-        yield ", ".join(option.astext() for option in node.children)
-
-    def description(
-        self,
-        node: nodes.description,
-        context: FormatContext,
-    ) -> line_iterator:
-        """Format an option list description node."""
-        yield from _chain_with_line_separator("", self._format_children(node, context))
 
     def paragraph(
         self,
@@ -2217,50 +1896,6 @@ class Formatters:
 
         """
         yield from chain(self._format_children(node, context))
-
-    @staticmethod
-    def raw(
-        node: nodes.raw,
-        _: FormatContext,
-    ) -> inline_iterator:
-        """Format an inline raw node produced by a ``:raw-*:`` role invocation.
-
-        The role's declared name is carried on ``node['classes']`` (docutils'
-        ``.. role::`` directive sets ``class`` to the new role name); the payload is
-        the node's text.
-
-        """
-        role_name = node["classes"][0] if node["classes"] else "raw"
-        yield inline_markup(f":{role_name}:`{node.astext()}`")
-
-    @staticmethod
-    def ref_role(
-        node: rst_extras.ref_role,
-        _: FormatContext,
-    ) -> inline_iterator:
-        """Format a ref_role node.
-
-        Example:
-
-        .. code-block:: rst
-
-            :ref:`Link text <target>`
-
-        """
-
-        # docutils delivers the title and target with backslash escapes already
-        # consumed, so any literal backslashes and backticks must be re-escaped
-        def escape(value: str) -> str:
-            return value.replace("\\", "\\\\").replace("`", r"\`")
-
-        attributes = node.attributes
-        target = escape(attributes["target"])
-        if attributes["has_explicit_title"]:
-            title = escape(attributes["title"]).replace("<", r"\<")
-            text = f"{title} <{target}>"
-        else:
-            text = target
-        yield inline_markup(f":{attributes['name']}:`{text}`")
 
     def reference(
         self,
@@ -2333,22 +1968,6 @@ class Formatters:
             yield inline_markup(title + anonymous_suffix(False))
         else:
             yield inline_markup(f"`{title} <{ref}_>`{anonymous_suffix(anonymous)}")
-
-    @staticmethod
-    def role(
-        node: rst_extras.role,
-        _: FormatContext,
-    ) -> inline_iterator:
-        """Format a role node.
-
-        Example:
-
-        .. code-block:: rst
-
-            :guilabel:`Button Text`
-
-        """
-        yield inline_markup(f":{node.attributes['role']}:`{node.attributes['text']}`")
 
     def row(self, node: nodes.row, context: FormatContext) -> line_iterator:
         """Format a table row node.
@@ -2619,41 +2238,6 @@ class Formatters:
             )
         ]
 
-    @staticmethod
-    def target(
-        node: nodes.target,
-        _: FormatContext,
-    ) -> line_iterator:
-        """Format a target node.
-
-        Example:
-
-        .. code-block:: rst
-
-            .. _target-name: https://example.com
-
-        """
-        if not isinstance(node.parent, (nodes.document, nodes.section)):
-            return
-        try:
-            body = f" {node.attributes['refuri']}"
-        except KeyError:
-            body = (
-                f" {node.attributes['refname']}_"
-                if "refname" in node.attributes
-                else ""
-            )
-
-        if node.attributes.get("anonymous"):
-            name = "_"
-        else:
-            names = node.attributes.get("names") or node.attributes.get("dupnames")
-            if not names:
-                # A target without a name can't be expressed as valid rST.
-                return
-            name = names[0]
-        yield f".. _{name}:{body}"
-
     def tbody(
         self,
         node: nodes.tbody,
@@ -2688,19 +2272,6 @@ class Formatters:
                 None, chain(self._format_children(node, context)), context, node.line
             )
         )
-
-    @staticmethod
-    def text(node: nodes.Text, _: FormatContext) -> inline_iterator:
-        """Format a text node.
-
-        Example:
-
-        .. code-block:: rst
-
-            Plain text content.
-
-        """
-        yield unescape(node, restore_backslashes=True).replace(r"\ ", "")
 
     def tgroup(
         self,
@@ -2802,25 +2373,414 @@ class Formatters:
         """
         yield inline_markup(f"`{''.join(chain(self._format_children(node, context)))}`")
 
-    @staticmethod
-    def transition(
-        _: nodes.transition,
-        __: FormatContext,
-    ) -> line_iterator:
-        """Format a transition node.
 
-        Example:
+class IgnoreMessagesReporter(utils.Reporter):
+    """A Docutils error reporter that ignores some messages.
 
-        .. code-block:: rst
+    We want to handle most system messages normally, but it's useful to ignore some (and
+    just doing it by level would be too coarse). In particular, having too short a title
+    line leads to a warning but parses just fine; ignoring that message means we can
+    automatically fix lengths whether they're too short or too long (though they do have
+    to be at least four characters to be parsed correctly in the first place).
 
-            Some text before the transition.
+    """
 
-            ----
+    ignored_messages = {"Title overline too short.", "Title underline too short."}
 
-            Some text after the transition.
+    def system_message(
+        self, level: int, message: str, *children: Any, **kwargs: Any
+    ) -> nodes.system_message:  # pragma: no cover
+        """Create a system message, possibly ignoring it.
+
+        :param level: Message level.
+        :param message: Message text.
+        :param children: Child nodes.
+        :param kwargs: Additional keyword arguments.
+
+        :returns: System message node.
 
         """
-        yield "----"
+        orig_level = self.halt_level
+        if message in self.ignored_messages:
+            self.halt_level = utils.Reporter.SEVERE_LEVEL + 1
+        msg = super().system_message(level, message, *children, **kwargs)
+        self.halt_level = orig_level
+        return msg
+
+
+class Manager:
+    """Manager for formatting reStructuredText."""
+
+    @staticmethod
+    def _get_error_message(error: nodes.system_message) -> str:
+        """Get the error message from a system_message node.
+
+        :param error: The system_message node.
+
+        :returns: The error message.
+
+        """
+        try:
+            return error.children[0].children[0].astext()  # type: ignore[attr]
+        except (IndexError, AttributeError):
+            try:
+                return error.children[0].astext()
+            except (IndexError, AttributeError):
+                return error.astext()
+
+    @staticmethod
+    def _register_adornments(input_lines: list[str], document: nodes.document) -> None:
+        """Register adornments from source text on all individual sections.
+
+        This method will parse the document tree and original text to-be-formatted, and
+        will register, at the document tree, the current document configuration
+        representing the adornments for parts, chapters and sections on each level of
+        the document. In particular, it will install an attribute called
+        ``adornment-character`` with the character used for underline or overlining the
+        section, and ``adornment-overline``, if the section should be overlined or not.
+
+        :param input_lines: The lines of input (split by newline), that we must format.
+        :param document: The pre-parsed document tree, that will be modified with new
+            section attributes as described above.
+
+        """
+        for section in document.findall(nodes.section):
+            title_node = section.next_node(nodes.title)
+            if (
+                title_node
+                and hasattr(title_node, "line")
+                and title_node.line is not None
+            ):
+                line = input_lines[title_node.line - 1].strip()
+                if not line:
+                    continue
+                underline = line[0]
+                overline_lineno = title_node.line - 3
+                overline = False
+
+                if overline_lineno >= 0:
+                    candidate_overline = input_lines[overline_lineno].strip()
+                    if candidate_overline and candidate_overline[0] == underline:
+                        overline = True
+
+                # Store this information in the document tree
+                section["adornment-character"] = underline
+                section["adornment-overline"] = overline
+
+    def __init__(
+        self,
+        *,
+        black_config: Mode | None = None,
+        bullet_list_marker: str = "-",
+        center_section_titles: bool = True,
+        current_file: Path | str,
+        custom_directives: list[rst_extras.CustomDirectiveSpec] | None = None,
+        custom_roles: list[str] | None = None,
+        docstring_trailing_line: bool = True,
+        format_python_code_blocks: bool = True,
+        indent_width: int = 4,
+        keep_blanks: bool = False,
+        ordered_marker: str = "1",
+        reporter: Reporter | utils.Reporter | logging.Logger,
+        section_adornments: list[tuple[str, bool]] | None = None,
+    ):
+        """Initialize the manager.
+
+        :param current_file: The current file being processed.
+        :param reporter: utils.Reporter instance for logging.
+        :param black_config: Black formatting configuration.
+        :param center_section_titles: Whether to center section titles with overlines by
+            adding a leading space.
+        :param bullet_list_marker: Bullet character to use for unordered lists.
+        :param custom_directives: User-supplied directives to register. See
+            :func:`docstrfmt.rst_extras.register_custom`.
+        :param custom_roles: User-supplied role names to register as generic roles.
+        :param docstring_trailing_line: Whether to add trailing line to docstrings.
+        :param format_python_code_blocks: Whether to format Python code blocks.
+        :param indent_width: Number of spaces per indentation level.
+        :param keep_blanks: Keep blank lines between sections as appear in source.
+        :param ordered_marker: Marker style for ordered (enumerated) lists, 1 or #.
+        :param section_adornments: Section adornment configuration.
+
+        """
+        rst_extras.register()
+        rst_extras.register_custom(custom_directives, custom_roles)
+        self.current_file = current_file
+        self.black_config = black_config
+        self.center_section_titles = center_section_titles
+        self.bullet_list_marker = bullet_list_marker
+        self.ordered_marker = ordered_marker
+        self.current_offset = 0
+        self.error_count = 0
+        self.reporter = reporter
+        self.settings = OptionParser(components=[rst.Parser]).get_default_values()
+        self.settings.smart_quotes = True
+        self.settings.report_level = 5
+        self.settings.halt_level = 5
+        self.settings.file_insertion_enabled = False
+        self.settings.tab_width = 8
+        self.formatters = Formatters(self)
+        self.original_text = ""
+        self.docstring_trailing_line = docstring_trailing_line
+        self.format_python_code_blocks = format_python_code_blocks
+        self.indent_width = indent_width
+        self.keep_blanks = keep_blanks
+        self._in_docstring = False  # for resolving line numbers in code blocks
+        self.section_adornments = section_adornments
+
+    def _patch_unknown_directives(self, text: str) -> None:
+        """Patch unknown directives and roles into the parser.
+
+        :param text: Text to parse for unknown directives.
+
+        """
+        doc = new_document(str(self.current_file), self.settings)
+        parser = rst.Parser()
+        doc.reporter = IgnoreMessagesReporter(
+            "",
+            utils.Reporter.SEVERE_LEVEL,
+            utils.Reporter.SEVERE_LEVEL,
+        )
+        parser.parse(text, doc)
+        doc.transformer.add_transform(UnknownNodeTransformer)
+        doc.transformer.apply_transforms()
+
+    def _pre_process(
+        self,
+        node: nodes.Node,
+        line_offset: int,
+        block_length: int,
+    ) -> None:
+        """Preprocess nodes.
+
+        This does some preprocessing to all nodes that is generic across node types and
+        is therefore most convenient to do as a simple recursive function rather than as
+        part of the big dispatcher class.
+
+        """
+        # Strip all system_message nodes. (Just formatting them with no markup isn't enough, since that
+        # could lead to extra spaces or empty lines between other elements.)
+        errors = [
+            child
+            for child in node.children
+            if isinstance(child, nodes.system_message)
+            and child.attributes["type"] != "INFO"  # type: ignore[attr]
+            and self._get_error_message(child)
+            not in IgnoreMessagesReporter.ignored_messages
+        ]
+        if errors:
+            self.error_count += len(errors)
+            raise InvalidRstErrors(
+                [
+                    InvalidRstError(
+                        self.current_file,
+                        error.attributes["type"],
+                        (
+                            error.line
+                            if error.line is not None
+                            else error.attributes.get("line", block_length)
+                        )
+                        + line_offset,
+                        self._get_error_message(error),
+                    )
+                    for error in errors
+                ]
+            )
+        node.children = [
+            child
+            for child in node.children
+            if not isinstance(child, nodes.system_message)
+        ]
+
+        # Match references to targets, which helps later with distinguishing whether they're anonymous.
+        for reference, target in pairwise(node.children):
+            if isinstance(reference, nodes.reference) and isinstance(
+                target, nodes.target
+            ):
+                reference.attributes["target"] = target
+        start = None
+        for i, child in enumerate(itertools.chain(node.children, [None])):  # type: ignore[attr]
+            in_run = start is not None
+            is_target = isinstance(child, nodes.target)
+            if in_run and not is_target:
+                # Anonymous targets have a value of `[]` for "names", which will sort to the top. Also,
+                # it's important here that `sorted` is stable, or anonymous targets could break.
+                node.children[start:i] = sorted(  # type: ignore[arg-type]
+                    node.children[start:i],
+                    key=lambda t: t.attributes["names"],  # type: ignore[arg-type]
+                )
+                start = None
+            elif not in_run and is_target:
+                start = i
+
+        # Recurse.
+        for child in node.children:
+            self._pre_process(child, line_offset, block_length)
+
+    def format_node(
+        self,
+        width: int,
+        node: nodes.Node,
+        is_docstring: bool = False,
+    ) -> str:
+        """Format a node.
+
+        :param width: Maximum line width for formatting.
+        :param node: The node to format.
+        :param is_docstring: Whether this is formatting a docstring.
+
+        :returns: Formatted string representation of the node.
+
+        """
+        self._in_docstring = is_docstring
+        formatted_node = "\n".join(
+            self.perform_format(
+                node,
+                FormatContext(
+                    width,
+                    black_config=self.black_config,
+                    current_file=self.current_file,
+                    is_docstring=is_docstring,
+                    manager=self,
+                ),
+            )
+        )
+        return f"{formatted_node}\n"
+
+    def get_code_line(self, code: str, strict: bool = False) -> int:
+        """Get the line number of the code in the file.
+
+        :param code: Code string to find.
+        :param strict: Whether to use strict mode.
+
+        :returns: Line number of the code in the file.
+
+        :raises ValueError: If the code is not found.
+
+        """
+        lines = self.original_text.splitlines()
+        code_lines = code.splitlines()
+        multiple = len([line for line in lines if code_lines[0] in line]) > 1
+        code_offset = self.current_offset - (1 if self._in_docstring else 0)
+        for line_number, line in enumerate(lines, 1):  # noqa: RET503
+            if line.endswith(code_lines[0]) if strict else code_lines[0] in line:
+                if multiple:
+                    current_offset = 0
+                    for offset, sub_line in enumerate(code_lines):
+                        current_offset = offset
+                        if not (
+                            lines[line_number - 1 + offset].endswith(sub_line)
+                            if strict
+                            else sub_line in lines[line_number - 1 + offset]
+                        ):
+                            break
+                    else:
+                        return line_number + current_offset + code_offset
+                else:
+                    return line_number + code_offset
+        msg = f"Code not found in {self.current_file}:\n{code}"  # pragma: no cover
+        raise ValueError(msg)  # pragma: no cover
+
+    def parse_string(
+        self,
+        text: str,
+        line_offset: int = 0,
+        *,
+        file: Path | str | None = None,
+    ) -> nodes.document:
+        """Parse a string of reStructuredText.
+
+        :param file: Name of the file being parsed.
+        :param text: Text content to parse.
+        :param line_offset: Line offset for error reporting.
+
+        :returns: Parsed document node.
+
+        """
+        if file:
+            self.current_file = file
+        self.current_offset = line_offset
+        self.original_text = text
+        self._patch_unknown_directives(text)
+        doc = new_document(str(self.current_file), self.settings)
+        parser = rst.Parser()
+        doc.reporter = IgnoreMessagesReporter(
+            "",
+            self.settings.report_level,  # type: ignore[arg-type]
+            self.settings.halt_level,  # type: ignore[arg-type]
+        )
+        parser.parse(text, doc)
+        input_lines = text.splitlines()
+        self._pre_process(doc, line_offset, len(input_lines))
+        self._register_adornments(input_lines, doc)
+        # Stash the source lines on the document for keep-blanks
+        doc.docstrfmt_source_lines = input_lines
+        return doc
+
+    def perform_format(
+        self,
+        node: nodes.Node,
+        context: FormatContext,
+    ) -> Iterator[str]:
+        """Format a node.
+
+        :param node: The node to format.
+        :param context: Formatting context.
+
+        :returns: Iterator of formatted lines.
+
+        :raises ValueError: If the node type is unknown.
+
+        """
+        try:
+            name = type(node).__name__
+            func = getattr(self.formatters, NODE_MAPPING.get(name, name))
+        except AttributeError:  # pragma: no cover
+            msg = f'Unknown node type {type(node).__name__} at File "{context.current_file}", line {node.line}'
+            raise ValueError(msg) from None
+        return func(node, context)
+
+
+class UnknownNodeTransformer(Transform):
+    """Transform to handle unknown nodes."""
+
+    default_priority = 0
+
+    def apply(self, **_: Any):
+        """Apply the transform.
+
+        :param _: Unused keyword arguments.
+
+        """
+        for node in self.document.findall(nodes.system_message):
+            try:
+                message = node.children[0].children[0].astext()
+            except IndexError:
+                continue
+            for regex, handler in unknown_handlers:
+                match = regex.match(message)
+                if match:
+                    handler(match.group(1))
+                    break
+
+
+# noinspection PyPep8Naming
+class inline_markup:
+    """An inline markup block."""
+
+    def __init__(self, text: str) -> None:
+        """Initialize the inline markup block.
+
+        :param text: The text content of the markup.
+
+        """
+        self.text = text
+
+
+inline_item = str | inline_markup
+
+
+inline_iterator = Iterator[inline_item]
 
 
 def _chain_with_line_separator(
@@ -2884,6 +2844,38 @@ def _enum_first(items: Iterable[T]) -> Iterator[tuple[bool, T]]:
 
     """
     return zip(itertools.chain([True], itertools.repeat(False)), items, strict=False)
+
+
+def _prepend_if_any(prefix: T, items: Iterator[T]) -> Iterator[T]:
+    """Prepend a prefix if there are any items.
+
+    :param prefix: Prefix to add to the first item.
+    :param items: Iterator of items.
+
+    :returns: Iterator with prefix prepended to first item if any items exist.
+
+    """
+    try:
+        item = next(items)
+    except StopIteration:
+        return
+    yield prefix
+    yield item
+    yield from items
+
+
+def _with_spaces(space_count: int, lines: Iterable[str]) -> Iterator[str]:
+    """Yield lines with the given number of leading spaces.
+
+    :param space_count: Number of spaces to add.
+    :param lines: Iterable of lines to indent.
+
+    :returns: Iterator of indented lines.
+
+    """
+    spaces = " " * space_count
+    for line in lines:
+        yield spaces + line if line else line
 
 
 def _wrap_text(
@@ -2987,3 +2979,16 @@ def _wrap_text(
         current_line_length = next_line_len
     if words:
         yield " ".join(words)
+
+
+def pairwise(items: Iterable[T]) -> Iterator[tuple[T, T]]:
+    """Return pairs of adjacent items from the iterable.
+
+    :param items: Iterable of items to pair.
+
+    :returns: Iterator of adjacent item pairs.
+
+    """
+    a, b = itertools.tee(items)
+    next(b, None)
+    return zip(a, b, strict=False)

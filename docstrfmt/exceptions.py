@@ -47,10 +47,6 @@ class InvalidRstError(ValueError):
 class InvalidRstErrors(DocstrfmtError, Sized):
     """Container for multiple invalid RST errors."""
 
-    def __len__(self) -> int:  # pragma: no cover
-        """Return the number of errors."""
-        return len(self.errors)
-
     def __init__(self, errors: list[InvalidRstError]) -> None:
         """Initialize the error container with a list of errors.
 
@@ -58,6 +54,10 @@ class InvalidRstErrors(DocstrfmtError, Sized):
 
         """
         self.errors = errors
+
+    def __len__(self) -> int:  # pragma: no cover
+        """Return the number of errors."""
+        return len(self.errors)
 
     def __str__(self) -> str:
         """Return a string representation of the errors."""
