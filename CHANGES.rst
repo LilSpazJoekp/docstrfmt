@@ -14,11 +14,16 @@
   can explicitly register custom directives and roles. Directive entries may be plain
   names or tables that opt out of the default raw handling (``raw = false``) so the
   body is reformatted as reST.
+- Added support for tables with cells that span multiple rows or columns. Such
+  tables are now formatted as grid tables instead of raising
+  ``NotImplementedError``.
 
 **Fixed**
 
 - The rows of a ``csv-table`` directive are no longer merged into a single line.
 - Fixed ``IndexError`` occurring when formatting bodies with duplicate targets.
+- The caption and options of the ``table`` directive are now preserved.
+
 
 
 ********************
