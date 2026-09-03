@@ -24,7 +24,7 @@ async def handler(request: web.Request) -> web.Response:
     body = await request.text()
 
     start_time = time.perf_counter()
-    manager = Manager(current_file="-", black_config=None, reporter=log)
+    manager = Manager(black_config=None, current_file="-", reporter=log)
     try:
         try:
             text = manager.format_node(
@@ -35,10 +35,10 @@ async def handler(request: web.Request) -> web.Response:
             raise ParseError(str(error)) from None
     except ParseError as error:  # pragma: no cover
         logging.warning(f"Failed to parse input: {error}")
-        resp = web.Response(status=400, reason=str(error))
+        resp = web.Response(reason=str(error), status=400)
     except Exception as error:  # pragma: no cover
         logging.exception("Error while handling request")
-        resp = web.Response(status=500, reason=str(error))
+        resp = web.Response(reason=str(error), status=500)
 
     end_time = time.perf_counter()
 
@@ -49,22 +49,26 @@ async def handler(request: web.Request) -> web.Response:
 rst_extras.register()
 
 
+class ParseError(Exception):  # pragma: no cover
+    """An error occurred while parsing the input."""
+
+
 @click.command()
 @click.option(
     "-h",
     "--bind-host",
     "bind_host",
-    type=str,
     default="localhost",
     show_default=True,
+    type=str,
 )
 @click.option(
     "-p",
     "--bind-port",
     "bind_port",
-    type=int,
     default=5219,
     show_default=True,
+    type=int,
 )
 def main(bind_host: str, bind_port: int) -> None:
     """Start the docstrfmt server.
@@ -76,7 +80,3 @@ def main(bind_host: str, bind_port: int) -> None:
     app = web.Application()
     app.add_routes([web.post("/", handler)])
     web.run_app(app, host=bind_host, port=bind_port)
-
-
-class ParseError(Exception):  # pragma: no cover
-    """An error occurred while parsing the input."""

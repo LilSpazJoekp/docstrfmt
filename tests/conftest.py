@@ -24,7 +24,7 @@ async def client(aiohttp_client):
 
 @pytest.fixture
 def manager():
-    yield Manager(current_file="<test_file>", black_config=black.Mode(), reporter=log)
+    yield Manager(black_config=black.Mode(), current_file="<test_file>", reporter=log)
 
 
 @pytest.fixture

@@ -19,49 +19,18 @@ from tests import node_eq
 test_lengths = [8, 13, 34, 55, 89, 144, 72]
 
 
-def _span_attributes(doc):
-    """Return the (morerows, morecols) pair of every table entry in the document."""
-    return [
-        (entry.get("morerows", 0), entry.get("morecols", 0))
-        for entry in doc.findall(nodes.entry)
-    ]
-
-
 def _entry(text, **attrs):
     node = nodes.entry("", nodes.paragraph(text=text))
     node.attributes.update(attrs)
     return node
 
 
-@pytest.mark.parametrize("length", test_lengths)
-def test_formatting(manager, length):
-    file = "tests/test_files/test_file.rst"
-    with open(file, encoding="utf-8") as f:
-        test_string = f.read()
-    doc = manager.parse_string(test_string, file=file)
-    output = manager.format_node(length, doc)
-    doc2 = manager.parse_string(output, file=file)
-    output2 = manager.format_node(length, doc2)
-    assert node_eq(doc, doc2)
-    assert output == output2
-
-
-@pytest.mark.parametrize("length", test_lengths)
-def test_grid_table_spans(manager, length):
-    """Grid tables with rowspan/colspan round-trip through the formatter."""
-    file = "tests/test_files/span_tables.rst"
-    with open(file, encoding="utf-8") as f:
-        test_string = f.read()
-    doc = manager.parse_string(test_string, file=file)
-    output = manager.format_node(length, doc)
-    doc2 = manager.parse_string(output, file=file)
-    output2 = manager.format_node(length, doc2)
-    assert node_eq(doc, doc2)
-    assert output == output2
-    # node_eq ignores span attributes, so check the geometry survived explicitly.
-    spans = _span_attributes(doc)
-    assert any(morerows or morecols for morerows, morecols in spans)
-    assert _span_attributes(doc2) == spans
+def _span_attributes(doc):
+    """Return the (morerows, morecols) pair of every table entry in the document."""
+    return [
+        (entry.get("morerows", 0), entry.get("morecols", 0))
+        for entry in doc.findall(nodes.entry)
+    ]
 
 
 def test_clip_to_width():
@@ -72,159 +41,17 @@ def test_clip_to_width():
     assert _clip_to_width("e\u0301x", 1) == "e\u0301"
 
 
-def test_grid_table_malformed_spans(manager):
-    """A grid table whose spans or entry counts don't fit the grid still renders."""
-    rows = [
-        nodes.row("", _entry("A", morecols=5), nodes.comment("", "ignored")),
-        nodes.row("", _entry("B", morerows=5), _entry("C"), _entry("extra")),
-    ]
-    context = FormatContext(30, "<test_file>", manager)
-    formatters = Formatters(manager)
-    lines = list(formatters._render_grid_table(context, rows, 2, 0))
-    assert lines == [
-        "+-------+",
-        "| A     |",
-        "+---+---+",
-        "| B | C |",
-        "+---+---+",
-    ]
-
-
-def test_grid_table_overlapping_spans(manager):
-    """A colspan that would overwrite an earlier rowspan is shrunk to fit."""
-    rows = [
-        nodes.row("", _entry("A"), _entry("B", morerows=1), _entry("C")),
-        nodes.row("", _entry("D", morecols=2), _entry("E")),
-    ]
-    context = FormatContext(30, "<test_file>", manager)
-    formatters = Formatters(manager)
-    lines = list(formatters._render_grid_table(context, rows, 3, 0))
-    assert lines == [
-        "+---+---+---+",
-        "| A | B | C |",
-        "+---+   +---+",
-        "| D |   | E |",
-        "+---+---+---+",
-    ]
-
-
-def test_unknown_node_transformer_skips_empty_system_message(manager):
-    doc = new_document("<test>", manager.settings)
-    sm = nodes.system_message("", type="WARNING")
-    sm.append(nodes.paragraph())
-    doc.append(sm)
-
-    UnknownNodeTransformer(doc).apply()
-
-
-def test_get_error_message_normal(manager):
-    sm = nodes.system_message("", type="WARNING")
-    sm.append(nodes.paragraph("", "the message"))
-    assert manager._get_error_message(sm) == "the message"
-
-
-def test_get_error_message_empty_paragraph(manager):
-    sm = nodes.system_message("", type="WARNING")
-    sm.append(nodes.paragraph())
-    assert manager._get_error_message(sm) == ""
-
-
-def test_get_error_message_no_children(manager):
-    sm = nodes.system_message("", type="WARNING", source="src", level=2)
-    assert manager._get_error_message(sm) == "src:: (WARNING/2) "
-
-
-def test_register_adornments_skips_empty_title_line(manager):
-    doc = new_document("<test>", manager.settings)
-    section = nodes.section()
-    title = nodes.title(text="Section")
-    title.line = 2
-    section.append(title)
-    doc.append(section)
-
-    manager._register_adornments(["Some text", "", "More text"], doc)
-
-    assert "adornment-character" not in section.attributes
-
-
-def test_target_formatter_falls_back_to_dupnames(manager):
-    target = nodes.target()
-    target.attributes["names"] = []
-    target.attributes["dupnames"] = ["mytarget"]
-    target.attributes["refuri"] = "https://example.com"
-    parent = nodes.section()
-    parent.append(target)
-
-    ctx = FormatContext(width=80, current_file="<test>", manager=manager)
-    assert list(manager.formatters.target(target, ctx)) == [
-        ".. _mytarget: https://example.com"
-    ]
-
-
-def test_substitution_definition_falls_back_to_dupnames(manager):
-    text = ".. |target| image:: pic.png"
-    doc = manager.parse_string(text)
-    sub = next(iter(doc.findall(nodes.substitution_definition)))
-    sub.attributes["names"] = []
-    sub.attributes["dupnames"] = ["target"]
-
-    ctx = FormatContext(width=80, current_file="<test>", manager=manager)
-    assert list(manager.formatters.substitution_definition(sub, ctx)) == [
-        ".. |target| image:: pic.png"
-    ]
-
-
-def test_pre_process_reports_childless_system_message(manager):
-    from docstrfmt.exceptions import InvalidRstErrors
-
-    doc = new_document("<test>", manager.settings)
-    sm = nodes.system_message("", type="WARNING", source="src", level=2)
-    doc.append(sm)
-
-    with pytest.raises(InvalidRstErrors) as excinfo:
-        manager._pre_process(doc, 0, 1)
-    assert len(excinfo.value.errors) == 1
-    assert excinfo.value.errors[0].message == "src:: (WARNING/2) "
-
-
-def test_substitution_definition_handles_missing_names(manager):
-    text = ".. |target| image:: pic.png\n   :alt: target"
-    doc = manager.parse_string(text)
-    sub = next(iter(doc.findall(nodes.substitution_definition)))
-    sub.attributes["names"] = []
-    sub.attributes["dupnames"] = []
-
-    ctx = FormatContext(width=80, current_file="<test>", manager=manager)
-    assert list(manager.formatters.substitution_definition(sub, ctx)) == [
-        ".. |target| image:: pic.png",
-        "    :alt: target",
-    ]
-
-
-def test_target_formatter_skips_unnamed_target(manager):
-    target = nodes.target()
-    target.attributes["names"] = []
-    target.attributes["dupnames"] = []
-    target.attributes["refuri"] = "https://example.com"
-    parent = nodes.section()
-    parent.append(target)
-
-    ctx = FormatContext(width=80, current_file="<test>", manager=manager)
-    assert list(manager.formatters.target(target, ctx)) == []
-
-
-def test_target_formatter_anonymous(manager):
-    target = nodes.target()
-    target.attributes["names"] = []
-    target.attributes["anonymous"] = 1
-    target.attributes["refuri"] = "https://example.com"
-    parent = nodes.section()
-    parent.append(target)
-
-    ctx = FormatContext(width=80, current_file="<test>", manager=manager)
-    assert list(manager.formatters.target(target, ctx)) == [
-        ".. __: https://example.com"
-    ]
+def test_custom_directive_names_are_case_insensitive():
+    """docutils looks directives up lowercased, so ``MyDir`` must still register."""
+    manager = Manager(
+        black_config=black.Mode(),
+        current_file="<in>",
+        custom_directives=[{"name": "MixedCase", "raw": False}],
+        reporter=logging.getLogger(__name__),
+    )
+    src = ".. mixedcase::\n\n   -   one\n\n.. MIXEDCASE::\n\n   -   two\n"
+    output = manager.format_node(80, manager.parse_string(src))
+    assert output == ".. mixedcase::\n\n    - one\n\n.. MIXEDCASE::\n\n    - two\n"
 
 
 def test_duplicate_targets_roundtrip(manager):
@@ -263,16 +90,118 @@ def test_duplicate_targets_roundtrip(manager):
     assert output == output2
 
 
+@pytest.mark.parametrize("length", test_lengths)
+def test_formatting(manager, length):
+    file = "tests/test_files/test_file.rst"
+    with open(file, encoding="utf-8") as f:
+        test_string = f.read()
+    doc = manager.parse_string(test_string, file=file)
+    output = manager.format_node(length, doc)
+    doc2 = manager.parse_string(output, file=file)
+    output2 = manager.format_node(length, doc2)
+    assert node_eq(doc, doc2)
+    assert output == output2
+
+
+def test_get_error_message_empty_paragraph(manager):
+    sm = nodes.system_message("", type="WARNING")
+    sm.append(nodes.paragraph())
+    assert manager._get_error_message(sm) == ""
+
+
+def test_get_error_message_no_children(manager):
+    sm = nodes.system_message("", level=2, source="src", type="WARNING")
+    assert manager._get_error_message(sm) == "src:: (WARNING/2) "
+
+
+def test_get_error_message_normal(manager):
+    sm = nodes.system_message("", type="WARNING")
+    sm.append(nodes.paragraph("", "the message"))
+    assert manager._get_error_message(sm) == "the message"
+
+
+def test_grid_table_combining_characters(manager):
+    """Combining marks ride on the preceding character instead of taking a slot."""
+    rows = [
+        nodes.row("", _entry("A"), _entry("B")),
+        nodes.row("", _entry("e\u0301 x", morecols=1)),
+    ]
+    context = FormatContext(30, "<test_file>", manager)
+    formatters = Formatters(manager)
+    lines = list(formatters._render_grid_table(context, rows, 2, 0))
+    assert lines == [
+        "+---+---+",
+        "| A | B |",
+        "+---+---+",
+        "| e\u0301 x   |",
+        "+-------+",
+    ]
+
+
+def test_grid_table_malformed_spans(manager):
+    """A grid table whose spans or entry counts don't fit the grid still renders."""
+    rows = [
+        nodes.row("", _entry("A", morecols=5), nodes.comment("", "ignored")),
+        nodes.row("", _entry("B", morerows=5), _entry("C"), _entry("extra")),
+    ]
+    context = FormatContext(30, "<test_file>", manager)
+    formatters = Formatters(manager)
+    lines = list(formatters._render_grid_table(context, rows, 2, 0))
+    assert lines == [
+        "+-------+",
+        "| A     |",
+        "+---+---+",
+        "| B | C |",
+        "+---+---+",
+    ]
+
+
+def test_grid_table_overlapping_spans(manager):
+    """A colspan that would overwrite an earlier rowspan is shrunk to fit."""
+    rows = [
+        nodes.row("", _entry("A"), _entry("B", morerows=1), _entry("C")),
+        nodes.row("", _entry("D", morecols=2), _entry("E")),
+    ]
+    context = FormatContext(30, "<test_file>", manager)
+    formatters = Formatters(manager)
+    lines = list(formatters._render_grid_table(context, rows, 3, 0))
+    assert lines == [
+        "+---+---+---+",
+        "| A | B | C |",
+        "+---+   +---+",
+        "| D |   | E |",
+        "+---+---+---+",
+    ]
+
+
+@pytest.mark.parametrize("length", test_lengths)
+def test_grid_table_spans(manager, length):
+    """Grid tables with rowspan/colspan round-trip through the formatter."""
+    file = "tests/test_files/span_tables.rst"
+    with open(file, encoding="utf-8") as f:
+        test_string = f.read()
+    doc = manager.parse_string(test_string, file=file)
+    output = manager.format_node(length, doc)
+    doc2 = manager.parse_string(output, file=file)
+    output2 = manager.format_node(length, doc2)
+    assert node_eq(doc, doc2)
+    assert output == output2
+    # node_eq ignores span attributes, so check the geometry survived explicitly.
+    spans = _span_attributes(doc)
+    assert any(morerows or morecols for morerows, morecols in spans)
+    assert _span_attributes(doc2) == spans
+
+
 def test_manager_registers_custom_directives_and_roles():
     manager = Manager(
-        current_file="<in>",
         black_config=black.Mode(),
-        reporter=logging.getLogger(__name__),
+        current_file="<in>",
         custom_directives=[
             "raw_default",
-            {"name": "formatted_body", "raw": False, "has_content": True},
+            {"has_content": True, "name": "formatted_body", "raw": False},
         ],
         custom_roles=["mycolor"],
+        reporter=logging.getLogger(__name__),
     )
     src = (
         ".. raw_default:: arg\n"
@@ -303,6 +232,32 @@ def test_manager_registers_custom_directives_and_roles():
     )
 
 
+def test_pre_process_reports_childless_system_message(manager):
+    from docstrfmt.exceptions import InvalidRstErrors
+
+    doc = new_document("<test>", manager.settings)
+    sm = nodes.system_message("", level=2, source="src", type="WARNING")
+    doc.append(sm)
+
+    with pytest.raises(InvalidRstErrors) as excinfo:
+        manager._pre_process(doc, 0, 1)
+    assert len(excinfo.value.errors) == 1
+    assert excinfo.value.errors[0].message == "src:: (WARNING/2) "
+
+
+def test_register_adornments_skips_empty_title_line(manager):
+    doc = new_document("<test>", manager.settings)
+    section = nodes.section()
+    title = nodes.title(text="Section")
+    title.line = 2
+    section.append(title)
+    doc.append(section)
+
+    manager._register_adornments(["Some text", "", "More text"], doc)
+
+    assert "adornment-character" not in section.attributes
+
+
 def test_register_custom_rejects_bad_spec():
     with pytest.raises(ValueError, match="non-empty 'name'"):
         register_custom(custom_directives=[{}])
@@ -317,7 +272,7 @@ def test_register_custom_rejects_bad_spec():
     with pytest.raises(ValueError, match="'optional_arguments' must be a non-negative"):
         register_custom(custom_directives=[{"name": "d", "optional_arguments": -1}])
     with pytest.raises(ValueError, match="unknown option"):
-        register_custom(custom_directives=[{"name": "d", "bogus": 1}])
+        register_custom(custom_directives=[{"bogus": 1, "name": "d"}])
     with pytest.raises(ValueError, match="custom role names must be non-empty"):
         register_custom(custom_roles=[""])
     with pytest.raises(ValueError, match="custom role names must be non-empty"):
@@ -329,39 +284,84 @@ def test_register_custom_rejects_bad_spec():
         register_custom(custom_roles="role")
     with pytest.raises(ValueError, match="custom_roles must be a list"):
         Manager(
-            current_file="<in>",
             black_config=black.Mode(),
-            reporter=logging.getLogger(__name__),
+            current_file="<in>",
             custom_roles="role",
+            reporter=logging.getLogger(__name__),
         )
 
 
-def test_custom_directive_names_are_case_insensitive():
-    """docutils looks directives up lowercased, so ``MyDir`` must still register."""
-    manager = Manager(
-        current_file="<in>",
-        black_config=black.Mode(),
-        reporter=logging.getLogger(__name__),
-        custom_directives=[{"name": "MixedCase", "raw": False}],
-    )
-    src = ".. mixedcase::\n\n   -   one\n\n.. MIXEDCASE::\n\n   -   two\n"
-    output = manager.format_node(80, manager.parse_string(src))
-    assert output == ".. mixedcase::\n\n    - one\n\n.. MIXEDCASE::\n\n    - two\n"
+def test_substitution_definition_falls_back_to_dupnames(manager):
+    text = ".. |target| image:: pic.png"
+    doc = manager.parse_string(text)
+    sub = next(iter(doc.findall(nodes.substitution_definition)))
+    sub.attributes["names"] = []
+    sub.attributes["dupnames"] = ["target"]
+
+    ctx = FormatContext(current_file="<test>", manager=manager, width=80)
+    assert list(manager.formatters.substitution_definition(sub, ctx)) == [
+        ".. |target| image:: pic.png"
+    ]
 
 
-def test_grid_table_combining_characters(manager):
-    """Combining marks ride on the preceding character instead of taking a slot."""
-    rows = [
-        nodes.row("", _entry("A"), _entry("B")),
-        nodes.row("", _entry("e\u0301 x", morecols=1)),
+def test_substitution_definition_handles_missing_names(manager):
+    text = ".. |target| image:: pic.png\n   :alt: target"
+    doc = manager.parse_string(text)
+    sub = next(iter(doc.findall(nodes.substitution_definition)))
+    sub.attributes["names"] = []
+    sub.attributes["dupnames"] = []
+
+    ctx = FormatContext(current_file="<test>", manager=manager, width=80)
+    assert list(manager.formatters.substitution_definition(sub, ctx)) == [
+        ".. |target| image:: pic.png",
+        "    :alt: target",
     ]
-    context = FormatContext(30, "<test_file>", manager)
-    formatters = Formatters(manager)
-    lines = list(formatters._render_grid_table(context, rows, 2, 0))
-    assert lines == [
-        "+---+---+",
-        "| A | B |",
-        "+---+---+",
-        "| e\u0301 x   |",
-        "+-------+",
+
+
+def test_target_formatter_anonymous(manager):
+    target = nodes.target()
+    target.attributes["names"] = []
+    target.attributes["anonymous"] = 1
+    target.attributes["refuri"] = "https://example.com"
+    parent = nodes.section()
+    parent.append(target)
+
+    ctx = FormatContext(current_file="<test>", manager=manager, width=80)
+    assert list(manager.formatters.target(target, ctx)) == [
+        ".. __: https://example.com"
     ]
+
+
+def test_target_formatter_falls_back_to_dupnames(manager):
+    target = nodes.target()
+    target.attributes["names"] = []
+    target.attributes["dupnames"] = ["mytarget"]
+    target.attributes["refuri"] = "https://example.com"
+    parent = nodes.section()
+    parent.append(target)
+
+    ctx = FormatContext(current_file="<test>", manager=manager, width=80)
+    assert list(manager.formatters.target(target, ctx)) == [
+        ".. _mytarget: https://example.com"
+    ]
+
+
+def test_target_formatter_skips_unnamed_target(manager):
+    target = nodes.target()
+    target.attributes["names"] = []
+    target.attributes["dupnames"] = []
+    target.attributes["refuri"] = "https://example.com"
+    parent = nodes.section()
+    parent.append(target)
+
+    ctx = FormatContext(current_file="<test>", manager=manager, width=80)
+    assert list(manager.formatters.target(target, ctx)) == []
+
+
+def test_unknown_node_transformer_skips_empty_system_message(manager):
+    doc = new_document("<test>", manager.settings)
+    sm = nodes.system_message("", type="WARNING")
+    sm.append(nodes.paragraph())
+    doc.append(sm)
+
+    UnknownNodeTransformer(doc).apply()

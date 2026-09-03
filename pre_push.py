@@ -28,29 +28,6 @@ def do_process(args, shell=False):
     return True
 
 
-def run_static():
-    """Runs the static tests.
-
-    Returns a statuscode of 0 if everything ran correctly. Otherwise, it will return
-    statuscode 1
-
-    """
-    success = True
-    success &= do_process(["pre-commit", "run", "--all-files"])
-
-    return success
-
-
-def run_unit():
-    """Runs the unit-tests.
-
-    Follows the behavior of the static tests, where any failed tests cause pre_push.py
-    to fail.
-
-    """
-    return do_process(["pytest"])
-
-
 def main():
     """Runs the main function.
 
@@ -64,8 +41,8 @@ def main():
         "-n",
         "--unstatic",
         action="store_true",
-        help="Do not run static tests (linting, formatting, etc.)",
         default=False,
+        help="Do not run static tests (linting, formatting, etc.)",
     )
     parser.add_argument(
         "-u",
@@ -92,6 +69,29 @@ def main():
     except KeyboardInterrupt:
         return int(not False)
     return int(not success)
+
+
+def run_static():
+    """Runs the static tests.
+
+    Returns a statuscode of 0 if everything ran correctly. Otherwise, it will return
+    statuscode 1
+
+    """
+    success = True
+    success &= do_process(["pre-commit", "run", "--all-files"])
+
+    return success
+
+
+def run_unit():
+    """Runs the unit-tests.
+
+    Follows the behavior of the static tests, where any failed tests cause pre_push.py
+    to fail.
+
+    """
+    return do_process(["pytest"])
 
 
 if __name__ == "__main__":

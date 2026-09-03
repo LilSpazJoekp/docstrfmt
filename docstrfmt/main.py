@@ -55,6 +55,309 @@ if TYPE_CHECKING:
 echo = partial(click.secho, err=True)
 
 
+class Reporter:
+    """A class to report messages."""
+
+    def __init__(self, level: int = 1):
+        """Initialize the reporter.
+
+        :param level: Verbosity level for reporting.
+
+        """
+        self.level = level
+        self.error_count = 0
+
+    def _log_message(self, message: str, level: int, **formatting_kwargs: Any):
+        """Log a message if the current level is sufficient.
+
+        :param message: Message to log.
+        :param level: Minimum level required to show the message.
+        :param formatting_kwargs: Additional formatting options for ``click.secho``.
+
+        """
+        if self.level >= level:
+            echo(message, **formatting_kwargs)
+            sys.stderr.flush()
+            sys.stdout.flush()
+
+    def debug(self, message: str, **formatting_kwargs: Any):
+        """Log a debug message.
+
+        :param message: Debug message to log.
+        :param formatting_kwargs: Additional formatting options for ``click.secho``.
+
+        """
+        self._log_message(message, 3, bold=False, fg="blue", **formatting_kwargs)
+
+    def error(self, message: str, **formatting_kwargs: Any):
+        """Log an error message.
+
+        :param message: Error message to log.
+        :param formatting_kwargs: Additional formatting options for ``click.secho``.
+
+        """
+        self._log_message(message, -1, bold=False, fg="red", **formatting_kwargs)
+
+    def print(self, message: str, level: int = 0, **formatting_kwargs: Any):
+        """Log a message.
+
+        :param message: Message to log.
+        :param level: Minimum level required to show the message.
+        :param formatting_kwargs: Additional formatting options for ``click.secho``.
+
+        """
+        formatting_kwargs.setdefault("bold", level == 0)
+        self._log_message(message, level, **formatting_kwargs)
+
+
+reporter = Reporter(0)
+
+
+class Visitor(CSTTransformer):
+    """A visitor to format docstrings."""
+
+    METADATA_DEPENDENCIES = (PositionProvider, ParentNodeProvider)
+
+    @staticmethod
+    def _assign_target_name(node: AssignTarget) -> str | None:
+        """Return a display name for an attribute docstring target."""
+        target = node.target
+        if isinstance(target, cst.Name):
+            return target.value
+        if isinstance(target, cst.Attribute):
+            return target.attr.value
+        return None
+
+    @staticmethod
+    def _escape_quoting(node: SimpleString) -> SimpleString:
+        """Escapes quotes in a docstring when necessary.
+
+        :param node: The SimpleString node to escape.
+
+        :returns: The escaped SimpleString node.
+
+        """
+        # handles quoting escaping once
+        for quote in ('"', "'"):
+            quoting = quote * 3
+            if node.value.startswith(quoting) and node.value.endswith(quoting):
+                inner_value = node.value[len(quoting) : -len(quoting)]
+                if quoting in inner_value:
+                    # Escape unescaped triple quotes
+                    pattern = re.compile(r"(?<!\\)(\\\\)*" + quoting)
+                    new_inner = pattern.sub(
+                        lambda m, quoting=quoting: m.group(0)[:-3] + "\\" + quoting,
+                        inner_value,
+                    )
+                    # Handle four quotes in a row
+                    new_inner = new_inner.replace(
+                        quoting + quote, f"{quoting}\\{quote}"
+                    )
+                    if new_inner != inner_value:
+                        node = node.with_changes(value=quoting + new_inner + quoting)
+                break
+        return node
+
+    def __init__(
+        self,
+        file: Path | str,
+        input_string: str,
+        line_length: int,
+        manager: Manager,
+        object_name: str,
+    ):
+        """Initialize the visitor.
+
+        :param file: Path to the file being processed.
+        :param input_string: Content of the file.
+        :param line_length: Maximum line length.
+        :param manager: Manager instance for formatting.
+        :param object_name: Name of the object being processed.
+
+        """
+        super().__init__()
+        self._last_assign: AssignTarget | None = None
+        self._object_names = [object_name]
+        self._object_type = None
+        self._blank_line = manager.docstring_trailing_line
+        self.file = file
+        self.line_length = line_length
+        self.manager = manager
+        self.misformatted = False
+        self.error_count = 0
+        self.line_resolver = LineResolver(self.file, input_string)
+
+    def _is_docstring(self, node: SimpleString) -> bool:
+        """Check if the node is a docstring.
+
+        :param node: The SimpleString node to check.
+
+        :returns: True if the node is a docstring, False otherwise.
+
+        """
+        return node.quote.startswith(('"""', "'''")) and isinstance(
+            self.get_metadata(ParentNodeProvider, node), Expr
+        )
+
+    def leave_ClassDef(
+        self,
+        original_node: ClassDef,
+        updated_node: ClassDef,
+    ) -> ClassDef:
+        """Remove the class name from the object name stack.
+
+        :param original_node: The original ClassDef node.
+        :param updated_node: The updated ClassDef node.
+
+        :returns: The updated ClassDef node.
+
+        """
+        self._object_names.pop(-1)
+        return updated_node
+
+    def leave_FunctionDef(
+        self,
+        original_node: FunctionDef,
+        updated_node: FunctionDef,
+    ) -> FunctionDef:
+        """Remove the function name from the object name stack.
+
+        :param original_node: The original FunctionDef node.
+        :param updated_node: The updated FunctionDef node.
+
+        :returns: The updated FunctionDef node.
+
+        """
+        self._object_names.pop(-1)
+        return updated_node
+
+    def leave_SimpleString(  # noqa: N802
+        self, original_node: SimpleString, updated_node: SimpleString
+    ) -> SimpleString:
+        """Format the docstring.
+
+        :param original_node: The original SimpleString node.
+        :param updated_node: The updated SimpleString node.
+
+        :returns: The formatted SimpleString node.
+
+        """
+        if self._is_docstring(original_node):
+            position_meta = self.get_metadata(PositionProvider, original_node)
+            old_object_type = None
+            assigned_object_name = None
+            if self._last_assign:
+                assigned_object_name = self._assign_target_name(self._last_assign)
+                if assigned_object_name:
+                    self._object_names.append(assigned_object_name)
+                old_object_type = copy(self._object_type)
+                self._object_type = "attribute"
+            indent_level = position_meta.start.column  # type: ignore[attr]
+            source = dedent(
+                (" " * indent_level) + str(original_node.evaluated_value)
+            ).rstrip()
+            doc = self.manager.parse_string(
+                source, self.line_resolver.offset(original_node.value), file=self.file
+            )
+            if reporter.level >= 3:
+                reporter.debug("=" * 60)
+                reporter.debug(dump_node(doc))
+            width = self.line_length - indent_level
+            if width < 1:
+                self.error_count += 1
+                msg = f"Invalid starting width {self.line_length}"
+                raise ValueError(msg)
+            try:
+                output = self.manager.format_node(width, doc, True).rstrip()
+            except InvalidRstErrors as errors:
+                self.error_count += 1
+                reporter.error(str(errors))
+                return updated_node
+            self.error_count += self.manager.error_count
+            self.manager.error_count = 0
+            object_display_name = (
+                f"{self._object_type} {'.'.join(self._object_names)!r}"
+            )
+            single_line = len(output.splitlines()) == 1
+            original_strip = str(original_node.evaluated_value).rstrip(" ")
+            end_line_count = len(original_strip) - len(original_strip.rstrip("\n"))
+            ending = "" if single_line else "\n\n" if self._blank_line else "\n"
+            if single_line:
+                correct_ending = end_line_count == 0
+            else:
+                correct_ending = int(self._blank_line) + 1 == end_line_count
+            if source == output and correct_ending:
+                reporter.print(
+                    f"Docstring for {object_display_name} in file {str(self.file)!r} is"
+                    " formatted correctly. Nice!",
+                    1,
+                )
+            else:
+                self.misformatted = True
+                file_link = f'File "{self.file}"'
+                reporter.print(
+                    "Found incorrectly formatted docstring. Docstring for"
+                    f" {object_display_name} in {file_link}.",
+                    1,
+                )
+                value = indent(
+                    f'{original_node.prefix}"""{output}{ending}"""', " " * indent_level
+                ).lstrip()
+                updated_node = updated_node.with_changes(value=value)
+                updated_node = self._escape_quoting(updated_node)
+            if self._last_assign:
+                self._last_assign = None
+                if assigned_object_name:
+                    self._object_names.pop(-1)
+                self._object_type = old_object_type
+        return updated_node
+
+    def visit_AssignTarget_target(self, node: AssignTarget) -> None:
+        """Set the last assign node.
+
+        :param node: The AssignTarget node.
+
+        """
+        self._last_assign = node
+
+    def visit_ClassDef(self, node: ClassDef) -> bool | None:
+        """Set the object type to class.
+
+        :param node: The ClassDef node.
+
+        :returns: True to continue visiting children.
+
+        """
+        self._object_names.append(node.name.value)
+        self._object_type = "class"
+        self._last_assign = None
+        return True
+
+    def visit_FunctionDef(self, node: FunctionDef) -> bool | None:
+        """Set the object type to function.
+
+        :param node: The FunctionDef node.
+
+        :returns: True to continue visiting children.
+
+        """
+        self._object_names.append(node.name.value)
+        self._object_type = "function"
+        self._last_assign = None
+        return True
+
+    def visit_Module(self, node: Module) -> bool | None:
+        """Set the object type to module.
+
+        :param node: The Module node.
+
+        :returns: True to continue visiting children.
+
+        """
+        self._object_type = "module"
+        return True
+
+
 def _format_file(
     check: bool,
     file: Path,
@@ -103,10 +406,10 @@ def _format_file(
     error_count = 0
     try:
         manager = Manager(
-            current_file=file.name,
             black_config=mode,
             bullet_list_marker=bullet_list_marker,
             center_section_titles=center_section_titles,
+            current_file=file.name,
             custom_directives=custom_directives,
             custom_roles=custom_roles,
             docstring_trailing_line=docstring_trailing_line,
@@ -172,6 +475,36 @@ def _format_file(
         error_count += 1
         reporter.print(f"Failed to format '{str(file)}'")
     return misformatted, error_count
+
+
+def _merge_custom_entries(
+    configured: list[Any], from_cli: tuple[str, ...]
+) -> list[Any]:
+    """Merge custom directive/role entries from pyproject.toml and the CLI.
+
+    Entries from pyproject.toml take precedence: a CLI name is only added when no
+    configured entry already uses that name, so a plain ``--custom-directive name``
+    can never override a richer table (e.g. ``raw = false``) for the same name.
+    Duplicates within either source are dropped, keeping the first occurrence.
+    Names are compared case-insensitively, matching docutils' own lookup rules.
+
+    :param configured: Entries from pyproject.toml (names or tables).
+    :param from_cli: Names supplied on the command line.
+
+    :returns: The merged, de-duplicated list of entries.
+
+    """
+    merged: list[Any] = []
+    seen: set[str] = set()
+    for entry in list(configured) + list(from_cli):
+        name = entry.get("name") if isinstance(entry, dict) else entry
+        # Non-string names are kept so register_custom() can report them.
+        if isinstance(name, str):
+            if name.lower() in seen:
+                continue
+            seen.add(name.lower())
+        merged.append(entry)
+    return merged
 
 
 def _parse_pyproject_config(
@@ -414,37 +747,6 @@ def _process_rst(
     return misformatted, error_count
 
 
-def _validate_adornments(
-    context: click.Context, _: click.Parameter, value: str | None
-) -> list[tuple[str, bool]] | None:
-    """Validate and parse section adornments configuration.
-
-    :param context: Click context containing command parameters.
-    :param _: Unused parameter.
-    :param value: Section adornments string from the command line or pyproject.toml.
-
-    :returns: List of tuples containing (character, has_overline) for each adornment.
-
-    :raises click.BadParameter: If adornments are not unique.
-
-    """
-    actual_value = SECTION_CHARS if value is None else value
-
-    if len(actual_value) != len(set(actual_value)):
-        msg = "Section adornments must be unique"
-        raise click.BadParameter(msg)
-
-    if "|" in actual_value:
-        with_overline, without_overline = actual_value.split("|", 1)
-        adornments = list(zip(with_overline, itertools.repeat(True))) + list(
-            zip(without_overline, itertools.repeat(False))
-        )
-    else:
-        adornments = list(zip(actual_value, itertools.repeat(False)))
-
-    return adornments
-
-
 async def _run_formatter(
     check: bool,
     file_type: str,
@@ -564,6 +866,37 @@ async def _run_formatter(
     return misformatted_files, error_count
 
 
+def _validate_adornments(
+    context: click.Context, _: click.Parameter, value: str | None
+) -> list[tuple[str, bool]] | None:
+    """Validate and parse section adornments configuration.
+
+    :param context: Click context containing command parameters.
+    :param _: Unused parameter.
+    :param value: Section adornments string from the command line or pyproject.toml.
+
+    :returns: List of tuples containing (character, has_overline) for each adornment.
+
+    :raises click.BadParameter: If adornments are not unique.
+
+    """
+    actual_value = SECTION_CHARS if value is None else value
+
+    if len(actual_value) != len(set(actual_value)):
+        msg = "Section adornments must be unique"
+        raise click.BadParameter(msg)
+
+    if "|" in actual_value:
+        with_overline, without_overline = actual_value.split("|", 1)
+        adornments = list(zip(with_overline, itertools.repeat(True))) + list(
+            zip(without_overline, itertools.repeat(False))
+        )
+    else:
+        adornments = list(zip(actual_value, itertools.repeat(False)))
+
+    return adornments
+
+
 def _write_output(
     file: Path | str,
     output: str,
@@ -597,361 +930,6 @@ def cancel(tasks: Iterable[asyncio.Future[Any]]) -> None:  # pragma: no cover
         task.cancel()
 
 
-def shutdown(loop: asyncio.AbstractEventLoop) -> None:  # pragma: no cover
-    """Cancel all pending tasks on `loop`, wait for them, and close the loop.
-
-    :param loop: The asyncio event loop to shut down.
-
-    """
-    try:
-        all_tasks = asyncio.all_tasks
-        # This part is borrowed from asyncio/runners.py in Python 3.7b2.
-        to_cancel = [task for task in all_tasks(loop) if not task.done()]
-        if not to_cancel:
-            return
-
-        for task in to_cancel:
-            task.cancel()
-        loop.run_until_complete(asyncio.gather(*to_cancel, return_exceptions=True))
-    finally:
-        # `concurrent.futures.Future` objects cannot be cancelled once they
-        # are already running. There might be some when the `shutdown()` happened.
-        # Silence their logger's spew about the event loop being closed.
-        cf_logger = logging.getLogger("concurrent.futures")
-        cf_logger.setLevel(logging.CRITICAL)
-        loop.close()
-
-
-class Reporter:
-    """A class to report messages."""
-
-    def __init__(self, level: int = 1):
-        """Initialize the reporter.
-
-        :param level: Verbosity level for reporting.
-
-        """
-        self.level = level
-        self.error_count = 0
-
-    def _log_message(self, message: str, level: int, **formatting_kwargs: Any):
-        """Log a message if the current level is sufficient.
-
-        :param message: Message to log.
-        :param level: Minimum level required to show the message.
-        :param formatting_kwargs: Additional formatting options for ``click.secho``.
-
-        """
-        if self.level >= level:
-            echo(message, **formatting_kwargs)
-            sys.stderr.flush()
-            sys.stdout.flush()
-
-    def debug(self, message: str, **formatting_kwargs: Any):
-        """Log a debug message.
-
-        :param message: Debug message to log.
-        :param formatting_kwargs: Additional formatting options for ``click.secho``.
-
-        """
-        self._log_message(message, 3, bold=False, fg="blue", **formatting_kwargs)
-
-    def error(self, message: str, **formatting_kwargs: Any):
-        """Log an error message.
-
-        :param message: Error message to log.
-        :param formatting_kwargs: Additional formatting options for ``click.secho``.
-
-        """
-        self._log_message(message, -1, bold=False, fg="red", **formatting_kwargs)
-
-    def print(self, message: str, level: int = 0, **formatting_kwargs: Any):
-        """Log a message.
-
-        :param message: Message to log.
-        :param level: Minimum level required to show the message.
-        :param formatting_kwargs: Additional formatting options for ``click.secho``.
-
-        """
-        formatting_kwargs.setdefault("bold", level == 0)
-        self._log_message(message, level, **formatting_kwargs)
-
-
-class Visitor(CSTTransformer):
-    """A visitor to format docstrings."""
-
-    METADATA_DEPENDENCIES = (PositionProvider, ParentNodeProvider)
-
-    def __init__(
-        self,
-        file: Path | str,
-        input_string: str,
-        line_length: int,
-        manager: Manager,
-        object_name: str,
-    ):
-        """Initialize the visitor.
-
-        :param file: Path to the file being processed.
-        :param input_string: Content of the file.
-        :param line_length: Maximum line length.
-        :param manager: Manager instance for formatting.
-        :param object_name: Name of the object being processed.
-
-        """
-        super().__init__()
-        self._last_assign: AssignTarget | None = None
-        self._object_names = [object_name]
-        self._object_type = None
-        self._blank_line = manager.docstring_trailing_line
-        self.file = file
-        self.line_length = line_length
-        self.manager = manager
-        self.misformatted = False
-        self.error_count = 0
-        self.line_resolver = LineResolver(self.file, input_string)
-
-    def _is_docstring(self, node: SimpleString) -> bool:
-        """Check if the node is a docstring.
-
-        :param node: The SimpleString node to check.
-
-        :returns: True if the node is a docstring, False otherwise.
-
-        """
-        return node.quote.startswith(('"""', "'''")) and isinstance(
-            self.get_metadata(ParentNodeProvider, node), Expr
-        )
-
-    def leave_ClassDef(
-        self,
-        original_node: ClassDef,
-        updated_node: ClassDef,
-    ) -> ClassDef:
-        """Remove the class name from the object name stack.
-
-        :param original_node: The original ClassDef node.
-        :param updated_node: The updated ClassDef node.
-
-        :returns: The updated ClassDef node.
-
-        """
-        self._object_names.pop(-1)
-        return updated_node
-
-    def leave_FunctionDef(
-        self,
-        original_node: FunctionDef,
-        updated_node: FunctionDef,
-    ) -> FunctionDef:
-        """Remove the function name from the object name stack.
-
-        :param original_node: The original FunctionDef node.
-        :param updated_node: The updated FunctionDef node.
-
-        :returns: The updated FunctionDef node.
-
-        """
-        self._object_names.pop(-1)
-        return updated_node
-
-    @staticmethod
-    def _escape_quoting(node: SimpleString) -> SimpleString:
-        """Escapes quotes in a docstring when necessary.
-
-        :param node: The SimpleString node to escape.
-
-        :returns: The escaped SimpleString node.
-
-        """
-        # handles quoting escaping once
-        for quote in ('"', "'"):
-            quoting = quote * 3
-            if node.value.startswith(quoting) and node.value.endswith(quoting):
-                inner_value = node.value[len(quoting) : -len(quoting)]
-                if quoting in inner_value:
-                    # Escape unescaped triple quotes
-                    pattern = re.compile(r"(?<!\\)(\\\\)*" + quoting)
-                    new_inner = pattern.sub(
-                        lambda m, quoting=quoting: m.group(0)[:-3] + "\\" + quoting,
-                        inner_value,
-                    )
-                    # Handle four quotes in a row
-                    new_inner = new_inner.replace(
-                        quoting + quote, f"{quoting}\\{quote}"
-                    )
-                    if new_inner != inner_value:
-                        node = node.with_changes(value=quoting + new_inner + quoting)
-                break
-        return node
-
-    @staticmethod
-    def _assign_target_name(node: AssignTarget) -> str | None:
-        """Return a display name for an attribute docstring target."""
-        target = node.target
-        if isinstance(target, cst.Name):
-            return target.value
-        if isinstance(target, cst.Attribute):
-            return target.attr.value
-        return None
-
-    def leave_SimpleString(  # noqa: N802
-        self, original_node: SimpleString, updated_node: SimpleString
-    ) -> SimpleString:
-        """Format the docstring.
-
-        :param original_node: The original SimpleString node.
-        :param updated_node: The updated SimpleString node.
-
-        :returns: The formatted SimpleString node.
-
-        """
-        if self._is_docstring(original_node):
-            position_meta = self.get_metadata(PositionProvider, original_node)
-            old_object_type = None
-            assigned_object_name = None
-            if self._last_assign:
-                assigned_object_name = self._assign_target_name(self._last_assign)
-                if assigned_object_name:
-                    self._object_names.append(assigned_object_name)
-                old_object_type = copy(self._object_type)
-                self._object_type = "attribute"
-            indent_level = position_meta.start.column  # type: ignore[attr]
-            source = dedent(
-                (" " * indent_level) + str(original_node.evaluated_value)
-            ).rstrip()
-            doc = self.manager.parse_string(
-                source, self.line_resolver.offset(original_node.value), file=self.file
-            )
-            if reporter.level >= 3:
-                reporter.debug("=" * 60)
-                reporter.debug(dump_node(doc))
-            width = self.line_length - indent_level
-            if width < 1:
-                self.error_count += 1
-                msg = f"Invalid starting width {self.line_length}"
-                raise ValueError(msg)
-            try:
-                output = self.manager.format_node(width, doc, True).rstrip()
-            except InvalidRstErrors as errors:
-                self.error_count += 1
-                reporter.error(str(errors))
-                return updated_node
-            self.error_count += self.manager.error_count
-            self.manager.error_count = 0
-            object_display_name = (
-                f"{self._object_type} {'.'.join(self._object_names)!r}"
-            )
-            single_line = len(output.splitlines()) == 1
-            original_strip = str(original_node.evaluated_value).rstrip(" ")
-            end_line_count = len(original_strip) - len(original_strip.rstrip("\n"))
-            ending = "" if single_line else "\n\n" if self._blank_line else "\n"
-            if single_line:
-                correct_ending = end_line_count == 0
-            else:
-                correct_ending = int(self._blank_line) + 1 == end_line_count
-            if source == output and correct_ending:
-                reporter.print(
-                    f"Docstring for {object_display_name} in file {str(self.file)!r} is"
-                    " formatted correctly. Nice!",
-                    1,
-                )
-            else:
-                self.misformatted = True
-                file_link = f'File "{self.file}"'
-                reporter.print(
-                    "Found incorrectly formatted docstring. Docstring for"
-                    f" {object_display_name} in {file_link}.",
-                    1,
-                )
-                value = indent(
-                    f'{original_node.prefix}"""{output}{ending}"""', " " * indent_level
-                ).lstrip()
-                updated_node = updated_node.with_changes(value=value)
-                updated_node = self._escape_quoting(updated_node)
-            if self._last_assign:
-                self._last_assign = None
-                if assigned_object_name:
-                    self._object_names.pop(-1)
-                self._object_type = old_object_type
-        return updated_node
-
-    def visit_AssignTarget_target(self, node: AssignTarget) -> None:
-        """Set the last assign node.
-
-        :param node: The AssignTarget node.
-
-        """
-        self._last_assign = node
-
-    def visit_ClassDef(self, node: ClassDef) -> bool | None:
-        """Set the object type to class.
-
-        :param node: The ClassDef node.
-
-        :returns: True to continue visiting children.
-
-        """
-        self._object_names.append(node.name.value)
-        self._object_type = "class"
-        self._last_assign = None
-        return True
-
-    def visit_FunctionDef(self, node: FunctionDef) -> bool | None:
-        """Set the object type to function.
-
-        :param node: The FunctionDef node.
-
-        :returns: True to continue visiting children.
-
-        """
-        self._object_names.append(node.name.value)
-        self._object_type = "function"
-        self._last_assign = None
-        return True
-
-    def visit_Module(self, node: Module) -> bool | None:
-        """Set the object type to module.
-
-        :param node: The Module node.
-
-        :returns: True to continue visiting children.
-
-        """
-        self._object_type = "module"
-        return True
-
-
-def _merge_custom_entries(
-    configured: list[Any], from_cli: tuple[str, ...]
-) -> list[Any]:
-    """Merge custom directive/role entries from pyproject.toml and the CLI.
-
-    Entries from pyproject.toml take precedence: a CLI name is only added when no
-    configured entry already uses that name, so a plain ``--custom-directive name``
-    can never override a richer table (e.g. ``raw = false``) for the same name.
-    Duplicates within either source are dropped, keeping the first occurrence.
-    Names are compared case-insensitively, matching docutils' own lookup rules.
-
-    :param configured: Entries from pyproject.toml (names or tables).
-    :param from_cli: Names supplied on the command line.
-
-    :returns: The merged, de-duplicated list of entries.
-
-    """
-    merged: list[Any] = []
-    seen: set[str] = set()
-    for entry in list(configured) + list(from_cli):
-        name = entry.get("name") if isinstance(entry, dict) else entry
-        # Non-string names are kept so register_custom() can report them.
-        if isinstance(name, str):
-            if name.lower() in seen:
-                continue
-            seen.add(name.lower())
-        merged.append(entry)
-    return merged
-
-
 # noinspection PyUnusedLocal
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
 @click.option(
@@ -974,32 +952,32 @@ def _merge_custom_entries(
 @click.option(
     "-c",
     "--check",
-    is_flag=True,
     help=(
         "Check files and returns a non-zero code if files are not formatted correctly."
         " Useful for linting. Ignored if --raw-input, --raw-output, or stdin is used."
     ),
+    is_flag=True,
 )
 @click.option(
     "--custom-directive",
     "custom_directives_cli",
-    multiple=True,
-    type=str,
     help=(
         "Register a custom directive by name. Can be repeated. The directive is"
         " treated as raw (its body is preserved verbatim). For richer options (e.g."
         " to format the body), use the 'custom_directives' key in pyproject.toml."
     ),
+    multiple=True,
+    type=str,
 )
 @click.option(
     "--custom-role",
     "custom_roles_cli",
-    multiple=True,
-    type=str,
     help=(
         "Register a custom role by name. Can be repeated. Also configurable via the"
         " 'custom_roles' key in pyproject.toml."
     ),
+    multiple=True,
+    type=str,
 )
 @click.option(
     "--docstring-trailing-line/--no-docstring-trailing-line",
@@ -1009,13 +987,13 @@ def _merge_custom_entries(
 @click.option(
     "-e",
     "--exclude",
-    type=str,
-    multiple=True,
     default=DEFAULT_EXCLUDE,
     help=(
         "Path(s) to directories/files to exclude in formatting. Supports glob patterns."
     ),
+    multiple=True,
     show_default=True,
+    type=str,
 )
 @click.option(
     "-x",
@@ -1056,10 +1034,10 @@ def _merge_custom_entries(
 @click.option(
     "-w",
     "--indent-width",
-    type=click.IntRange(3, 4),
     default=4,
-    show_default=True,
     help="Number of spaces per indentation level. Must be 3 or 4.",
+    show_default=True,
+    type=click.IntRange(3, 4),
 )
 @click.option(
     "--keep-blanks",
@@ -1069,12 +1047,12 @@ def _merge_custom_entries(
 @click.option(
     "-l",
     "--line-length",
-    type=click.IntRange(4),
     help=(
         "Wrap lines to the given line length where possible. Takes precedence over"
         " 'line-length' set in pyproject.toml if set. Defaults to the length provided"
         " to black if not set."
     ),
+    type=click.IntRange(4),
 )
 @click.option(
     "--ordered-marker",
@@ -1096,17 +1074,17 @@ def _merge_custom_entries(
     "-p",
     "--pyproject-config",
     "mode",
-    type=click.Path(
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        readable=True,
-        allow_dash=False,
-        path_type=str,
-    ),
-    is_eager=True,
     callback=_parse_pyproject_config,
     help="Path to pyproject.toml. Used to load settings.",
+    is_eager=True,
+    type=click.Path(
+        allow_dash=False,
+        dir_okay=False,
+        exists=True,
+        file_okay=True,
+        path_type=str,
+        readable=True,
+    ),
 )
 @click.option(
     "-q",
@@ -1135,9 +1113,8 @@ def _merge_custom_entries(
 @click.option(
     "-s",
     "--section-adornments",
-    type=str,
+    callback=_validate_adornments,
     default=SECTION_CHARS,
-    show_default=True,
     help=(
         "Define adornments for part/chapter/section headers. It defines a sequence of"
         " adornments to use for each individual section depth. The list must be"
@@ -1146,7 +1123,8 @@ def _merge_custom_entries(
         " used, then it defines sections (left portion) that will have overlines"
         " besides underlines only (right portion). Overrides --preserve-adornments."
     ),
-    callback=_validate_adornments,
+    show_default=True,
+    type=str,
 )
 @click.option(
     "-v",
@@ -1158,7 +1136,7 @@ def _merge_custom_entries(
     ),
 )
 @click.version_option(version=__version__)
-@click.argument("files", nargs=-1, type=str, callback=_parse_sources)
+@click.argument("files", callback=_parse_sources, nargs=-1, type=str)
 @click.pass_context
 def main(
     context: Context,
@@ -1249,10 +1227,10 @@ def main(
     if raw_input:
         file = "<raw_input>"
         manager = Manager(
-            current_file=file,
             black_config=mode,
             bullet_list_marker=bullet_list_marker,
             center_section_titles=center_section_titles,
+            current_file=file,
             custom_directives=custom_directives,
             custom_roles=custom_roles,
             docstring_trailing_line=docstring_trailing_line,
@@ -1393,7 +1371,30 @@ def main(
     context.exit(0)
 
 
-reporter = Reporter(0)
+def shutdown(loop: asyncio.AbstractEventLoop) -> None:  # pragma: no cover
+    """Cancel all pending tasks on `loop`, wait for them, and close the loop.
+
+    :param loop: The asyncio event loop to shut down.
+
+    """
+    try:
+        all_tasks = asyncio.all_tasks
+        # This part is borrowed from asyncio/runners.py in Python 3.7b2.
+        to_cancel = [task for task in all_tasks(loop) if not task.done()]
+        if not to_cancel:
+            return
+
+        for task in to_cancel:
+            task.cancel()
+        loop.run_until_complete(asyncio.gather(*to_cancel, return_exceptions=True))
+    finally:
+        # `concurrent.futures.Future` objects cannot be cancelled once they
+        # are already running. There might be some when the `shutdown()` happened.
+        # Silence their logger's spew about the event loop being closed.
+        cf_logger = logging.getLogger("concurrent.futures")
+        cf_logger.setLevel(logging.CRITICAL)
+        loop.close()
+
 
 if __name__ == "__main__":  # pragma: no cover
     freeze_support()
