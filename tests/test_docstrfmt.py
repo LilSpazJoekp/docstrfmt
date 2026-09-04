@@ -12,7 +12,7 @@ from docstrfmt.docstrfmt import (
     _clip_to_width,
 )
 
-from docstrfmt import Manager
+from docstrfmt import FormatOptions, Manager
 from docstrfmt.rst_extras import register_custom
 from tests import node_eq
 
@@ -44,9 +44,11 @@ def test_clip_to_width():
 def test_custom_directive_names_are_case_insensitive():
     """docutils looks directives up lowercased, so ``MyDir`` must still register."""
     manager = Manager(
-        black_config=black.Mode(),
         current_file="<in>",
-        custom_directives=[{"name": "MixedCase", "raw": False}],
+        options=FormatOptions(
+            black_config=black.Mode(),
+            custom_directives=[{"name": "MixedCase", "raw": False}],
+        ),
         reporter=logging.getLogger(__name__),
     )
     src = ".. mixedcase::\n\n   -   one\n\n.. MIXEDCASE::\n\n   -   two\n"
@@ -88,6 +90,24 @@ def test_duplicate_targets_roundtrip(manager):
     output2 = manager.format_node(120, doc2)
     assert node_eq(doc, doc2)
     assert output == output2
+
+
+def test_format_options_freezes_sequence_fields():
+    """Lists passed in are stored as tuples so a shared options object stays fixed."""
+    directives = ["one"]
+    adornments = [("=", True)]
+    options = FormatOptions(
+        custom_directives=directives,
+        custom_roles=["role"],
+        section_adornments=adornments,
+    )
+    directives.append("two")
+    adornments.clear()
+    assert options.custom_directives == ("one",)
+    assert options.custom_roles == ("role",)
+    assert options.section_adornments == (("=", True),)
+    # Non-sequence values are left alone so Manager still reports them clearly.
+    assert FormatOptions(custom_roles="role").custom_roles == "role"
 
 
 @pytest.mark.parametrize("length", test_lengths)
@@ -194,13 +214,15 @@ def test_grid_table_spans(manager, length):
 
 def test_manager_registers_custom_directives_and_roles():
     manager = Manager(
-        black_config=black.Mode(),
         current_file="<in>",
-        custom_directives=[
-            "raw_default",
-            {"has_content": True, "name": "formatted_body", "raw": False},
-        ],
-        custom_roles=["mycolor"],
+        options=FormatOptions(
+            black_config=black.Mode(),
+            custom_directives=[
+                "raw_default",
+                {"has_content": True, "name": "formatted_body", "raw": False},
+            ],
+            custom_roles=["mycolor"],
+        ),
         reporter=logging.getLogger(__name__),
     )
     src = (
@@ -284,9 +306,8 @@ def test_register_custom_rejects_bad_spec():
         register_custom(custom_roles="role")
     with pytest.raises(ValueError, match="custom_roles must be a list"):
         Manager(
-            black_config=black.Mode(),
             current_file="<in>",
-            custom_roles="role",
+            options=FormatOptions(black_config=black.Mode(), custom_roles="role"),
             reporter=logging.getLogger(__name__),
         )
 

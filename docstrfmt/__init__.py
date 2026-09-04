@@ -8,5 +8,6 @@ from .const import (
     SECTION_CHARS,
 )
 from .docstrfmt import Manager
+from .options import FormatOptions, RunOptions
 
 __version__ = "2.2.2.dev0"
