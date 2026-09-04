@@ -39,7 +39,7 @@ from sphinx.roles import generic_docroles, specific_docroles
 from . import ROLE_ALIASES
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Sequence
 
 T = TypeVar("T")
 CustomDirectiveSpec = str | dict[str, Any]
@@ -331,8 +331,8 @@ def register() -> None:
 
 
 def register_custom(
-    custom_directives: list[CustomDirectiveSpec] | None = None,
-    custom_roles: list[str] | None = None,
+    custom_directives: Sequence[CustomDirectiveSpec] | None = None,
+    custom_roles: Sequence[str] | None = None,
 ) -> None:
     """Register user-supplied directives and roles.
 
@@ -364,8 +364,8 @@ def register_custom(
 
 
 def validate_custom(
-    custom_directives: list[CustomDirectiveSpec] | None = None,
-    custom_roles: list[str] | None = None,
+    custom_directives: Sequence[CustomDirectiveSpec] | None = None,
+    custom_roles: Sequence[str] | None = None,
 ) -> list[tuple[str, dict[str, Any]]]:
     """Validate user-supplied directive and role configuration.
 

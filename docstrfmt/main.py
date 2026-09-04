@@ -13,6 +13,7 @@ import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from contextlib import nullcontext
 from copy import copy
+from dataclasses import replace
 from functools import partial
 from multiprocessing import Manager as MultiManager
 from multiprocessing import freeze_support
@@ -30,7 +31,6 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as toml  # pragma: no cover
 from black import (
-    DEFAULT_LINE_LENGTH,
     Mode,
     TargetVersion,
     find_pyproject_toml,
@@ -43,6 +43,7 @@ from libcst.metadata import ParentNodeProvider, PositionProvider
 from . import DEFAULT_EXCLUDE, SECTION_CHARS, Manager, __version__, rst_extras
 from .debug import dump_node
 from .exceptions import InvalidRstErrors
+from .options import FormatOptions, RunOptions
 from .util import FileCache, LineResolver, plural
 
 if TYPE_CHECKING:
@@ -162,7 +163,6 @@ class Visitor(CSTTransformer):
         self,
         file: Path | str,
         input_string: str,
-        line_length: int,
         manager: Manager,
         object_name: str,
     ):
@@ -170,7 +170,6 @@ class Visitor(CSTTransformer):
 
         :param file: Path to the file being processed.
         :param input_string: Content of the file.
-        :param line_length: Maximum line length.
         :param manager: Manager instance for formatting.
         :param object_name: Name of the object being processed.
 
@@ -179,9 +178,9 @@ class Visitor(CSTTransformer):
         self._last_assign: AssignTarget | None = None
         self._object_names = [object_name]
         self._object_type = None
-        self._blank_line = manager.docstring_trailing_line
+        self._blank_line = manager.options.docstring_trailing_line
         self.file = file
-        self.line_length = line_length
+        self.line_length = manager.options.line_length
         self.manager = manager
         self.misformatted = False
         self.error_count = 0
@@ -359,45 +358,13 @@ class Visitor(CSTTransformer):
 
 
 def _format_file(
-    check: bool,
-    file: Path,
-    file_type: str,
-    include_txt: bool,
-    line_length: int,
-    mode: Mode,
-    docstring_trailing_line: bool,
-    format_python_code_blocks: bool,
-    section_adornments: list[tuple[str, bool]] | None,
-    raw_output: bool,
-    lock: Lock | None,
-    bullet_list_marker: str = "-",
-    center_section_titles: bool = True,
-    indent_width: int = 4,
-    keep_blanks: bool = False,
-    ordered_marker: str = "1",
-    custom_directives: list[Any] | None = None,
-    custom_roles: list[str] | None = None,
-):
-    """Format a single file with the given parameters.
+    file: Path, options: RunOptions, lock: Lock | None = None
+) -> tuple[bool, int]:
+    """Format a single file.
 
-    :param check: Whether to check formatting without modifying files.
-    :param file: Path to the file to format.
-    :param file_type: Type of file ('py' or 'rst').
-    :param include_txt: Whether to include .txt files.
-    :param line_length: Maximum line length.
-    :param mode: Black formatting mode.
-    :param docstring_trailing_line: Whether to add trailing line to docstrings.
-    :param format_python_code_blocks: Whether to format Python code blocks.
-    :param section_adornments: Section adornment configuration.
-    :param raw_output: Whether to output raw formatted text.
-    :param lock: Lock for thread safety.
-    :param bullet_list_marker: Bullet character to use for unordered lists.
-    :param center_section_titles: Whether to center section titles with overlines.
-    :param indent_width: Number of spaces to use per indentation level.
-    :param keep_blanks: Keep blank lines between sections as appear in source.
-    :param ordered_marker: Marker style for ordered (enumerated) lists.
-    :param custom_directives: User-supplied custom directives to register.
-    :param custom_roles: User-supplied custom role names to register.
+    :param file: Path to the file to format. ``-`` reads from stdin.
+    :param options: Options for this run.
+    :param lock: Lock guarding stdout when running in parallel.
 
     :returns: A tuple containing a boolean indicating if the file was misformatted and
         the number of errors.
@@ -406,19 +373,7 @@ def _format_file(
     error_count = 0
     try:
         manager = Manager(
-            black_config=mode,
-            bullet_list_marker=bullet_list_marker,
-            center_section_titles=center_section_titles,
-            current_file=file.name,
-            custom_directives=custom_directives,
-            custom_roles=custom_roles,
-            docstring_trailing_line=docstring_trailing_line,
-            format_python_code_blocks=format_python_code_blocks,
-            indent_width=indent_width,
-            keep_blanks=keep_blanks,
-            ordered_marker=ordered_marker,
-            reporter=reporter,
-            section_adornments=section_adornments,
+            current_file=file.name, options=options.format_options, reporter=reporter
         )
     except Exception as error:  # noqa: BLE001
         # Invalid custom directive/role configuration is caught up front in
@@ -427,7 +382,7 @@ def _format_file(
         reporter.print(f"Failed to format '{str(file)}'")
         return False, 1
     if file.name == "-":
-        raw_output = True
+        options = replace(options, raw_output=True)
     reporter.print(f"Checking {file}", 2)
     misformatted = False
     with (
@@ -439,31 +394,17 @@ def _format_file(
         if not isinstance(newline, str):  # pragma: no cover
             newline = None
     try:
-        if file.suffix == ".py" or (file_type == "py" and file.name == "-"):
+        if file.suffix == ".py" or (options.file_type == "py" and file.name == "-"):
             misformatted, errors = _process_python(
-                check,
-                file,
-                input_string,
-                line_length,
-                manager,
-                raw_output,
-                lock,
-                newline,
+                file, input_string, manager, options, lock, newline
             )
             error_count += errors
         elif (
-            file.suffix in ([".rst", ".txt"] if include_txt else [".rst"])
+            file.suffix in ([".rst", ".txt"] if options.include_txt else [".rst"])
             or file.name == "-"
         ):
             misformatted, errors = _process_rst(
-                check,
-                file,
-                input_string,
-                line_length,
-                manager,
-                raw_output,
-                lock,
-                newline,
+                file, input_string, manager, options, lock, newline
             )
             error_count += errors
     except InvalidRstErrors as errors:
@@ -637,25 +578,21 @@ def _parse_sources(
     return sorted(files_to_format)
 
 
-def _process_python(
-    check: bool,
+def _process_python(  # noqa: PLR0917
     file: Path | str,
     input_string: str,
-    line_length: int,
     manager: Manager,
-    raw_output: bool,
+    options: RunOptions,
     lock: Lock | None = None,
     newline: str | None = None,
-):
+) -> tuple[bool, int]:
     """Process a Python file for docstring formatting.
 
-    :param check: Whether to check formatting without modifying files.
     :param file: Path to the file to process.
     :param input_string: Content of the file to process.
-    :param line_length: Maximum line length.
     :param manager: Manager instance for formatting.
-    :param raw_output: Whether to output raw formatted text.
-    :param lock: Lock for thread safety.
+    :param options: Options for this run.
+    :param lock: Lock guarding stdout when running in parallel.
     :param newline: Newline character to use.
 
     :returns: A tuple containing a boolean indicating if the file was misformatted and
@@ -666,7 +603,7 @@ def _process_python(
         file = Path(file)
     filename = file.name
     object_name = filename.split(".")[0]
-    visitor = Visitor(file, input_string, line_length, manager, object_name)
+    visitor = Visitor(file, input_string, manager, object_name)
     module = cst.parse_module(input_string)
     wrapper = cst.MetadataWrapper(module)
     result = wrapper.visit(visitor)
@@ -674,43 +611,28 @@ def _process_python(
     misformatted = False
     if visitor.misformatted:
         misformatted = True
-        if check and not raw_output:
-            reporter.print(f"File '{str(file)}' could be reformatted.")
-        elif file == "-" or raw_output:
-            with lock or nullcontext():
-                _write_output(file, result.code, nullcontext(sys.stdout), raw_output)
-        else:
-            _write_output(
-                file,
-                result.code,
-                file.open("w", encoding="utf-8", newline=newline),  # noqa: SIM115
-                raw_output,
-            )
-    elif raw_output:
+        _write_result(file, result.code, options, lock, newline)
+    elif options.raw_output:
         with lock or nullcontext():
-            _write_output(file, input_string, nullcontext(sys.stdout), raw_output)
+            _write_output(file, input_string, nullcontext(sys.stdout), raw=True)
     return misformatted, error_count
 
 
 def _process_rst(
-    check: bool,
     file: Path | str,
     input_string: str,
-    line_length: int,
     manager: Manager,
-    raw_output: bool,
+    options: RunOptions,
     lock: Lock | None = None,
     newline: str | None = None,
-):
+) -> tuple[bool, int]:
     """Process a reStructuredText file for formatting.
 
-    :param check: Whether to check formatting without modifying files.
     :param file: Path to the file to process.
     :param input_string: Content of the file to process.
-    :param line_length: Maximum line length.
     :param manager: Manager instance for formatting.
-    :param raw_output: Whether to output raw formatted text.
-    :param lock: Lock for thread safety.
+    :param options: Options for this run.
+    :param lock: Lock guarding stdout when running in parallel.
     :param newline: Newline character to use.
 
     :returns: A tuple containing a boolean indicating if the file was misformatted and
@@ -721,74 +643,51 @@ def _process_rst(
     if reporter.level >= 3:
         reporter.debug("=" * 60)
         reporter.debug(dump_node(doc))
-    output = manager.format_node(line_length, doc)
+    output = manager.format_node(options.format_options.line_length, doc)
     error_count = manager.error_count
     misformatted = False
     if output == input_string:
         reporter.print(f"File '{str(file)}' is formatted correctly. Nice!", 1)
-        if raw_output:
+        if options.raw_output:
             with lock or nullcontext():
-                _write_output(file, input_string, nullcontext(sys.stdout), raw_output)
+                _write_output(file, input_string, nullcontext(sys.stdout), raw=True)
     else:
         misformatted = True
-        if check and not raw_output:
-            reporter.print(f"File '{str(file)}' could be reformatted.")
-        elif file == "-" or raw_output:
-            with lock or nullcontext():
-                _write_output(file, output, nullcontext(sys.stdout), raw_output)
-        else:
-            assert isinstance(file, Path)
-            _write_output(
-                file,
-                output,
-                file.open("w", encoding="utf-8", newline=newline),  # noqa: SIM115
-                raw_output,
-            )
+        _write_result(file, output, options, lock, newline)
     return misformatted, error_count
 
 
+def _resolve_line_length(line_length: int | None, mode: Mode) -> int:
+    """Pick the line length for this run.
+
+    ``--line-length`` wins when given. Otherwise a ``line-length`` configured for black
+    in ``pyproject.toml`` is used, falling back to black's default.
+
+    :param line_length: Value of ``--line-length``, if given.
+    :param mode: Black mode built from ``pyproject.toml``.
+
+    :returns: The line length to wrap to.
+
+    """
+    if line_length is not None:
+        return line_length
+    return mode.line_length
+
+
 async def _run_formatter(
-    check: bool,
-    file_type: str,
     files: list[str],
-    include_txt: bool,
-    docstring_trailing_line: bool,
-    format_python_code_blocks: bool,
-    section_adornments: list[tuple[str, bool]] | None,
-    mode: Mode,
-    line_length: int,
-    raw_output: bool,
+    options: RunOptions,
     cache: FileCache,
     loop: asyncio.AbstractEventLoop,
     executor: ProcessPoolExecutor | ThreadPoolExecutor,
-    bullet_list_marker: str = "-",
-    center_section_titles: bool = True,
-    indent_width: int = 4,
-    keep_blanks: bool = False,
-    ordered_marker: str = "1",
-    custom_directives: list[Any] | None = None,
-    custom_roles: list[str] | None = None,
-):
+) -> tuple[set[Path], int]:
     """Run the formatter on multiple files asynchronously.
 
-    :param check: Whether to check formatting without modifying files.
-    :param file_type: Type of files to process ('py' or 'rst').
     :param files: List of file paths to format.
-    :param include_txt: Whether to include .txt files.
-    :param docstring_trailing_line: Whether to add trailing line to docstrings.
-    :param format_python_code_blocks: Whether to format Python code blocks.
-    :param section_adornments: Section adornment configuration.
-    :param mode: Black formatting mode.
-    :param line_length: Maximum line length.
-    :param raw_output: Whether to output raw formatted text.
+    :param options: Options for this run.
     :param cache: File cache for tracking changes.
     :param loop: Event loop for async operations.
     :param executor: Process or thread pool executor.
-    :param bullet_list_marker: Bullet character to use for unordered lists.
-    :param center_section_titles: Whether to center section titles with overlines.
-    :param indent_width: Number of spaces per indentation level.
-    :param keep_blanks: Keep blank lines between sections as appear in source.
-    :param ordered_marker: Marker style for ordered (enumerated) lists.
 
     :returns: Tuple of (misformatted_files, total_error_count).
 
@@ -802,28 +701,7 @@ async def _run_formatter(
     misformatted_files = set()
     tasks = {
         asyncio.ensure_future(
-            loop.run_in_executor(
-                executor,
-                _format_file,
-                check,
-                file,
-                file_type,
-                include_txt,
-                line_length,
-                mode,
-                docstring_trailing_line,
-                format_python_code_blocks,
-                section_adornments,
-                raw_output,
-                lock,
-                bullet_list_marker,
-                center_section_titles,
-                indent_width,
-                keep_blanks,
-                ordered_marker,
-                custom_directives,
-                custom_roles,
-            )
+            loop.run_in_executor(executor, _format_file, file, options, lock)
         ): file
         for file in sorted(todo)
     }
@@ -853,8 +731,8 @@ async def _run_formatter(
                 if (
                     file.name != "-"  # stdin cannot be cached
                     and (
-                        not (misformatted and raw_output)
-                        or (check and not misformatted)
+                        not (misformatted and options.raw_output)
+                        or (options.check and not misformatted)
                     )
                     and errors == 0
                 ):
@@ -915,6 +793,40 @@ def _write_output(
         f.write(output)
     if not raw:
         reporter.print(f"Reformatted '{str(file)}'.")
+
+
+def _write_result(
+    file: Path | str,
+    output: str,
+    options: RunOptions,
+    lock: Lock | None,
+    newline: str | None,
+):
+    """Deliver the formatted content of a misformatted file.
+
+    Depending on ``options`` this reports the file, prints it to stdout, or rewrites
+    it in place.
+
+    :param file: Path to the file being processed.
+    :param output: Formatted content.
+    :param options: Options for this run.
+    :param lock: Lock guarding stdout when running in parallel.
+    :param newline: Newline character to use when rewriting the file.
+
+    """
+    if options.check and not options.raw_output:
+        reporter.print(f"File '{str(file)}' could be reformatted.")
+    elif file == "-" or options.raw_output:
+        with lock or nullcontext():
+            _write_output(file, output, nullcontext(sys.stdout), options.raw_output)
+    else:
+        assert isinstance(file, Path)
+        _write_output(
+            file,
+            output,
+            file.open("w", encoding="utf-8", newline=newline),  # noqa: SIM115
+            options.raw_output,
+        )
 
 
 # This code is borrowed from psf/black
@@ -1212,46 +1124,39 @@ def main(
         context.exit(2)
     if quiet or raw_output or files == ["-"]:
         reporter.level = -1
-    misformatted_files = set()
 
-    if line_length is None:
-        if mode.line_length != DEFAULT_LINE_LENGTH:
-            line_length = mode.line_length
-        else:
-            line_length = DEFAULT_LINE_LENGTH
-    error_count = 0
-
-    if preserve_adornments:
-        section_adornments = None
-
-    if raw_input:
-        file = "<raw_input>"
-        manager = Manager(
+    options = RunOptions(
+        check=check,
+        file_type=file_type,
+        format_options=FormatOptions(
             black_config=mode,
             bullet_list_marker=bullet_list_marker,
             center_section_titles=center_section_titles,
-            current_file=file,
             custom_directives=custom_directives,
             custom_roles=custom_roles,
             docstring_trailing_line=docstring_trailing_line,
             format_python_code_blocks=format_python_code_blocks,
             indent_width=indent_width,
             keep_blanks=keep_blanks,
+            line_length=_resolve_line_length(line_length, mode),
             ordered_marker=ordered_marker,
-            reporter=reporter,
-            section_adornments=section_adornments,
+            section_adornments=None if preserve_adornments else section_adornments,
+        ),
+        include_txt=include_txt,
+        raw_output=raw_output,
+    )
+    misformatted_files = set()
+    error_count = 0
+
+    if raw_input:
+        file = "<raw_input>"
+        manager = Manager(
+            current_file=file, options=options.format_options, reporter=reporter
         )
-        check = False
+        raw_options = replace(options, check=False, raw_output=True)
+        process = _process_python if file_type == "py" else _process_rst
         try:
-            misformatted = False
-            if file_type == "py":
-                misformatted, error_count = _process_python(
-                    check, file, raw_input, line_length, manager, True
-                )
-            elif file_type == "rst":
-                misformatted, error_count = _process_rst(
-                    check, file, raw_input, line_length, manager, True
-                )
+            misformatted, error_count = process(file, raw_input, manager, raw_options)
             if misformatted:
                 misformatted_files.add(file)
         except InvalidRstErrors as errors:
@@ -1272,26 +1177,7 @@ def main(
         for file in (Path(f) for f in files):
             if file.resolve() not in todo:
                 continue
-            misformatted, error_count = _format_file(
-                check,
-                file,
-                file_type,
-                include_txt,
-                line_length,
-                mode,
-                docstring_trailing_line,
-                format_python_code_blocks,
-                section_adornments,
-                raw_output,
-                None,
-                bullet_list_marker,
-                center_section_titles,
-                indent_width,
-                keep_blanks,
-                ordered_marker,
-                custom_directives,
-                custom_roles,
-            )
+            misformatted, error_count = _format_file(file, options)
             if misformatted:
                 misformatted_files.add(file)
             if (
@@ -1322,28 +1208,7 @@ def main(
             executor = ThreadPoolExecutor(max_workers=1)
         try:
             misformatted_files, error_count = loop.run_until_complete(
-                _run_formatter(
-                    check,
-                    file_type,
-                    files,
-                    include_txt,
-                    docstring_trailing_line,
-                    format_python_code_blocks,
-                    section_adornments,
-                    mode,
-                    line_length,
-                    raw_output,
-                    cache,
-                    loop,
-                    executor,
-                    bullet_list_marker,
-                    center_section_titles,
-                    indent_width,
-                    keep_blanks,
-                    ordered_marker,
-                    custom_directives,
-                    custom_roles,
-                )
+                _run_formatter(files, options, cache, loop, executor)
             )
         finally:
             shutdown(loop)

@@ -18,6 +18,7 @@ from black import DEFAULT_LINE_LENGTH
 from docutils.core import publish_doctree
 from docutils.utils import column_width
 
+from docstrfmt import FormatOptions, RunOptions
 from docstrfmt.main import _format_file, main
 
 NON_NATIVE_NEWLINE = "\r\n" if os.linesep == "\n" else "\n"
@@ -689,20 +690,11 @@ def test_format_file_reports_manager_errors(tmp_path, capsys):
     """Direct callers of _format_file get an error result, not an exception."""
     rst = tmp_path / "doc.rst"
     rst.write_text("Title\n=====\n", encoding="utf-8")
-    misformatted, error_count = _format_file(
+    options = RunOptions(
         check=True,
-        custom_roles=[""],
-        docstring_trailing_line=True,
-        file=rst,
-        file_type="rst",
-        format_python_code_blocks=False,
-        include_txt=False,
-        line_length=88,
-        lock=None,
-        mode=black.Mode(),
-        raw_output=False,
-        section_adornments=None,
+        format_options=FormatOptions(black_config=black.Mode(), custom_roles=[""]),
     )
+    misformatted, error_count = _format_file(rst, options)
     assert (misformatted, error_count) == (False, 1)
     assert "ValueError: custom role names must be non-empty strings" in (
         capsys.readouterr().err
