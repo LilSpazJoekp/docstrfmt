@@ -9,7 +9,7 @@ import logging
 from aiohttp import web
 from click.testing import CliRunner
 
-from docstrfmt import Manager
+from docstrfmt import FormatOptions, Manager
 from docstrfmt.server import handler
 
 log = logging.getLogger(__name__)
@@ -24,7 +24,11 @@ async def client(aiohttp_client):
 
 @pytest.fixture
 def manager():
-    yield Manager(black_config=black.Mode(), current_file="<test_file>", reporter=log)
+    yield Manager(
+        current_file="<test_file>",
+        options=FormatOptions(black_config=black.Mode()),
+        reporter=log,
+    )
 
 
 @pytest.fixture
