@@ -1,0 +1,7 @@
+[tool.black]
+include = '\.pyi?$'
+exclude_also = ['_ply/']
+target_version = ['PY37']
+
+[tool.docstrfmt]
+files = ['tests/test_files/test_file.rst']

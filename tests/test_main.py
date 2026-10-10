@@ -1321,6 +1321,13 @@ def test_pyproject_toml(runner):
     assert result.output == "1 file was checked.\nDone! 🎉\n"
 
 
+def test_pyproject_toml_black_discovery_keys(runner):
+    args = ["-p", "tests/test_files/pyproject-black-discovery.toml"]
+    result = runner.invoke(main, args=args)
+    assert result.exit_code == 0
+    assert result.output == "1 file was checked.\nDone! 🎉\n"
+
+
 def test_pyproject_toml_black_force_exclude(runner):
     args = ["-p", "tests/test_files/pyproject-force-exclude.toml"]
     result = runner.invoke(main, args=args)

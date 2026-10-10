@@ -565,9 +565,17 @@ def _parse_pyproject_config(
             context.default_map = default_map
 
         black_config = parse_pyproject_toml(value)
-        black_config.pop("exclude", None)
-        black_config.pop("extend_exclude", None)
-        black_config.pop("force_exclude", None)
+        # These keys control Black's file discovery and should not be passed
+        # through as formatting options when constructing Mode.
+        black_discovery_keys = (
+            "include",
+            "exclude",
+            "extend_exclude",
+            "force_exclude",
+            "exclude_also",
+        )
+        for key in black_discovery_keys:
+            black_config.pop(key, None)
         target_version = black_config.pop("target_version", ["PY37"])
         if target_version:
             target_version = {
