@@ -25,6 +25,8 @@
 - The rows of a ``csv-table`` directive are no longer merged into a single line.
 - Fixed ``IndexError`` occurring when formatting bodies with duplicate targets.
 - The caption and options of the ``table`` directive are now preserved.
+- Fixed unnecessary backslash-space escapes around inline markup next to Unicode
+  punctuation.
 
 
 

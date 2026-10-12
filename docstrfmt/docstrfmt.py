@@ -27,7 +27,12 @@ from docutils.parsers import rst
 from docutils.parsers.rst import Directive, roles
 from docutils.statemachine import StringList
 from docutils.transforms import Transform
-from docutils.utils import column_width, new_document, unescape
+from docutils.utils import (
+    column_width,
+    new_document,
+    punctuation_chars,
+    unescape,
+)
 
 from . import NODE_MAPPING, rst_extras
 from .exceptions import InvalidRstError, InvalidRstErrors
@@ -47,10 +52,15 @@ invalid_reference_id = re.compile("[-_.:+][-_.:+]")
 
 line_iterator = Iterator[str]
 
+post_markup_break_chars = re.compile(
+    rf"[\s\x00{punctuation_chars.closing_delimiters}"
+    rf"{punctuation_chars.delimiters}{punctuation_chars.closers}]"
+)
+pre_markup_break_chars = re.compile(
+    rf"[\s{punctuation_chars.openers}{punctuation_chars.delimiters}]"
+)
 # https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#inline-markup-recognition-rules
 space_chars = set(string.whitespace)
-post_markup_break_chars = space_chars | set("-.,:;!?\\/'\")]}>")
-pre_markup_break_chars = space_chars | set("-:/'\"<([{")
 
 unknown_handlers = [
     (
@@ -2919,9 +2929,9 @@ def _wrap_text(
                         new_words[0] = new_words[0]._replace(start_space=True)
                     if item[-1] in space_chars:
                         new_words[-1] = new_words[-1]._replace(end_space=True)
-                    if item[0] in post_markup_break_chars:
+                    if post_markup_break_chars.fullmatch(item[0]):
                         new_words[0] = new_words[0]._replace(start_punct=True)
-                    if item[-1] in pre_markup_break_chars:
+                    if pre_markup_break_chars.fullmatch(item[-1]):
                         new_words[-1] = new_words[-1]._replace(end_punct=True)
         elif isinstance(item, inline_markup):
             new_words = [
