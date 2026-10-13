@@ -18,6 +18,15 @@
   tables are now formatted as grid tables instead of raising
   ``NotImplementedError``.
 
+**Changed**
+
+- Formatting configuration is now carried by a single immutable ``FormatOptions``
+  object instead of being threaded through every function as separate arguments.
+  ``Manager`` takes ``options=FormatOptions(...)`` in place of the individual
+  ``black_config``, ``bullet_list_marker``, ``custom_directives``, ... keyword
+  arguments, and exposes them as ``manager.options``; formatters read them from
+  ``context.options``.
+
 **Fixed**
 
 - Fixed ``TypeError`` occurring when ``include`` or ``exclude_also`` options present

@@ -19,7 +19,6 @@ from typing import (
 )
 
 import black
-from black import Mode
 from blib2to3.pgen2.tokenize import TokenError
 from docutils import nodes, utils
 from docutils.frontend import OptionParser
@@ -31,6 +30,7 @@ from docutils.utils import column_width, new_document, unescape
 
 from . import NODE_MAPPING, rst_extras
 from .exceptions import InvalidRstError, InvalidRstErrors
+from .options import FormatOptions
 from .util import make_enumerator
 
 if TYPE_CHECKING:
@@ -88,12 +88,12 @@ class CodeFormatters:
         :returns: Formatted Python code.
 
         """
-        if not self.context.manager.format_python_code_blocks:
+        if not self.context.options.format_python_code_blocks:
             return self.code
         try:
-            if self.context.black_config is not None:
+            if self.context.options.black_config is not None:
                 self.code = black.format_str(
-                    self.code, mode=self.context.black_config
+                    self.code, mode=self.context.options.black_config
                 ).rstrip()
         except (UserWarning, black.InvalidInput, TokenError):
             try:
@@ -150,7 +150,7 @@ class FormatContext:
         width: int,
         current_file: Path | str,
         manager: Manager,
-        black_config: Mode | None = None,
+        options: FormatOptions | None = None,
         **kwargs: Any,
     ):
         """Initialize the format context.
@@ -158,14 +158,14 @@ class FormatContext:
         :param width: Maximum line width.
         :param current_file: Path to the current file.
         :param manager: Manager instance.
-        :param black_config: Black formatting configuration.
+        :param options: Formatting options. Defaults to the manager's options.
         :param kwargs: Additional keyword arguments.
 
         """
         self.width = width
         self.current_file = current_file
         self.manager = manager
-        self.black_config = black_config
+        self.options = manager.options if options is None else options
         self.starting_width = width
         self.bullet: str = "-"
         self.column_widths = []
@@ -331,7 +331,7 @@ class Formatters:
         """
         yield "::"
         yield from _prepend_if_any(
-            "", _with_spaces(context.manager.indent_width, node.rawsource.splitlines())
+            "", _with_spaces(context.options.indent_width, node.rawsource.splitlines())
         )
 
     @staticmethod
@@ -557,7 +557,7 @@ class Formatters:
         for index, child in enumerate(node.children):  # type: ignore[attr-defined]
             if index:
                 blanks = default_blanks
-                if self.manager.keep_blanks:
+                if self.manager.options.keep_blanks:
                     found = self._blanks_before(child)
                     if found is not None:
                         # Only ever add blanks: never collapse below what the
@@ -689,7 +689,7 @@ class Formatters:
             item = list(self.manager.perform_format(child, context))
             if child_index != len(children):
                 default = 1 if len(child.children) > 1 else 0  # type: ignore[attr]
-                if self.manager.keep_blanks:
+                if self.manager.options.keep_blanks:
                     found = self._blanks_before(children[child_index])
                     blanks = default if found is None else max(default, found)
                 else:
@@ -940,11 +940,11 @@ class Formatters:
         yield f".. {node.tagname}::"
         yield ""
         yield from _with_spaces(
-            context.manager.indent_width,
+            context.options.indent_width,
             _chain_with_line_separator(
                 "",
                 self._format_children(
-                    node, context.indent(context.manager.indent_width)
+                    node, context.indent(context.options.indent_width)
                 ),
             ),
         )
@@ -972,9 +972,9 @@ class Formatters:
             f" {''.join(_wrap_text(None, chain(self._format_children(title, context)), context, node.line))}"
         )
         yield ""
-        context = context.indent(context.manager.indent_width)
+        context = context.indent(context.options.indent_width)
         yield from _with_spaces(
-            context.manager.indent_width,
+            context.options.indent_width,
             _chain_with_line_separator(
                 "",
                 (
@@ -1015,11 +1015,11 @@ class Formatters:
 
         """
         yield from _with_spaces(
-            context.manager.indent_width,
+            context.options.indent_width,
             _chain_with_line_separator(
                 "",
                 self._format_children(
-                    node, context.indent(context.manager.indent_width)
+                    node, context.indent(context.options.indent_width)
                 ),
             ),
         )
@@ -1047,7 +1047,7 @@ class Formatters:
         """
         yield from self._list(
             node,
-            context.with_bullet(context.manager.bullet_list_marker).with_ordinal(0),
+            context.with_bullet(context.options.bullet_list_marker).with_ordinal(0),
         )
 
     def comment(
@@ -1075,7 +1075,7 @@ class Formatters:
         yield ".."
         if node.children:
             text = "\n".join(chain(self._format_children(node, context)))
-            yield from _with_spaces(context.manager.indent_width, text.splitlines())
+            yield from _with_spaces(context.options.indent_width, text.splitlines())
 
     def definition(
         self,
@@ -1134,9 +1134,9 @@ class Formatters:
                 yield from self.manager.perform_format(child, context)
             elif isinstance(child, nodes.definition):
                 yield from _with_spaces(
-                    context.manager.indent_width,
+                    context.options.indent_width,
                     self.manager.perform_format(
-                        child, context.indent(context.manager.indent_width)
+                        child, context.indent(context.options.indent_width)
                     ),
                 )
 
@@ -1187,7 +1187,7 @@ class Formatters:
 
         yield " ".join(parts)
         # Just rely on the order being stable, hopefully.
-        leading_space = "" if in_substitution else " " * context.manager.indent_width
+        leading_space = "" if in_substitution else " " * context.options.indent_width
         for k, v in directive.options.items():
             yield f"{leading_space}:{k}:" if v is None else f"{leading_space}:{k}: {v}"
 
@@ -1201,10 +1201,10 @@ class Formatters:
                 except (AttributeError, TypeError):
                     pass
             yield ""
-            yield from _with_spaces(context.manager.indent_width, text.splitlines())
+            yield from _with_spaces(context.options.indent_width, text.splitlines())
         elif directive.raw:
             yield from _prepend_if_any(
-                "", _with_spaces(context.manager.indent_width, directive.content)
+                "", _with_spaces(context.options.indent_width, directive.content)
             )
         else:
             sub_doc = self.manager.parse_string(
@@ -1215,9 +1215,9 @@ class Formatters:
             if sub_doc.children:
                 yield ""
                 yield from _with_spaces(
-                    context.manager.indent_width,
+                    context.options.indent_width,
                     self.manager.perform_format(
-                        sub_doc, context.indent(context.manager.indent_width)
+                        sub_doc, context.indent(context.options.indent_width)
                     ),
                 )
 
@@ -1323,7 +1323,7 @@ class Formatters:
         start = node.attributes.get("start", 1)
         enumtype = node.attributes["enumtype"]
         if (
-            context.manager.ordered_marker == "#"
+            context.options.ordered_marker == "#"
             and enumtype == "arabic"
             and start == 1
         ):
@@ -1393,7 +1393,7 @@ class Formatters:
                 children_processed.append(child)
         children = children_processed
         yield f"{field_name} {first_line}"
-        yield from _with_spaces(context.manager.indent_width, children)
+        yield from _with_spaces(context.options.indent_width, children)
 
     def field_body(
         self,
@@ -1413,9 +1413,9 @@ class Formatters:
             "",
             self._format_children(
                 node,
-                context.indent(context.manager.indent_width).wrap_first_at(
+                context.indent(context.options.indent_width).wrap_first_at(
                     column_width(f":{node.parent.children[0].astext()}: ")
-                    - context.manager.indent_width
+                    - context.options.indent_width
                 ),
             ),
         )
@@ -1620,18 +1620,18 @@ class Formatters:
         prefix = ".."
         children = _wrap_text(
             (
-                context.width - context.manager.indent_width
+                context.width - context.options.indent_width
                 if context.width is not None
                 else None
             ),
             chain(
                 self._format_children(
-                    node, context.indent(context.manager.indent_width)
+                    node, context.indent(context.options.indent_width)
                 )
             ),
             context.wrap_first_at(
-                column_width(prefix) - context.manager.indent_width
-            ).indent(context.manager.indent_width),
+                column_width(prefix) - context.options.indent_width
+            ).indent(context.options.indent_width),
             node.line,
         )
         footnote_name = (
@@ -1643,7 +1643,7 @@ class Formatters:
         yield " ".join([prefix, *footnote_name, child])
         remaining = list(children)
         if remaining:
-            yield from _with_spaces(context.manager.indent_width, remaining)
+            yield from _with_spaces(context.options.indent_width, remaining)
 
     citation = footnote
 
@@ -1700,7 +1700,7 @@ class Formatters:
             yield "|"
             return
 
-        indent = context.manager.indent_width * context.line_block_depth
+        indent = context.options.indent_width * context.line_block_depth
         context = context.indent(indent)
         prefix1 = f"|{' ' * (indent - 1)}"
         prefix2 = " " * indent
@@ -1827,9 +1827,9 @@ class Formatters:
         group, description = node.children[0], node.children[1]
         yield from self.manager.perform_format(group, context)
         yield from _with_spaces(
-            context.manager.indent_width,
+            context.options.indent_width,
             self.manager.perform_format(
-                description, context.indent(context.manager.indent_width)
+                description, context.indent(context.options.indent_width)
             ),
         )
 
@@ -2061,31 +2061,31 @@ class Formatters:
         if directive in ["image", "unicode"]:
             children = chain(
                 self._format_children(
-                    node, context.indent(context.manager.indent_width)
+                    node, context.indent(context.options.indent_width)
                 )
             )
         else:  # for date and replace
             children = _wrap_text(
                 (
-                    context.width - context.manager.indent_width
+                    context.width - context.options.indent_width
                     if context.width is not None
                     else None
                 ),
                 chain(
                     self._format_children(
-                        node, context.indent(context.manager.indent_width)
+                        node, context.indent(context.options.indent_width)
                     )
                 ),
                 context.wrap_first_at(
-                    column_width(prefix) - context.manager.indent_width
-                ).indent(context.manager.indent_width),
+                    column_width(prefix) - context.options.indent_width
+                ).indent(context.options.indent_width),
                 node.line,
             )
         next_child = next(children)
         yield f"{prefix} {next_child}"
         remaining = list(children)
         if remaining:
-            yield from _with_spaces(context.manager.indent_width, remaining)
+            yield from _with_spaces(context.options.indent_width, remaining)
 
     def substitution_reference(
         self,
@@ -2326,23 +2326,23 @@ class Formatters:
         )
         char: str = node.parent["adornment-character"]
         overline: bool = node.parent["adornment-overline"]
-        if context.manager.section_adornments is not None:
+        if context.options.section_adornments is not None:
             try:
-                char, overline = context.manager.section_adornments[
+                char, overline = context.options.section_adornments[
                     context.section_depth - 1
                 ]
             except IndexError:
                 context.manager.reporter.error(
                     f"Section at line {node.line} is at depth "
                     f"{context.section_depth}, however there are only "
-                    f"{len(context.manager.section_adornments)} adornments to pick "
+                    f"{len(context.options.section_adornments)} adornments to pick "
                     "from. You must review your inputs or change settings."
                 )
                 raise
 
         text_width = column_width(text)
         if overline:
-            if context.manager.center_section_titles:
+            if context.options.center_section_titles:
                 # section headings with overline are centered
                 yield char * (2 + text_width)
                 yield " " + text
@@ -2470,46 +2470,24 @@ class Manager:
     def __init__(
         self,
         *,
-        black_config: Mode | None = None,
-        bullet_list_marker: str = "-",
-        center_section_titles: bool = True,
         current_file: Path | str,
-        custom_directives: list[rst_extras.CustomDirectiveSpec] | None = None,
-        custom_roles: list[str] | None = None,
-        docstring_trailing_line: bool = True,
-        format_python_code_blocks: bool = True,
-        indent_width: int = 4,
-        keep_blanks: bool = False,
-        ordered_marker: str = "1",
+        options: FormatOptions | None = None,
         reporter: Reporter | utils.Reporter | logging.Logger,
-        section_adornments: list[tuple[str, bool]] | None = None,
     ):
         """Initialize the manager.
 
         :param current_file: The current file being processed.
+        :param options: Formatting options. Defaults to :class:`FormatOptions` with
+            all defaults, which leaves Python code blocks unformatted.
         :param reporter: utils.Reporter instance for logging.
-        :param black_config: Black formatting configuration.
-        :param center_section_titles: Whether to center section titles with overlines by
-            adding a leading space.
-        :param bullet_list_marker: Bullet character to use for unordered lists.
-        :param custom_directives: User-supplied directives to register. See
-            :func:`docstrfmt.rst_extras.register_custom`.
-        :param custom_roles: User-supplied role names to register as generic roles.
-        :param docstring_trailing_line: Whether to add trailing line to docstrings.
-        :param format_python_code_blocks: Whether to format Python code blocks.
-        :param indent_width: Number of spaces per indentation level.
-        :param keep_blanks: Keep blank lines between sections as appear in source.
-        :param ordered_marker: Marker style for ordered (enumerated) lists, 1 or #.
-        :param section_adornments: Section adornment configuration.
 
         """
+        self.options = FormatOptions() if options is None else options
         rst_extras.register()
-        rst_extras.register_custom(custom_directives, custom_roles)
+        rst_extras.register_custom(
+            self.options.custom_directives, self.options.custom_roles
+        )
         self.current_file = current_file
-        self.black_config = black_config
-        self.center_section_titles = center_section_titles
-        self.bullet_list_marker = bullet_list_marker
-        self.ordered_marker = ordered_marker
         self.current_offset = 0
         self.error_count = 0
         self.reporter = reporter
@@ -2521,12 +2499,7 @@ class Manager:
         self.settings.tab_width = 8
         self.formatters = Formatters(self)
         self.original_text = ""
-        self.docstring_trailing_line = docstring_trailing_line
-        self.format_python_code_blocks = format_python_code_blocks
-        self.indent_width = indent_width
-        self.keep_blanks = keep_blanks
         self._in_docstring = False  # for resolving line numbers in code blocks
-        self.section_adornments = section_adornments
 
     def _patch_unknown_directives(self, text: str) -> None:
         """Patch unknown directives and roles into the parser.
@@ -2638,7 +2611,6 @@ class Manager:
                 node,
                 FormatContext(
                     width,
-                    black_config=self.black_config,
                     current_file=self.current_file,
                     is_docstring=is_docstring,
                     manager=self,
