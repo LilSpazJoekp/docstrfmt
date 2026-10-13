@@ -17,6 +17,7 @@
 - Added support for tables with cells that span multiple rows or columns. Such
   tables are now formatted as grid tables instead of raising
   ``NotImplementedError``.
+- Added support for Python 3.15.
 
 **Fixed**
 
