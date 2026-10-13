@@ -17,6 +17,7 @@
 - Added support for tables with cells that span multiple rows or columns. Such
   tables are now formatted as grid tables instead of raising
   ``NotImplementedError``.
+- Added support for Python 3.15.
 
 **Fixed**
 
@@ -25,6 +26,8 @@
 - The rows of a ``csv-table`` directive are no longer merged into a single line.
 - Fixed ``IndexError`` occurring when formatting bodies with duplicate targets.
 - The caption and options of the ``table`` directive are now preserved.
+- Fixed unnecessary backslash-space escapes around inline markup next to Unicode
+  punctuation.
 
 
 
