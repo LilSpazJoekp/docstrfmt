@@ -25,6 +25,8 @@
 - The rows of a ``csv-table`` directive are no longer merged into a single line.
 - Fixed ``IndexError`` occurring when formatting bodies with duplicate targets.
 - The caption and options of the ``table`` directive are now preserved.
+- Fixed directive arguments that span multiple lines (e.g., multiple signatures in
+  ``py:function``) losing their indentation and breaking out of the directive.
 
 
 
