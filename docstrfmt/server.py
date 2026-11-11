@@ -24,7 +24,7 @@ async def handler(request: web.Request) -> web.Response:
     body = await request.text()
 
     start_time = time.perf_counter()
-    manager = Manager(black_config=None, current_file="-", reporter=log)
+    manager = Manager(current_file="-", reporter=log)
     try:
         try:
             text = manager.format_node(
