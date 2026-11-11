@@ -845,6 +845,36 @@ def test_indent_width_short_flag(runner):
     assert result.output == ".. note::\n\n   Some note text.\n"
 
 
+def test_inline_markup_unicode_punctuation(runner):
+    """Unicode punctuation around inline markup should not need escapes."""
+    source = "前文、``代码``，还有（``另一个``）。另外，a—``code``—b。\n"
+    legacy_source = (
+        r"前文、\ ``代码``\ ，还有（\ ``另一个``\ ）。"
+        r"另外，a—\ ``code``\ —b。"
+        "\n"
+    )
+
+    result = runner.invoke(main, args=["-"], input=legacy_source)
+    assert result.exit_code == 0
+    assert result.output == source
+
+    doctree = publish_doctree(result.output)
+    assert [
+        node.astext() for node in doctree.findall() if node.tagname == "system_message"
+    ] == []
+    assert [
+        node.astext() for node in doctree.findall() if node.tagname == "literal"
+    ] == [
+        "代码",
+        "另一个",
+        "code",
+    ]
+
+    second_pass = runner.invoke(main, args=["-"], input=result.output)
+    assert second_pass.exit_code == 0
+    assert second_pass.output == result.output
+
+
 def test_invalid_bad_codeblock_py(runner):
     file = "tests/test_files/error_files/py_file_error_bad_codeblock.py"
     result = runner.invoke(main, args=[file])
