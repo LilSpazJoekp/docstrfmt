@@ -40,3 +40,11 @@ repos:
         args: [ --exit-non-zero-on-fix, --fix ]
         files: ^(docstrfmt/.*.py)$
       - id: ruff-format
+
+  - repo: https://github.com/sphinx-contrib/sphinx-lint
+    rev: v1.0.2
+    hooks:
+      - id: sphinx-lint
+        args: [ --enable, all, --max-line-length, "88" ]
+        files: ^docs/.*\.rst$
+        exclude: ^docs/(_build|examples/pre)/

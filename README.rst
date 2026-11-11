@@ -69,7 +69,7 @@ differences in formatting conventions between the two (hence the separate fork).
     pip install https://github.com/LilSpazJoekp/docstrfmt/archive/master.zip
 
     # Read a file from stdin and write the formatted version to stdout.
-    docstrfmt
+    docstrfmt -
 
     # Format the given file(s) in place.
     docstrfmt <file>...
@@ -87,15 +87,14 @@ differences in formatting conventions between the two (hence the separate fork).
     Line length is resolved in the following order:
 
     1. The length specified with the ``-l`` flag.
-    2. The ``line-length`` specified in the ``tool.docstrfmt`` section in the file
-       specified with ``--pyproject-config``.
-    3. The ``line-length`` specified in the ``tool.black`` section in the file specified
-       with ``--pyproject-config``.
-    4. The ``line-length`` specified in the ``tool.docstrfmt`` section in a
-       ``pyproject.toml`` autodetected `like Black`_.
-    5. The ``line-length`` specified in the ``tool.black`` section in a
-       ``pyproject.toml`` autodetected `like Black`_.
-    6. `Black's default line length`_ (88 at the time of this writing).
+    2. The ``line-length`` specified in the ``tool.docstrfmt`` section of
+       ``pyproject.toml``.
+    3. The ``line-length`` specified in the ``tool.black`` section of the same
+       ``pyproject.toml``.
+    4. `Black's default line length`_ (88 at the time of this writing).
+
+    Only one ``pyproject.toml`` is read: the file specified with
+    ``--pyproject-config`` or, if that isn't given, one autodetected `like Black`_.
 
 Like Black's blackd_, there is also a daemon that provides formatting via HTTP requests
 to avoid the cost of starting and importing everything on every run.
@@ -106,20 +105,20 @@ to avoid the cost of starting and importing everything on every run.
     pip install "docstrfmt[d]"
 
     # Install the development version.
-    pip install "https://github.com/LilSpazJoekp/docstrfmt/archive/master.zip#egg=docstrfmt[d]"
+    pip install "docstrfmt[d] @ https://github.com/LilSpazJoekp/docstrfmt/archive/master.zip"
 
     # Start the daemon (binds to localhost:5219 by default).
     docstrfmtd --bind-host=<host> --bind-port=<port>
 
     # Print the formatted version of a file.
-    curl http://locahost:5219 --data-binary @<file>
+    curl http://localhost:5219 --data-binary @<file>
 
-    # Specify the line length (default to whatever is set for black).
-    curl -H 'X-Line-Length: 72' http://locahost:5219 --data-binary @<file>
+    # Specify the line length (defaults to 88; the daemon does not read pyproject.toml).
+    curl -H 'X-Line-Length: 72' http://localhost:5219 --data-binary @<file>
 
     # Mimic the standalone tool: read from stdin, write to stdout, exit with
     # a nonzero status code if there are errors.
-    curl -fsS http://locahost:5219 --data-binary @/dev/stdin
+    curl -fsS http://localhost:5219 --data-binary @/dev/stdin
 
 Custom Directives and Roles
 ===========================
@@ -175,7 +174,7 @@ PyCharm
 -------
 
 Instructions derived from `black documentation
-<https://black.readthedocs.io/en/stable/editor_integration.html#pycharm-intellij-idea>`_
+<https://black.readthedocs.io/en/stable/integrations/editors.html#pycharm-intellij-idea>`_
 
 1. Install.
 
@@ -183,7 +182,7 @@ Instructions derived from `black documentation
 
        pip install "docstrfmt[d]"
 
-2. Locate where `docstrfmt` is installed.
+2. Locate where ``docstrfmt`` is installed.
 
    - On macOS / Linux / BSD:
 
@@ -197,23 +196,23 @@ Instructions derived from `black documentation
      .. code-block:: shell
 
          where docstrfmt
-         # C:\Program Files\Python39\Scripts\docstrfmt.exe
+         # C:\Program Files\Python313\Scripts\docstrfmt.exe
 
 .. note::
 
     Note that if you are using a virtual environment detected by PyCharm, this is an
-    unneeded step. In this case the path to `docstrfmt` is
+    unneeded step. In this case the path to ``docstrfmt`` is
     ``$PyInterpreterDirectory$/docstrfmt``.
 
 3. Open External tools in PyCharm.
 
    - On macOS:
 
-     `PyCharm -> Preferences -> Tools -> External Tools`
+     ``PyCharm -> Preferences -> Tools -> External Tools``
 
    - On Windows / Linux / BSD:
 
-     `File -> Settings -> Tools -> External Tools`
+     ``File -> Settings -> Tools -> External Tools``
 
 4. Click the + icon to add a new external tool with the following values:
 
@@ -222,17 +221,18 @@ Instructions derived from `black documentation
    - Program: <install_location_from_step_2>
    - Arguments: ``"$FilePath$"``
 
-5. Format the currently opened file by selecting `Tools -> External Tools -> docstrfmt`.
+5. Format the currently opened file by selecting
+   ``Tools -> External Tools -> docstrfmt``.
 
-   - Alternatively, you can set a keyboard shortcut by navigating to `Preferences or
-     Settings -> Keymap -> External Tools -> External Tools - docstrfmt`.
+   - Alternatively, you can set a keyboard shortcut by navigating to
+     ``Preferences or Settings -> Keymap -> External Tools -> External Tools - docstrfmt``.
 
-6. Optionally, run `docstrfmt` on every file save:
+6. Optionally, run ``docstrfmt`` on every file save:
 
    1. Make sure you have the `File Watchers
       <https://plugins.jetbrains.com/plugin/7177-file-watchers>`_ plugin installed.
-   2. Go to `Preferences or Settings -> Tools -> File Watchers` and click `+` to add a
-      new watcher:
+   2. Go to ``Preferences or Settings -> Tools -> File Watchers`` and click ``+`` to
+      add a new watcher:
 
       - Name: docstrfmt
       - File type: Python
@@ -251,7 +251,7 @@ With pre-commit
 
     repos:
       - repo: https://github.com/LilSpazJoekp/docstrfmt
-        rev: stable # Replace by any tag/version: https://github.com/LilSpazJoekp/docstrfmt/tags
+        rev: v2.2.1 # Replace by any tag/version: https://github.com/LilSpazJoekp/docstrfmt/tags
         hooks:
           - id: docstrfmt
             language_version: python3

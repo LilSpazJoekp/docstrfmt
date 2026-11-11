@@ -430,14 +430,19 @@ def _format_file(
         raw_output = True
     reporter.print(f"Checking {file}", 2)
     misformatted = False
-    with (
-        nullcontext(sys.stdin) if file.name == "-" else open(file, encoding="utf-8")
-    ) as f:
-        input_string = f.read()
-        newline = getattr(f, "newlines", None)
-        # If mixed or unknown newlines, fall back to the platform default
-        if not isinstance(newline, str):  # pragma: no cover
-            newline = None
+    try:
+        with (
+            nullcontext(sys.stdin) if file.name == "-" else open(file, encoding="utf-8")
+        ) as f:
+            input_string = f.read()
+            newline = getattr(f, "newlines", None)
+            # If mixed or unknown newlines, fall back to the platform default
+            if not isinstance(newline, str):  # pragma: no cover
+                newline = None
+    except (OSError, UnicodeError) as error:
+        reporter.error(f"{error.__class__.__name__}: {error}")
+        reporter.print(f"Failed to format '{str(file)}'")
+        return False, 1
     try:
         if file.suffix == ".py" or (file_type == "py" and file.name == "-"):
             misformatted, errors = _process_python(
@@ -483,10 +488,10 @@ def _merge_custom_entries(
     """Merge custom directive/role entries from pyproject.toml and the CLI.
 
     Entries from pyproject.toml take precedence: a CLI name is only added when no
-    configured entry already uses that name, so a plain ``--custom-directive name``
-    can never override a richer table (e.g. ``raw = false``) for the same name.
-    Duplicates within either source are dropped, keeping the first occurrence.
-    Names are compared case-insensitively, matching docutils' own lookup rules.
+    configured entry already uses that name, so a plain ``--custom-directive name`` can
+    never override a richer table (e.g. ``raw = false``) for the same name. Duplicates
+    within either source are dropped, keeping the first occurrence. Names are compared
+    case-insensitively, matching docutils' own lookup rules.
 
     :param configured: Entries from pyproject.toml (names or tables).
     :param from_cli: Names supplied on the command line.
@@ -860,10 +865,8 @@ async def _run_formatter(
                     misformatted_files.add(file)
                 if (
                     file.name != "-"  # stdin cannot be cached
-                    and (
-                        not (misformatted and raw_output)
-                        or (check and not misformatted)
-                    )
+                    # with --check or --raw-output the file remains misformatted
+                    and not (misformatted and (check or raw_output))
                     and errors == 0
                 ):
                     files_to_cache.append(file)
@@ -939,7 +942,10 @@ def cancel(tasks: Iterable[asyncio.Future[Any]]) -> None:  # pragma: no cover
 
 
 # noinspection PyUnusedLocal
-@click.command(context_settings={"help_option_names": ["-h", "--help"]})
+@click.command(
+    context_settings={"help_option_names": ["-h", "--help"]},
+    help="Format reStructuredText and Python files.",
+)
 @click.option(
     "-b",
     "--bullet-list-marker",
@@ -961,7 +967,7 @@ def cancel(tasks: Iterable[asyncio.Future[Any]]) -> None:  # pragma: no cover
     "-c",
     "--check",
     help=(
-        "Check files and returns a non-zero code if files are not formatted correctly."
+        "Check files and return a non-zero code if files are not formatted correctly."
         " Useful for linting. Ignored if --raw-input, --raw-output, or stdin is used."
     ),
     is_flag=True,
@@ -1025,7 +1031,7 @@ def cancel(tasks: Iterable[asyncio.Future[Any]]) -> None:  # pragma: no cover
     "--format-python-code-blocks/--no-format-python-code-blocks",
     " /-N",
     default=True,
-    help="Whether format Python code blocks.",
+    help="Whether to format Python code blocks.",
 )
 @click.option(
     "-i",
@@ -1036,7 +1042,7 @@ def cancel(tasks: Iterable[asyncio.Future[Any]]) -> None:  # pragma: no cover
 @click.option(
     "-T",
     "--include-txt",
-    help="Interpret *.txt files as reStructuredText and format them.",
+    help="Interpret .txt files as reStructuredText and format them.",
     is_flag=True,
 )
 @click.option(
@@ -1085,6 +1091,7 @@ def cancel(tasks: Iterable[asyncio.Future[Any]]) -> None:  # pragma: no cover
     callback=_parse_pyproject_config,
     help="Path to pyproject.toml. Used to load settings.",
     is_eager=True,
+    metavar="FILE",
     type=click.Path(
         allow_dash=False,
         dir_okay=False,
@@ -1179,7 +1186,8 @@ def main(
     :param bullet_list_marker: Bullet character to use for unordered lists.
     :param center_section_titles: Whether to center section titles with overlines.
     :param check: Whether to check formatting without modifying files.
-    :param custom_directives_cli: Custom directive names supplied via ``--custom-directive``.
+    :param custom_directives_cli: Custom directive names supplied via
+        ``--custom-directive``.
     :param custom_roles_cli: Custom role names supplied via ``--custom-role``.
     :param docstring_trailing_line: Whether to add trailing line to docstrings.
     :param exclude: List of paths to exclude from formatting.

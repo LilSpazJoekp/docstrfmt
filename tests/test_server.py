@@ -49,3 +49,37 @@ async def test_server(client, length):
     response = await client.post("/", data=output.encode(), headers=headers)
     output2 = await response.text()
     assert output == output2
+
+
+@pytest.mark.asyncio
+async def test_server_invalid_line_length(client):
+    response = await client.post("/", data=b"text\n", headers={"X-Line-Length": "abc"})
+    assert response.status == 400
+    assert (
+        await response.text()
+        == "Invalid X-Line-Length header: 'abc' is not an integer."
+    )
+
+
+@pytest.mark.asyncio
+async def test_server_invalid_rst(client):
+    rst_extras.register()
+    with open("tests/test_files/error_files/test_invalid_rst_error.rst", "rb") as f:
+        data = f.read()
+    response = await client.post("/", data=data)
+    assert response.status == 400
+    assert await response.text() == (
+        'ERROR: File "<server_input>", line 3:\nMalformed table.\nText in column margin'
+        " in table line 2."
+    )
+
+
+@pytest.mark.asyncio
+async def test_server_unexpected_error(client):
+    rst_extras.register()
+    with mock.patch(
+        "docstrfmt.server.Manager.format_node", side_effect=RuntimeError("boom")
+    ):
+        response = await client.post("/", data=b"text\n")
+    assert response.status == 500
+    assert await response.text() == "boom"

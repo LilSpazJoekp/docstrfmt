@@ -8,6 +8,7 @@ about what they would normally expand to.
 
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from docutils import nodes, utils
@@ -45,6 +46,24 @@ T = TypeVar("T")
 CustomDirectiveSpec = str | dict[str, Any]
 
 
+class _PicklableElement(nodes.Element):
+    """Base for docstrfmt node classes that may end up in a Sphinx doctree.
+
+    The ``directive`` attribute holds a live docutils Directive whose state machine
+    references live modules, so pickling raw would fail. Sphinx pickles doctrees for its
+    build cache — docstrfmt itself never does — so we drop the unpicklable attributes
+    for pickle only.
+
+    """
+
+    def __getstate__(self) -> dict[str, Any]:
+        state = self.__dict__.copy()
+        state["attributes"] = {
+            k: v for k, v in self.attributes.items() if k not in ("directive", "role")
+        }
+        return state
+
+
 class ReferenceRole(util.docutils.ReferenceRole):
     """Role that doesn't do anything."""
 
@@ -67,17 +86,17 @@ class ReferenceRole(util.docutils.ReferenceRole):
 
 
 # noinspection PyPep8Naming
-class directive(nodes.Element, nodes.Inline):
+class directive(_PicklableElement, nodes.Inline):
     """A directive that doesn't do anything."""
 
 
 # noinspection PyPep8Naming
-class ref_role(nodes.Element):
+class ref_role(_PicklableElement):
     """A role that doesn't do anything."""
 
 
 # noinspection PyPep8Naming
-class role(nodes.Element):
+class role(_PicklableElement):
     """A role that doesn't do anything."""
 
 
@@ -220,9 +239,12 @@ def add_directive(
     if is_injected:
         namespace["final_argument_whitespace"] = True
         namespace["optional_arguments"] = 1
-    directives.register_directive(
-        name, type(f"docstrfmt_{cls.__name__}", (cls,), namespace)
-    )
+    subclass_name = f"docstrfmt_{cls.__name__}"
+    subclass = getattr(sys.modules[__name__], subclass_name, None)
+    if subclass is None:
+        subclass = type(subclass_name, (cls,), namespace)
+        setattr(sys.modules[__name__], subclass_name, subclass)
+    directives.register_directive(name, subclass)
 
 
 def generic_role(r: str, rawtext: str, text: str, *_: Any, **__: Any) -> Any:
@@ -264,8 +286,8 @@ def register() -> None:
                 roles.register_canonical_role(f"{domain.name}:{name}", ReferenceRole())
 
         for name, directive_callable in domain.directives.items():
-            add_directive(name, directive_callable)
-            add_directive(f"{domain.name}:{name}", directive_callable)
+            add_directive(name, directive_callable, raw=False)
+            add_directive(f"{domain.name}:{name}", directive_callable, raw=False)
 
     for name, _nodeclass in generic_docroles.items():
         roles.register_local_role(name, generic_role)
@@ -274,7 +296,6 @@ def register() -> None:
         roles.register_local_role(name, generic_role)
 
     # docutils directives
-    add_directive("class", misc.Class)
     add_directive("code", body.CodeBlock)
     add_directive("compound", body.Compound, raw=False)
     add_directive("container", body.Container, raw=False)
@@ -292,6 +313,8 @@ def register() -> None:
     add_directive("meta", misc.Meta)  # type: ignore[attr]
     add_directive("pull-quote", body.PullQuote, raw=False)
     add_directive("raw", misc.Raw)
+    # Like Sphinx, expose docutils' class directive only as ``rst-class``; a bare
+    # ``class`` resolves to the default (Python) domain's directive.
     add_directive("rst-class", misc.Class)
     add_directive("rst-table", tables.RSTTable, raw=False)
     add_directive("rubric", body.Rubric, raw=False)
@@ -336,15 +359,14 @@ def register_custom(
 ) -> None:
     """Register user-supplied directives and roles.
 
-    :param custom_directives: Directives to register. Each entry is either a name
-        string (registered as a raw directive that accepts arbitrary content, matching
-        the fallback docstrfmt uses for unknown directives) or a mapping with keys:
-        ``name`` (required), ``raw`` (default ``True``), ``has_content``
-        (default ``True``), ``required_arguments`` (default ``0``),
-        ``optional_arguments`` (default ``1``), and ``final_argument_whitespace``
-        (default ``True``).
-    :param custom_roles: Names of roles to register as generic (contents are
-        preserved verbatim on round-trip).
+    :param custom_directives: Directives to register. Each entry is either a name string
+        (registered as a raw directive that accepts arbitrary content, matching the
+        fallback docstrfmt uses for unknown directives) or a mapping with keys: ``name``
+        (required), ``raw`` (default ``True``), ``has_content`` (default ``True``),
+        ``required_arguments`` (default ``0``), ``optional_arguments`` (default ``1``),
+        and ``final_argument_whitespace`` (default ``True``).
+    :param custom_roles: Names of roles to register as generic (contents are preserved
+        verbatim on round-trip).
 
     """
     for name, options in validate_custom(custom_directives, custom_roles):
@@ -374,8 +396,8 @@ def validate_custom(
 
     :returns: The normalized ``(name, options)`` tuple for every directive spec.
 
-    :raises ValueError: If either argument is not a list/tuple, or if any directive
-        spec or role name is invalid.
+    :raises ValueError: If either argument is not a list/tuple, or if any directive spec
+        or role name is invalid.
 
     """
     for label, value in (
