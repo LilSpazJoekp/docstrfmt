@@ -487,6 +487,29 @@ def test_custom_roles_rejects_non_string_in_pyproject(tmp_path, runner):
     assert "ValueError: custom role names must be non-empty strings" in result.output
 
 
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (
+            ".. py:function:: first(a)\n   second(b)\n\n   Some content.\n",
+            ".. py:function:: first(a)\n    second(b)\n\n    Some content.\n",
+        ),
+        (
+            ".. py:function:: first(a)\n    second(b)\n    third(c)\n    :noindex:\n\n    Some content.\n",
+            ".. py:function:: first(a)\n    second(b)\n    third(c)\n    :noindex:\n\n    Some content.\n",
+        ),
+    ],
+)
+def test_directive_multiline_arguments(runner, source, expected):
+    result = runner.invoke(main, args=["-"], input=source)
+    assert result.exit_code == 0
+    assert result.output == expected
+    # The formatted output is stable.
+    result = runner.invoke(main, args=["-"], input=expected)
+    assert result.exit_code == 0
+    assert result.output == expected
+
+
 def test_docstring_reformatting_with_quotes(runner):
     file = '''
               def fun():

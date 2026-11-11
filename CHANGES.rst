@@ -28,6 +28,8 @@
 - The caption and options of the ``table`` directive are now preserved.
 - Fixed unnecessary backslash-space escapes around inline markup next to Unicode
   punctuation.
+- Fixed directive arguments that span multiple lines (e.g., multiple signatures in
+  ``py:function``) losing their indentation and breaking out of the directive.
 
 
 

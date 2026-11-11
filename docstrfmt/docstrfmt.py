@@ -1195,9 +1195,14 @@ class Formatters:
         if in_substitution:
             del parts[0]  # No need for the leading .. or the image:: part
 
-        yield " ".join(parts)
-        # Just rely on the order being stable, hopefully.
         leading_space = "" if in_substitution else " " * context.manager.indent_width
+        # The final argument can span multiple lines (e.g., multiple signatures), so
+        # continuation lines need to be indented to stay part of the directive.
+        first_line, *continuation_lines = " ".join(parts).split("\n")
+        yield first_line
+        for line in continuation_lines:
+            yield f"{leading_space}{line}"
+        # Just rely on the order being stable, hopefully.
         for k, v in directive.options.items():
             yield f"{leading_space}:{k}:" if v is None else f"{leading_space}:{k}: {v}"
 
