@@ -2329,7 +2329,7 @@ def test_unreadable_file_permission_denied(monkeypatch, runner):
     result = runner.invoke(main, args=[file])
     assert result.exit_code == 1
     assert result.output == (
-        f"PermissionError: [Errno 13] Permission denied: '{file}'\n"
+        f"PermissionError: [Errno 13] Permission denied: {file!r}\n"
         f"Failed to format '{file}'\n1 file was checked.\n"
         "Done, but 1 error occurred ❌💥❌\n"
     )
