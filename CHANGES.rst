@@ -18,6 +18,7 @@
   tables are now formatted as grid tables instead of raising
   ``NotImplementedError``.
 - Added support for Python 3.15.
+- Add documentation at https://docstrfmt.readthedocs.io
 
 **Fixed**
 
@@ -30,8 +31,14 @@
   punctuation.
 - Fixed directive arguments that span multiple lines (e.g., multiple signatures in
   ``py:function``) losing their indentation and breaking out of the directive.
-
-
+- Fixed ``--check`` caching files that still need formatting when more than one file
+  is checked, which made the next ``--check`` run pass.
+- Fixed a traceback when a single file cannot be read, for example because of its
+  permissions or because it is not valid UTF-8. The error is now reported like any
+  other formatting error.
+- The daemon now responds with ``400 Bad Request`` and the error message in the
+  response body when the input is not valid reStructuredText or the ``X-Line-Length``
+  header is not an integer, instead of a generic ``500 Internal Server Error``.
 
 ********************
  2.2.1 (2026/08/28)
@@ -102,7 +109,8 @@
   ``versionchanged``, and ``versionremoved``) and will now format the description text
   within the content body of the directive.
 - Fixed an issue where ``:literal:`` roles were being replaced with literal formatting
-  (surrounded with ``) when the literal string ended with an escaped space or ``\n``.
+  (surrounded with double backticks) when the literal string ended with an escaped
+  space or ``\n``.
 - Fixed stale cache hits when formatting options change: the file cache key now
   incorporates every option that affects output (e.g., ``--section-adornments``,
   ``--bullet-list-marker``), so files reformat instead of being skipped after such

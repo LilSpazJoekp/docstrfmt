@@ -5,8 +5,15 @@ requires = ["flit_core >=3.4,<5"]
 [dependency-groups]
 dev = [
   "packaging",
+  {include-group = "docs"},
   {include-group = "lint"},
   {include-group = "test"}
+]
+docs = [
+  "furo",
+  "sphinx-autobuild",
+  "sphinx-click",
+  "sphinx-lint"
 ]
 lint = [
   "pre-commit",
@@ -75,6 +82,7 @@ docstrfmt = "docstrfmt.main:main"
 docstrfmtd = "docstrfmt.server:main [d]"
 
 [project.urls]
+"Documentation" = "https://docstrfmt.readthedocs.io/"
 "Issue Tracker" = "https://github.com/LilSpazJoekp/docstrfmt/issues"
 "Source Code" = "https://github.com/LilSpazJoekp/docstrfmt"
 
@@ -100,7 +108,7 @@ omit = [
 
 [tool.docstrfmt]
 files = ["docstrfmt", "tests"]
-extend_exclude = ["tests/test_files/error_files/*"]
+extend_exclude = ["tests/test_files/error_files/*", "docs/examples/pre/*"]
 
 [tool.isort]
 profile = "black"

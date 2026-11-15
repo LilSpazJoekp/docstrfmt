@@ -420,9 +420,9 @@ Tall rowspan across many rows
 | A | B                  |
 +---+--------------------+
 | C | Tall spanning cell |
-+---+                    |
-| D | - item one         |
-|   | - item two         |
+|   |                    |
++---+ - item one         |
+| D | - item two         |
 |   | - item three       |
 |   | - item four        |
 +---+--------------------+
@@ -433,11 +433,11 @@ Tall rowspan across many rows
 
 .. table:: A caption on a spanned grid table
 
-    +-----+-----+
-    | A   | B   |
-    +-----+-----+
-    | C spans   |
-    +-----------+
+    +----+----+
+    | A  | B  |
+    +----+----+
+    | C spans |
+    +---------+
 
 .. table:: A caption on a plain table
 

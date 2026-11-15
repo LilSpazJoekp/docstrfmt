@@ -8,6 +8,25 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           parallel-finished: true
+  docs:
+    name: Build docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          cache: pip
+          python-version: 3.x
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --python-preference only-managed --group docs
+      - name: Lint docs
+        run: uv run sphinx-lint --enable all --max-line-length 88 -i docs/_build -i docs/examples/pre docs/
+      - name: Build docs
+        run: uv run sphinx-build -b html -n -W --keep-going docs docs/_build/html
   lint-multi-os:
     name: Lint ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -26,7 +45,7 @@ jobs:
       - name: Lint with pre-commit
         run: uv run pre-commit run --all-files
       - name: Run docstrfmt
-        run: uv run docstrfmt
+        run: uv run docstrfmt --check
       - name: Run pyright
         run: uv run pyright -p pyproject.toml
     strategy:

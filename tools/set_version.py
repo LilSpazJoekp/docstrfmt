@@ -6,6 +6,11 @@ from datetime import date
 import packaging.version
 
 CHANGELOG_HEADER = "############\n Change Log\n############\n\n"
+PRE_COMMIT_EXAMPLES = [
+    "README.rst",
+    "docs/usage/editor_integration.rst",
+    "docs/usage/python_files.rst",
+]
 UNRELEASED_HEADER = "************\n Unreleased\n************\n\n"
 
 
@@ -51,7 +56,11 @@ def handle_version(version):
     version = valid_version(version)
     if not version:
         return False
-    return update_changelog(version) and update_package(version)
+    return (
+        update_changelog(version)
+        and update_package(version)
+        and update_pre_commit_examples(version)
+    )
 
 
 def increment_development_version():
@@ -137,6 +146,28 @@ def update_package(version):
         fp.write(updated)
 
     print(version)
+    return True
+
+
+def update_pre_commit_examples(version):
+    """Point the pre-commit examples at the tag of the version being released.
+
+    Pre-releases are skipped so the examples keep naming the latest stable tag.
+
+    :param version: Parsed version being released.
+
+    :returns: A boolean indicating success.
+
+    """
+    if version.is_prerelease:
+        return True
+    for path in PRE_COMMIT_EXAMPLES:
+        with open(path, encoding="utf-8") as fp:
+            content = fp.read()
+        updated = re.sub(r"\brev: v\d+(\.\d+)+", f"rev: v{version}", content)
+        if updated != content:
+            with open(path, "w", encoding="utf-8") as fp:
+                fp.write(updated)
     return True
 
 

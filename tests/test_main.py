@@ -278,6 +278,16 @@ def test_check(runner, file):
     )
 
 
+def test_check_does_not_cache_misformatted_files(runner):
+    # Two files are used so that the parallel code path runs.
+    files = ["tests/test_files/test_file.rst", "tests/test_files/py_file.py"]
+    args = ["-c", "-l", 80, *files]
+    for _ in range(2):
+        result = runner.invoke(main, args=args)
+        assert result.exit_code == 1
+        assert result.output == "2 out of 2 files could be reformatted.\nDone! 🎉\n"
+
+
 @pytest.mark.parametrize(
     "block_type,expected_block_type",
     [
@@ -395,11 +405,11 @@ def test_custom_directive_non_raw_formats_body(tmp_path, runner):
 
 
 def test_custom_directive_not_configured_stays_raw(runner):
-    """Without a ``custom_directives`` entry, the raw fallback keeps the body
-    verbatim. The paired positive test
-    (``test_custom_directive_non_raw_formats_body``) proves that ``raw = false``
-    is what unlocks body reformatting -- so if the CLI/pyproject config is
-    forgotten, the behavior silently reverts to raw. Uses a fresh directive
+    """Without a ``custom_directives`` entry, the raw fallback keeps the body verbatim.
+
+    The paired positive test (``test_custom_directive_non_raw_formats_body``) proves
+    that ``raw = false`` is what unlocks body reformatting -- so if the CLI/pyproject
+    config is forgotten, the behavior silently reverts to raw. Uses a fresh directive
     name to avoid picking up module-global registrations left by other tests.
 
     """
@@ -610,8 +620,8 @@ def test_docstring_trailing_line(runner, flag):
             ".. container:: custom-container\n\n    A generic wrapper.\n",
         ),
         (
-            ".. class:: special-paragraph\n\nA   classed paragraph.\n",
-            ".. class:: special-paragraph\n\nA classed paragraph.\n",
+            ".. rst-class:: special-paragraph\n\nA   classed paragraph.\n",
+            ".. rst-class:: special-paragraph\n\nA classed paragraph.\n",
         ),
         (
             ".. code:: python\n\n    x=1\n",
@@ -2290,6 +2300,38 @@ def test_type_replaced(runner, tmp_path):
         " rewrapped because it is really long and won't fit in the default 88\n"
         "            characters.\n\n        :returns: Returns\n\n        :var str arg:"
         ' Arg\n\n        """\n'
+    )
+
+
+def test_unreadable_file_invalid_encoding(runner):
+    file = os.path.abspath("tests/test_files/invalid_encoding.rst")
+    with open(file, "wb") as f:
+        f.write(b"Caf\xe9\n")
+    result = runner.invoke(main, args=[file])
+    assert result.exit_code == 1
+    assert result.output.startswith("UnicodeDecodeError: 'utf-8' codec can't decode")
+    assert result.output.endswith(
+        f"Failed to format '{file}'\n1 file was checked.\n"
+        "Done, but 1 error occurred ❌💥❌\n"
+    )
+
+
+def test_unreadable_file_permission_denied(monkeypatch, runner):
+    file = os.path.abspath("tests/test_files/test_file.rst")
+
+    def deny(path, *args, **kwargs):
+        if str(path) == file:
+            raise PermissionError(13, "Permission denied", file)
+        return open(path, *args, **kwargs)
+
+    # Running the tests as root would ignore the file's mode, so fake the failure.
+    monkeypatch.setattr("docstrfmt.main.open", deny, raising=False)
+    result = runner.invoke(main, args=[file])
+    assert result.exit_code == 1
+    assert result.output == (
+        f"PermissionError: [Errno 13] Permission denied: {file!r}\n"
+        f"Failed to format '{file}'\n1 file was checked.\n"
+        "Done, but 1 error occurred ❌💥❌\n"
     )
 
 

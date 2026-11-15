@@ -39,4 +39,5 @@
 - Bernát Gábor <gaborjbernat@gmail.com> `@gaborbernat <https://github.com/gaborbernat>`_
 - Nicholas Lindsey <nicholas.lindsey@canonical.com> `@nryanl
   <https://github.com/nryanl>`_
-- Add "Name <email (optional)> and github profile link" above this line.
+
+.. Add "Name <email (optional)> `@GithubUsername <https://github.com/GithubUsername>`_" above this line.

@@ -670,8 +670,7 @@ This is an auto footnote [#]_.
 
     Description
 
-    :param args: Docs.
-    :type args: List[any]
+    :param List[any] args: Docs.
 
 .. data:: API_ERROR
 
@@ -679,11 +678,7 @@ This is an auto footnote [#]_.
 
 .. py:data:: X
 
-    x = [
-        "here are some items",
-        "indented and with line breaks",
-        "the way Black does it",
-    ]
+    This is an example data item from the Python domain.
 
 *************
  Line Blocks

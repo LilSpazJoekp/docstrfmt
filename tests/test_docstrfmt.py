@@ -1,4 +1,5 @@
 import logging
+import pickle
 
 import black
 import pytest
@@ -12,7 +13,7 @@ from docstrfmt.docstrfmt import (
     _clip_to_width,
 )
 
-from docstrfmt import Manager
+from docstrfmt import Manager, rst_extras
 from docstrfmt.rst_extras import register_custom
 from tests import node_eq
 
@@ -54,12 +55,31 @@ def test_custom_directive_names_are_case_insensitive():
     assert output == ".. mixedcase::\n\n    - one\n\n.. MIXEDCASE::\n\n    - two\n"
 
 
+@pytest.mark.parametrize(
+    "node_class", [rst_extras.directive, rst_extras.ref_role, rst_extras.role]
+)
+def test_docstrfmt_nodes_drop_live_objects_when_pickled(node_class):
+    """Sphinx pickles doctrees, which fails on the live directive and role objects."""
+
+    def live_object():  # local functions cannot be pickled
+        pass
+
+    node = node_class("", directive=live_object, role=live_object, text="kept")
+    restored = pickle.loads(pickle.dumps(node))
+    assert isinstance(restored, node_class)
+    assert restored.attributes["text"] == "kept"
+    assert "directive" not in restored.attributes
+    assert "role" not in restored.attributes
+    assert node.attributes["directive"] is live_object
+    assert node.attributes["role"] is live_object
+
+
 def test_duplicate_targets_roundtrip(manager):
     """Regression test for #176.
 
     A target that duplicates an existing name with the same URI is only reported by
-    docutils at INFO level, so formatting continued and raised an IndexError because
-    the duplicate's name lives in ``dupnames`` instead of ``names``.
+    docutils at INFO level, so formatting continued and raised an IndexError because the
+    duplicate's name lives in ``dupnames`` instead of ``names``.
 
     """
     text = (

@@ -359,9 +359,9 @@ class Formatters:
     ) -> inline_iterator:
         """Format an inline raw node produced by a ``:raw-*:`` role invocation.
 
-        The role's declared name is carried on ``node['classes']`` (docutils'
-        ``.. role::`` directive sets ``class`` to the new role name); the payload is
-        the node's text.
+        The role's declared name is carried on ``node['classes']`` (docutils' ``..
+        role::`` directive sets ``class`` to the new role name); the payload is the
+        node's text.
 
         """
         role_name = node["classes"][0] if node["classes"] else "raw"
@@ -674,9 +674,9 @@ class Formatters:
     ) -> list[str]:
         """Return wrapped content lines for a table entry at a given width.
 
-        Block-level children (paragraphs, lists, etc.) are separated by a blank
-        line so the cell body still parses as the same structure on the round
-        trip.
+        Block-level children (paragraphs, lists, etc.) are separated by a blank line so
+        the cell body still parses as the same structure on the round trip.
+
         """
         return list(
             _chain_with_line_separator(
